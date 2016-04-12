@@ -246,6 +246,8 @@ class Shot(object):
         self.pose = None
         self.metadata = None
         self.mesh = None
+        self.rig_camera = None
+        self.rig_shot = None
 
     def project(self, point):
         """Project a 3D point to the image plane."""
@@ -266,6 +268,41 @@ class Shot(object):
         That is the positive camera Z axis in world coordinates.
         """
         return self.pose.get_rotation_matrix().T.dot([0, 0, 1])
+
+
+class Rig:
+    """A set of cameras rigidly attached."""
+
+    def __init__(self):
+        self.id = None
+        self.rig_cameras = None
+
+
+class RigCamera:
+    """One of the cameras on a rig.
+
+    This holds the pose of a camera with respect to the rig.
+    """
+
+    def __init__(self):
+        self.id = None
+        self.rig = None
+        self.pose = None
+
+
+class RigPose:
+    """Rig pose at given time.
+
+    This holds the position of the rig at the moment when a shot
+    is taken.  The pose of the actual shot is the composition of
+    the RigPose pose and the RigCamera pose.
+    """
+
+    def __init__(self):
+        self.id = None
+        self.rig = None
+        self.capture_time = None
+        self.pose = None
 
 
 class Point(object):
