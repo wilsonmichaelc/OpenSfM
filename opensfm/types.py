@@ -61,6 +61,20 @@ class Pose(object):
         Rt[:, 3] = self.translation
         return Rt
 
+    def compose(self, other):
+        """Get the composition of this pose with another.
+
+        composed = self * other
+        """
+        selfR = self.get_rotation_matrix()
+        otherR = other.get_rotation_matrix()
+        R = np.dot(selfR, otherR)
+        t = selfR.dot(other.translation) + self.translation
+        res = Pose()
+        res.set_rotation_matrix(R)
+        res.translation = t
+        return res
+
 
 class ShotMetadata(object):
     """Defines GPS data from a taken picture.
