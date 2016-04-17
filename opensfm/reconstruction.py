@@ -494,7 +494,7 @@ def align_reconstruction_naive_similarity(reconstruction):
     return s, A, b
 
 
-def get_horitzontal_and_vertical_directions(R, orientation):
+def get_horizontal_and_vertical_directions(R, orientation):
     '''Get orientation vectors from camera rotation matrix and orientation tag.
 
     Return a 3D vectors pointing to the positive XYZ directions of the image.
@@ -502,23 +502,23 @@ def get_horitzontal_and_vertical_directions(R, orientation):
     '''
     # See http://sylvana.net/jpegcrop/exif_orientation.html
     if orientation == 1:
-        return  R[0, :],  R[1, :],  R[2, :]
+        return R[0, :], R[1, :], R[2, :]
     if orientation == 2:
-        return -R[0, :],  R[1, :], -R[2, :]
+        return -R[0, :], R[1, :], -R[2, :]
     if orientation == 3:
-        return -R[0, :], -R[1, :],  R[2, :]
+        return -R[0, :], -R[1, :], R[2, :]
     if orientation == 4:
-        return  R[0, :], -R[1, :],  R[2, :]
+        return R[0, :], -R[1, :], R[2, :]
     if orientation == 5:
-        return  R[1, :],  R[0, :], -R[2, :]
+        return R[1, :], R[0, :], -R[2, :]
     if orientation == 6:
-        return  R[1, :], -R[0, :],  R[2, :]
+        return -R[1, :], R[0, :], R[2, :]
     if orientation == 7:
         return -R[1, :], -R[0, :], -R[2, :]
     if orientation == 8:
-        return -R[1, :],  R[0, :],  R[2, :]
+        return R[1, :], -R[0, :], R[2, :]
     print 'ERROR unknown orientation {0} - Assuming orientation 1 instead.'.format(orientation)
-    return  R[0, :],  R[1, :],  R[2, :]
+    return R[0, :], R[1, :], R[2, :]
 
 
 def align_reconstruction(reconstruction, config):
@@ -542,7 +542,7 @@ def align_reconstruction_orientation_prior_similarity(reconstruction, config):
         X.append(shot.pose.get_origin())
         Xp.append(shot.metadata.gps_position)
         R = shot.pose.get_rotation_matrix()
-        x, y, z = get_horitzontal_and_vertical_directions(R, shot.metadata.orientation)
+        x, y, z = get_horizontal_and_vertical_directions(R, shot.metadata.orientation)
         if orientation_type == 'no_roll':
             onplane.append(x)
             verticals.append(-y)

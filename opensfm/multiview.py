@@ -377,14 +377,14 @@ def focal_from_homography(H):
     '''
     H = H / np.linalg.det(H)**(1.0 / 3.0)
     A = np.array([
-        [H[0,0] * H[0,0] + H[0,1] * H[0,1] - 1, H[0,2] * H[0,2]    ],
-        [H[0,0] * H[1,0] + H[0,1] * H[1,1]    , H[0,2] * H[1,2]    ],
-        [H[0,0] * H[2,0] + H[0,1] * H[2,1]    , H[0,2] * H[2,2]    ],
-        [H[1,0] * H[1,0] + H[1,1] * H[1,1] - 1, H[1,2] * H[1,2]    ],
-        [H[1,0] * H[2,0] + H[1,1] * H[2,1]    , H[1,2] * H[2,2]    ],
-        [H[2,0] * H[2,0] + H[2,1] * H[2,1]    , H[2,2] * H[2,2] - 1],
+        [H[0, 0] * H[0, 0] + H[0, 1] * H[0, 1] - 1, H[0, 2] * H[0, 2]],
+        [H[0, 0] * H[1, 0] + H[0, 1] * H[1, 1], H[0, 2] * H[1, 2]],
+        [H[0, 0] * H[2, 0] + H[0, 1] * H[2, 1], H[0, 2] * H[2, 2]],
+        [H[1, 0] * H[1, 0] + H[1, 1] * H[1, 1] - 1, H[1, 2] * H[1, 2]],
+        [H[1, 0] * H[2, 0] + H[1, 1] * H[2, 1], H[1, 2] * H[2, 2]],
+        [H[2, 0] * H[2, 0] + H[2, 1] * H[2, 1], H[2, 2] * H[2, 2] - 1],
     ])
-    _, (a,b) = nullspace(A)
+    _, (a, b) = nullspace(A)
     focal = np.sqrt(a / b)
     return focal
 
@@ -398,23 +398,54 @@ def R_from_homography(H, f1, f2):
     return R
 
 
-def count_focal_homography_inliers(f1, f2, H, p1, p2, threshold=0.02):
-    R = R_from_homography(f1, f2, H)
-    if R is None:
-        return 0
-    H = K1.dot(R).dot(K2inv)
-    return count_homography_inliers(H, p1, p2, threshold)
-
-
-def count_homography_inliers(H, p1, p2, threshold=0.02):
-    p2map = euclidean(H.dot(homogeneous(p1).T).T)
-    d = p2 - p2map
-    return np.sum((d * d).sum(axis=1) < threshold**2)
-
-
 def project_to_rotation_matrix(A):
     try:
         u, d, vt = np.linalg.svd(A)
     except np.linalg.linalg.LinAlgError:
         return None
     return u.dot(vt)
+
+
+def camera_up_vector(rotation_matrix):
+    """Unit vector pointing to zenit in camera coords.
+
+    :param rotation: camera pose rotation
+    """
+    return rotation_matrix[:, 2]
+
+
+def camera_compass_angle(rotation_matrix):
+    """Compass angle of a camera
+
+    Angle between world's Y axis and camera's Z axis projected
+    onto the XY world plane.
+
+    :param rotation: camera pose rotation
+    """
+    z = rotation_matrix[2, :]  # Camera's Z axis in world coordinates
+    angle = np.arctan2(z[0], z[1])
+    return np.degrees(angle)
+
+
+def rotation_matrix_from_up_vector_and_compass(up_vector, compass_angle):
+    """Camera rotation given up_vector and compass.
+
+    >>> d = [1, 2, 3]
+    >>> angle = -123
+    >>> R = rotation_matrix_from_up_vector_and_compass(d, angle)
+    >>> np.allclose(np.linalg.det(R), 1.0)
+    True
+    >>> up = camera_up_vector(R)
+    >>> np.allclose(d / np.linalg.norm(d), up)
+    True
+    >>> np.allclose(camera_compass_angle(R), angle)
+    True
+    """
+    r3 = np.array(up_vector) / np.linalg.norm(up_vector)
+    ez = np.array([0.0, 0.0, 1.0])
+    r2 = ez - np.dot(ez, r3) * r3
+    r2 /= np.linalg.norm(r2)
+    r1 = np.cross(r2, r3)
+
+    compass_rotation = cv2.Rodrigues(np.radians([0.0, 0.0, compass_angle]))[0]
+    return np.column_stack([r1, r2, r3]).dot(compass_rotation)
