@@ -41,6 +41,9 @@ setup(
     author='Mapillary',
     license='BSD',
     packages=['opensfm', 'opensfm.commands', 'opensfm.large'],
+    install_requires=['exifread==2.1.2', 'gpxpy==1.1.2', 'networkx==1.11', 'numpy', 'pyproj==1.9.5.1', 
+                      'pytest==3.0.7', 'python-dateutil==2.6.0', 'PyYAML==3.12', 'six', 'scipy', 
+                      'xmltodict==0.10.2', 'cloudpickle==0.4.0', 'loky==1.2.1'],
     scripts=['bin/opensfm_run_all', 'bin/opensfm'],
     package_data={
         'opensfm': ['csfm.so', 'data/sensor_data.json']
