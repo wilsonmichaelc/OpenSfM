@@ -90,6 +90,35 @@ def _get_camera_from_bundle(ba, camera):
         camera.k2 = c.k2
 
 
+def select_longuest_tracks(reconstruction, graph, buckets_count):
+    selected_tracks = []
+    for shot_id in reconstruction.shots:
+        if shot_id in graph:
+
+            shot_features = {}
+            for track in graph[shot_id]:
+                if track in reconstruction.points:
+                    shot_features[track] = graph[shot_id][track]['feature']
+
+            bounding_box = {}
+            feature_array = np.asarray([feature for feature in shot_features.values()])
+            bounding_box['minimum'] = np.min(feature_array, 0)
+            bounding_box['maximum'] = np.max(feature_array, 0)
+            bucket_size = bounding_box['maximum']-bounding_box['minimum']
+            bucket_size /= buckets_count
+
+            filled_bucket = {}
+            for track, feature in shot_features.items():
+                x_bucket = int(feature[0]/bucket_size[0])
+                y_bucket = int(feature[1]/bucket_size[1])
+                key_bucket = str(x_bucket)+'/'+str(y_bucket)
+                if key_bucket not in filled_bucket:
+                    selected_tracks.append(track)
+                    filled_bucket[key_bucket] = True
+
+    return set(selected_tracks)
+
+
 def bundle(graph, reconstruction, gcp, config):
     """Bundle adjust a reconstruction."""
     fix_cameras = not config['optimize_camera_parameters']
@@ -110,7 +139,12 @@ def bundle(graph, reconstruction, gcp, config):
             False
         )
 
-    for point in reconstruction.points.values():
+    selected_tracks = reconstruction.points.keys()
+    if config['bundle_subsample_tracks']:
+        selected_tracks = select_longuest_tracks(reconstruction, graph, config['bundle_subsample_tracks_buckets'])
+
+    for selected_track in selected_tracks:
+        point = reconstruction.points[selected_track]
         x = point.coordinates
         ba.add_point(str(point.id), x[0], x[1], x[2], False)
 
@@ -165,10 +199,16 @@ def bundle(graph, reconstruction, gcp, config):
         shot.pose.rotation = [s.rx, s.ry, s.rz]
         shot.pose.translation = [s.tx, s.ty, s.tz]
 
+    triangulator = TrackTriangulator(graph, reconstruction)
+    reproj_threshold = config['triangulation_threshold']
+    min_ray_angle = config['triangulation_min_ray_angle']
     for point in reconstruction.points.values():
-        p = ba.get_point(str(point.id))
-        point.coordinates = [p.x, p.y, p.z]
-        point.reprojection_error = p.reprojection_error
+        if point.id in selected_tracks:
+            p = ba.get_point(str(point.id))
+            point.coordinates = [p.x, p.y, p.z]
+            point.reprojection_error = p.reprojection_error
+        else:
+            triangulator.triangulate(point.id, reproj_threshold, min_ray_angle)
 
     chrono.lap('teardown')
 
