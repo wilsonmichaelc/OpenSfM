@@ -41,6 +41,12 @@ if __name__ == "__main__":
     parser.add_argument('--graph',
                         help='display image graph',
                         action='store_true')
+    parser.add_argument('--no_matches',
+                        help='skip plotting the matches',
+                        action='store_true')
+    parser.add_argument('--heatmap',
+                        help='display a heatmap of matches from all the shots',
+                        action='store_true')
     parser.add_argument('--save_figs',
                         help='save figures instead of showing them',
                         action='store_true')
@@ -66,7 +72,7 @@ if __name__ == "__main__":
             edge_vmin=0, edge_vmax=200)
         pl.axis('off')
         pl.show()
-    else:
+    if not args.no_matches or args.heatmap:
         # Plot matches between images
         if args.image:
             pairs = [(args.image, o) for o in images if o != args.image]
@@ -77,32 +83,50 @@ if __name__ == "__main__":
             pairs = combinations(images, 2)
 
         i = 0
+        all_matches = []
         for im1, im2 in pairs:
             matches = data.find_matches(im1, im2)
             if len(matches) == 0:
                 continue
-            print('plotting {} matches between {} {}'.format(len(matches), im1, im2))
 
             p1, f1, c1 = data.load_features(im1)
             p2, f2, c2 = data.load_features(im2)
             p1 = p1[matches[:, 0]]
             p2 = p2[matches[:, 1]]
+            all_matches.append(p1)
+            all_matches.append(p2)
 
-            pl.figure(figsize=(20, 10))
-            pl.title('Images: ' + im1 + ' - ' + im2 + ', matches: ' +
-                     str(matches.shape[0]))
-            plot_matches(data.load_image(im1),
-                         data.load_image(im2), p1, p2)
-            i += 1
-            if args.save_figs:
-                p = os.path.join(args.dataset, 'plot_tracks')
-                io.mkdir_p(p)
-                pl.savefig(os.path.join(p, "{}_{}.jpg".format(im1, im2)), dpi=100)
-                pl.close()
-            else:
-                if i >= 10:
-                    i = 0
-                    pl.show()
+            if not args.no_matches:
+              print('plotting {} matches between {} {}'.format(len(matches), im1, im2))
+              pl.figure(figsize=(20, 10))
+              pl.title('Images: ' + im1 + ' - ' + im2 + ', matches: ' +
+                       str(matches.shape[0]))
+              plot_matches(data.load_image(im1),
+                           data.load_image(im2), p1, p2)
+              i += 1
+              if args.save_figs:
+                  p = os.path.join(args.dataset, 'plot_tracks')
+                  io.mkdir_p(p)
+                  pl.savefig(os.path.join(p, "{}_{}.jpg".format(im1, im2)), dpi=100)
+                  pl.close()
+              else:
+                  if i >= 10:
+                      i = 0
+                      pl.show()
 
         if not args.save_figs and i > 0:
             pl.show()
+
+        if args.heatmap:
+            all_matches = np.vstack(all_matches)
+            fig=pl.figure(figsize=(20, 10))
+            ax=pl.gca()
+            fig.suptitle('Heatmap of matches in {} pairs'.format(len(all_matches)))
+            ax.scatter(all_matches[:, 0], all_matches[:, 1], marker='.')
+            ax.set_aspect('equal')
+            if args.save_figs:
+                pl.savefig(os.path.join(args.dataset, "heatmap.png"), dpi=100)
+                pl.close()
+            else:
+                pl.show()
+
