@@ -19,6 +19,8 @@ def completeness_errors(reference, candidate):
 def gps_errors(candidate):
     errors = []
     for shot in candidate.shots.values():
+        if shot.metadata is None:
+            continue
         pose1 = shot.metadata.gps_position
         pose2 = shot.pose.get_origin()
         errors.append(pose1-pose2)
