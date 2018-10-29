@@ -171,6 +171,12 @@ PYBIND11_MODULE(csfm, m) {
     .def_readwrite("id", &BAPoint::id)
   ;
 
+  py::class_<BAResult>(m, "BAResult")
+    .def(py::init())
+    .def_readwrite("reprojection_variance", &BAResult::reprojection_variance)
+    .def_readwrite("success", &BAResult::success)
+  ;
+
   py::class_<csfm::OpenMVSExporter>(m, "OpenMVSExporter")
     .def(py::init())
     .def("add_camera", &csfm::OpenMVSExporter::AddCamera)
