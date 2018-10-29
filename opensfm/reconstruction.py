@@ -26,7 +26,7 @@ from opensfm.context import parallel_map, current_memory_usage
 logger = logging.getLogger(__name__)
 
 
-def _add_camera_to_bundle(ba, camera, constant):
+def add_camera_to_bundle(ba, camera, constant):
     """Add camera to a bundle adjustment problem."""
     if camera.projection_type == 'perspective':
         ba.add_perspective_camera(
@@ -98,7 +98,7 @@ def bundle(graph, reconstruction, gcp, config):
     ba = csfm.BundleAdjuster()
 
     for camera in reconstruction.cameras.values():
-        _add_camera_to_bundle(ba, camera, fix_cameras)
+        add_camera_to_bundle(ba, camera, fix_cameras)
 
     for shot in reconstruction.shots.values():
         r = shot.pose.rotation
@@ -186,7 +186,7 @@ def bundle_single_view(graph, reconstruction, shot_id, config):
     shot = reconstruction.shots[shot_id]
     camera = shot.camera
 
-    _add_camera_to_bundle(ba, camera, constant=True)
+    add_camera_to_bundle(ba, camera, constant=True)
 
     r = shot.pose.rotation
     t = shot.pose.translation
@@ -259,7 +259,7 @@ def bundle_local(graph, reconstruction, gcp, central_shot_id, config):
     ba = csfm.BundleAdjuster()
 
     for camera in reconstruction.cameras.values():
-        _add_camera_to_bundle(ba, camera, constant=True)
+        add_camera_to_bundle(ba, camera, constant=True)
 
     for shot_id in interior | boundary:
         shot = reconstruction.shots[shot_id]
