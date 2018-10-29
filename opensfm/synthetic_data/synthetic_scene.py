@@ -43,6 +43,20 @@ def get_scene_generator(type, length):
     return generator
 
 
+def prune_out_featureless(reconstruction, features, graph, min_length=2):
+    to_remove = [i for i, f in features.items() if len(f) <= 4]
+    pruned = list(set(features.keys()).difference(set(to_remove)))
+    graph = graph.subgraph(pruned + reconstruction.points.keys())
+    for k in to_remove:
+        del reconstruction.shots[k]
+
+    to_remove = [t for t in reconstruction.points if len(graph[t]) < min_length]
+    pruned = list(set(reconstruction.points.keys()).difference(set(to_remove)))
+    graph = graph.subgraph(pruned + reconstruction.shots.keys())
+    for k in to_remove:
+        del reconstruction.points[k]
+
+
 class SyntheticScene(object):
     def __init__(self, generator):
         self.generator = generator
