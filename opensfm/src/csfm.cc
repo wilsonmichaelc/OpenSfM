@@ -99,7 +99,6 @@ PYBIND11_MODULE(csfm, m) {
     .def("set_internal_parameters_prior_sd", &BundleAdjuster::SetInternalParametersPriorSD)
     .def("set_compute_covariances", &BundleAdjuster::SetComputeCovariances)
     .def("get_covariance_estimation_valid", &BundleAdjuster::GetCovarianceEstimationValid)
-    .def("set_compute_reprojection_errors", &BundleAdjuster::SetComputeReprojectionErrors)
     .def("brief_report", &BundleAdjuster::BriefReport)
     .def("full_report", &BundleAdjuster::FullReport)
   ;

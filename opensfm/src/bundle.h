@@ -203,6 +203,12 @@ struct BAGroundControlPointObservation {
   double coordinates2d[2];
 };
 
+struct BAResult
+{
+  double reprojection_variance;
+  bool success;
+};
+
 class TruncatedLoss : public ceres::LossFunction {
  public:
   explicit TruncatedLoss(double t)
@@ -751,14 +757,16 @@ struct PositionPriorError {
 };
 
 struct UnitTranslationPriorError {
-  UnitTranslationPriorError() {}
+  UnitTranslationPriorError(double norm) : norm_(norm) {}
 
   template <typename T>
   bool operator()(const T* const shot, T* residuals) const {
     const T* const t = shot + 3;
-    residuals[0] = log(t[0] * t[0] + t[1] * t[1] + t[2] * t[2]);
+    residuals[0] =
+        t[0] * t[0] + t[1] * t[1] + t[2] * t[2] - T(norm_*norm_);
     return true;
   }
+  double norm_;
 };
 
 struct PointPositionPriorError {
@@ -826,6 +834,7 @@ class BundleAdjuster {
  public:
   BundleAdjuster() {
     unit_translation_shot_ = NULL;
+    unit_translation_norm_ = 1.0;
     loss_function_ = "TrivialLoss";
     loss_function_threshold_ = 1;
     reprojection_error_sd_ = 1;
@@ -838,7 +847,6 @@ class BundleAdjuster {
     k3_sd_ = 1;
     compute_covariances_ = false;
     covariance_estimation_valid_ = false;
-    compute_reprojection_errors_ = true;
     max_num_iterations_ = 50;
     num_threads_ = 1;
     linear_solver_type_ = "SPARSE_SCHUR";
@@ -1063,8 +1071,9 @@ class BundleAdjuster {
     shot->constant = true;
   }
 
-  void SetUnitTranslationShot(const std::string &shot_id) {
+  void SetUnitTranslationShot(const std::string &shot_id, double norm) {
     unit_translation_shot_ = &shots_[shot_id];
+    unit_translation_norm_ = norm;
   }
 
   void SetLossFunction(const std::string &function_name,
@@ -1107,11 +1116,7 @@ class BundleAdjuster {
     return covariance_estimation_valid_;
   }
 
-  void SetComputeReprojectionErrors(bool v) {
-    compute_reprojection_errors_ = v;
-  }
-
-  void Run() {
+  BAResult Run() {
     ceres::LossFunction *loss = CreateLossFunction(loss_function_, loss_function_threshold_);
     ceres::Problem problem;
 
@@ -1387,7 +1392,7 @@ class BundleAdjuster {
     if (unit_translation_shot_) {
       ceres::CostFunction* cost_function =
           new ceres::AutoDiffCostFunction<UnitTranslationPriorError, 1, 6>(
-              new UnitTranslationPriorError());
+              new UnitTranslationPriorError(unit_translation_norm_));
 
       problem.AddResidualBlock(cost_function,
                                NULL,
@@ -1402,12 +1407,16 @@ class BundleAdjuster {
 
     ceres::Solve(options, &problem, &last_run_summary_);
 
+    double reprojection_variance = -1;
     if (compute_covariances_) {
       ComputeCovariances(&problem);
     }
-    if (compute_reprojection_errors_) {
-      ComputeReprojectionErrors();
-    }
+
+    struct BAResult result;
+    result.reprojection_variance = ComputeReprojectionErrors(&problem);
+    result.success = (last_run_summary_.termination_type != ceres::TerminationType::FAILURE);
+
+    return result;
   }
 
   void ComputeCovariances(ceres::Problem *problem) {
@@ -1415,11 +1424,12 @@ class BundleAdjuster {
 
     if (last_run_summary_.termination_type != ceres::FAILURE) {
       ceres::Covariance::Options options;
+      options.apply_loss_function = false;
       ceres::Covariance covariance(options);
 
       std::vector<std::pair<const double*, const double*> > covariance_blocks;
       for (auto &i : shots_) {
-        covariance_blocks.push_back(std::make_pair(i.second.parameters, i.second.parameters));
+          covariance_blocks.push_back(std::make_pair(i.second.parameters, i.second.parameters));
       }
 
       bool worked = covariance.Compute(covariance_blocks, problem);
@@ -1451,14 +1461,16 @@ class BundleAdjuster {
     }
   }
 
-  void ComputeReprojectionErrors() {
+  double ComputeReprojectionErrors(ceres::Problem *problem) {
     // Init errors
     for (auto &i : points_) {
       i.second.reprojection_error = 0;
     }
 
     // Sum over all observations
+    double squared_error_sum = 0.;
     for (int i = 0; i < observations_.size(); ++i) {
+      double error = 0.;
       switch (observations_[i].camera->type()) {
         case BA_PERSPECTIVE_CAMERA:
         {
@@ -1472,7 +1484,7 @@ class BundleAdjuster {
               observations_[i].shot->parameters,
               observations_[i].point->coordinates,
               residuals);
-          double error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1]);
+          error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1]);
           observations_[i].point->reprojection_error =
               std::max(observations_[i].point->reprojection_error, error);
           break;
@@ -1489,7 +1501,7 @@ class BundleAdjuster {
                observations_[i].shot->parameters,
                observations_[i].point->coordinates,
                residuals);
-          double error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1]);
+          error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1]);
           observations_[i].point->reprojection_error =
               std::max(observations_[i].point->reprojection_error, error);
           break;
@@ -1506,7 +1518,7 @@ class BundleAdjuster {
               observations_[i].shot->parameters,
               observations_[i].point->coordinates,
               residuals);
-          double error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1]);
+          error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1]);
           observations_[i].point->reprojection_error =
               std::max(observations_[i].point->reprojection_error, error);
           break;
@@ -1522,13 +1534,18 @@ class BundleAdjuster {
           ere(observations_[i].shot->parameters,
               observations_[i].point->coordinates,
               residuals);
-          double error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1] + residuals[2] * residuals[2]);
+          error = sqrt(residuals[0] * residuals[0] + residuals[1] * residuals[1] + residuals[2] * residuals[2]);
           observations_[i].point->reprojection_error =
               std::max(observations_[i].point->reprojection_error, error);
           break;
         }
       }
+      squared_error_sum += error*error;
     }
+
+    // compute redundancy number : # residual - # parameters
+    double redundancy = problem->NumResiduals()-problem->NumParameters();
+    return squared_error_sum/(redundancy);
   }
 
   std::string BriefReport() {
@@ -1551,6 +1568,7 @@ class BundleAdjuster {
   std::vector<BAGroundControlPointObservation> gcp_observations_;
 
   BAShot *unit_translation_shot_;
+  double unit_translation_norm_;
 
   std::string loss_function_;
   double loss_function_threshold_;
@@ -1564,7 +1582,6 @@ class BundleAdjuster {
   double k3_sd_;
   bool compute_covariances_;
   bool covariance_estimation_valid_;
-  bool compute_reprojection_errors_;
   int max_num_iterations_;
   int num_threads_;
   std::string linear_solver_type_;
