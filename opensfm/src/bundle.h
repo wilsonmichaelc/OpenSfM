@@ -4,6 +4,7 @@
 #include <fstream>
 #include <map>
 #include <string>
+#include <algorithm>
 
 extern "C" {
 #include <string.h>
@@ -14,6 +15,7 @@ extern "C" {
 #include "ceres/loss_function.h"
 #include "ceres/covariance.h"
 
+#include <Eigen/Sparse>
 
 enum BACameraType {
   BA_PERSPECTIVE_CAMERA,
@@ -1423,6 +1425,33 @@ class BundleAdjuster {
     bool computed = false;
 
     if (last_run_summary_.termination_type != ceres::FAILURE) {
+      
+      // prune-out bad points by checking their 3x3 hessian invertibility
+      const double minimum_determinant = 1e-20;
+      std::vector<double*> to_remove;
+      for(auto &p : points_){
+        ceres::Problem::EvaluateOptions point_evaluate;
+        problem->GetResidualBlocksForParameterBlock(
+            p.second.coordinates, &point_evaluate.residual_blocks);
+        point_evaluate.parameter_blocks.push_back(p.second.coordinates);
+        ceres::CRSMatrix jacobian;
+        problem->Evaluate(point_evaluate, nullptr, nullptr, nullptr, &jacobian);
+
+        Eigen::MappedSparseMatrix<double> jacobian_eigen(
+            jacobian.num_rows, jacobian.num_cols, jacobian.values.size(),
+            &jacobian.rows[0], &jacobian.cols[0], &jacobian.values[0]);
+        Eigen::MatrixXd JtJ = jacobian_eigen.transpose()*jacobian_eigen;
+
+        if (JtJ.determinant() < minimum_determinant) {
+          to_remove.push_back(p.second.coordinates);
+        }
+      }
+
+      // because of ceres limitation, we have to remove parameters at once
+      for (auto& p : to_remove) {
+        problem->RemoveParameterBlock(p);
+      }
+
       ceres::Covariance::Options options;
       options.apply_loss_function = false;
       ceres::Covariance covariance(options);
@@ -1468,7 +1497,7 @@ class BundleAdjuster {
     }
 
     // Sum over all observations
-    double squared_error_sum = 0.;
+    std::vector<double> errors;
     for (int i = 0; i < observations_.size(); ++i) {
       double error = 0.;
       switch (observations_[i].camera->type()) {
@@ -1540,12 +1569,26 @@ class BundleAdjuster {
           break;
         }
       }
-      squared_error_sum += error*error;
+      errors.push_back(error);
     }
 
-    // compute redundancy number : # residual - # parameters
-    double redundancy = problem->NumResiduals()-problem->NumParameters();
-    return squared_error_sum/(redundancy);
+    if(errors.size() < 2){
+      return errors[0];
+    }
+
+    // get sigma robust estimate to treshold errors
+    std::nth_element(errors.begin(), errors.begin()+errors.size()/2, errors.end());
+    const double sigma = 1.428*errors[errors.size()/2];
+    const double treshold = 4.0*sigma;
+
+    auto squared_error_sum = std::make_pair<double,int>(0., 0);
+    for(const auto d : errors){
+      if( d < treshold) {
+        squared_error_sum.first += d*d;
+        ++squared_error_sum.second;
+      }
+    }
+    return squared_error_sum.first/squared_error_sum.second;
   }
 
   std::string BriefReport() {
