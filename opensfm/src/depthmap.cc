@@ -108,6 +108,14 @@ cv::Vec3d Backproject(double x, double y, double depth,
   return R.t() * (depth * K.inv() * cv::Vec3d(x, y, 1) - t);
 }
 
+cv::Vec3d BackprojectToPlane(double x, double y,
+                             const cv::Matx33d &Kinv,
+                             const cv::Vec3d &plane) {
+  cv::Vec3d q(x, y, 1);
+  float denom  = -(plane.t() * Kinv * q)(0);
+  return Kinv * q / std::max(1e-6f, denom);
+}
+
 float DepthOfPlaneBackprojection(double x, double y,
                                  const cv::Matx33d &Kinv,
                                  const cv::Vec3d &plane) {
@@ -379,6 +387,7 @@ void DepthmapEstimator::CheckPlaneImageCandidate(
     DepthmapEstimatorResult *result, int i, int j, const cv::Vec3f &plane,
     int nghbr) {
   float score = ComputePlaneImageScore(i, j, plane, nghbr);
+  // score -= SmoothnessPenalty(*result, i, j, plane);
   if (score > result->score.at<float>(i, j)) {
     float depth = DepthOfPlaneBackprojection(j, i, Kinvs_[0], plane);
     AssignPixel(result, i, j, depth, plane, score, nghbr);
@@ -472,6 +481,34 @@ float DepthmapEstimator::BilateralWeight(float dcolor, float dx, float dy) {
     - dcolor * dcolor * dcolor_factor
     - (dx * dx + dy * dy) * dx_factor
   );
+}
+
+float DepthmapEstimator::PlaneDiff(int i, int j, const cv::Vec3f &plane1,
+                                   const cv::Vec3f &plane2) {
+  cv::Vec3f x1 = BackprojectToPlane(j, i, Kinvs_[0], plane1);
+  cv::Vec3f x2 = BackprojectToPlane(j, i, Kinvs_[0], plane2);
+  cv::Vec3f dx = x2 - x1;
+  float l_dx = cv::norm(dx);
+  float l_plane1 = cv::norm(plane1);
+  float l_plane2 = cv::norm(plane2);
+  float diff1 = fabs(dx.dot(plane1)) / l_dx / l_plane1;
+  float diff2 = fabs(dx.dot(plane2)) / l_dx / l_plane2;
+  return (diff1 + diff2) * 0.5f;
+}
+
+float DepthmapEstimator::SmoothnessPenalty(
+    const DepthmapEstimatorResult &result,
+    int i, int j, const cv::Vec3f &plane) {
+  float penalty = 0;
+  int adjacent[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+  for (int k = 0; k < 4; ++k) {
+    int i_adjacent = i + adjacent[k][0];
+    int j_adjacent = j + adjacent[k][1];
+    const cv::Vec3f &plane_adjacent = result.plane.at<cv::Vec3f>(i_adjacent, j_adjacent);
+    penalty += std::min(0.1f, PlaneDiff(i, j, plane, plane_adjacent));
+  }
+
+  return 0.01 * penalty;
 }
 
 void DepthmapEstimator::PostProcess(DepthmapEstimatorResult *result) {
