@@ -109,9 +109,9 @@ cv::Vec3d Backproject(double x, double y, double depth,
 }
 
 float DepthOfPlaneBackprojection(double x, double y,
-                                 const cv::Matx33d &K,
+                                 const cv::Matx33d &Kinv,
                                  const cv::Vec3d &plane) {
-  float denom  = -(plane.t() * K.inv() * cv::Vec3d(x, y, 1))(0);
+  float denom  = -(plane.t() * Kinv * cv::Vec3d(x, y, 1))(0);
   return 1.0f / std::max(1e-6f, denom);
 }
 
@@ -370,7 +370,7 @@ void DepthmapEstimator::CheckPlaneCandidate(DepthmapEstimatorResult *result,
   int nghbr;
   ComputePlaneScore(i, j, plane, &score, &nghbr);
   if (score > result->score.at<float>(i, j)) {
-    float depth = DepthOfPlaneBackprojection(j, i, Ks_[0], plane);
+    float depth = DepthOfPlaneBackprojection(j, i, Kinvs_[0], plane);
     AssignPixel(result, i, j, depth, plane, score, nghbr);
   }
 }
@@ -380,7 +380,7 @@ void DepthmapEstimator::CheckPlaneImageCandidate(
     int nghbr) {
   float score = ComputePlaneImageScore(i, j, plane, nghbr);
   if (score > result->score.at<float>(i, j)) {
-    float depth = DepthOfPlaneBackprojection(j, i, Ks_[0], plane);
+    float depth = DepthOfPlaneBackprojection(j, i, Kinvs_[0], plane);
     AssignPixel(result, i, j, depth, plane, score, nghbr);
   }
 }

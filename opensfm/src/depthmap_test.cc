@@ -47,7 +47,7 @@ TEST(DepthOfPlaneBackprojection, DepthNormalPlaneLoop) {
   float depth = 3;
   cv::Vec3f normal(UniformRand(-1, 1), UniformRand(-1, 1), -1);
   cv::Vec3f plane = PlaneFromDepthAndNormal(20, 30, K, depth, normal);
-  float backprojected_depth = DepthOfPlaneBackprojection(20, 30, K, plane);
+  float backprojected_depth = DepthOfPlaneBackprojection(20, 30, K.inv(), plane);
   EXPECT_NEAR(depth, backprojected_depth, 1e-6);
 }
 

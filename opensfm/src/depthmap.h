@@ -48,7 +48,7 @@ cv::Vec3d Backproject(double x, double y, double depth,
                       const cv::Vec3d &t);
 
 float DepthOfPlaneBackprojection(double x, double y,
-                                 const cv::Matx33d &K,
+                                 const cv::Matx33d &Kinv,
                                  const cv::Vec3d &plane);
 
 cv::Vec3f PlaneFromDepthAndNormal(float x, float y,
@@ -99,6 +99,11 @@ class DepthmapEstimator {
                                           int other);
   float ComputePlaneImageScore(int i, int j, const cv::Vec3f &plane, int other);
   float BilateralWeight(float dcolor, float dx, float dy);
+  float PlaneDiff(int i, int j, const cv::Vec3f &plane1,
+                  const cv::Vec3f &plane2);
+  float SmoothnessPenalty(const DepthmapEstimatorResult &result, int i, int j,
+                          const cv::Vec3f &plane);
+
   void PostProcess(DepthmapEstimatorResult *result);
 
  private:
