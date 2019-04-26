@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+
+import argparse
+import datetime
+import logging
+import os.path
+import shutil
+import yaml
+
+from timeit import default_timer as timer
+
+from opensfm import bow
+from opensfm import commands
+from opensfm import dataset
+from opensfm import features
+from opensfm import io
+from opensfm import log
+
+
+logger = logging.getLogger(__name__)
+log.setup()
+
+
+def create_bench_dir(dataset):
+    dataset_dir = os.path.basename(os.path.normpath(dataset))
+
+    base_dir = os.path.dirname(os.path.dirname(dataset)) if \
+        os.path.isdir(dataset) else \
+        os.path.dirname(dataset)
+
+    bench_dir = os.path.join(
+        base_dir,
+        dataset_dir + \
+        "_bench_feat_match_" + \
+        datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+
+    io.mkdir_p(bench_dir)
+
+    return bench_dir
+
+
+def create_brute_force_dataset(orig_dir, bench_dir):
+    work_dir = os.path.join(bench_dir, "bruteforce")
+    shutil.copytree(orig_dir, work_dir)
+
+    config = load_config(work_dir)
+    config["matcher_type"] = "BRUTEFORCE"
+    save_config(config, work_dir)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset')
+    args = parser.parse_args([work_dir])
+
+    return dataset.DataSet(args.dataset)
+
+
+def create_flann_dataset(orig_dir, bench_dir):
+    work_dir = os.path.join(bench_dir, "flann")
+    shutil.copytree(orig_dir, work_dir)
+
+    config = load_config(work_dir)
+    config["matcher_type"] = "FLANN"
+    save_config(config, work_dir)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset')
+    args = parser.parse_args([work_dir])
+
+    data = dataset.DataSet(args.dataset)
+
+    for image in data.images():
+        p, f, c = data.load_features(image)
+        index = features.build_flann_index(f, data.config)
+        data.save_feature_index(image, index)
+
+    return data
+
+
+def create_words_dataset(orig_dir, bench_dir):
+    work_dir = os.path.join(bench_dir, "words")
+    shutil.copytree(orig_dir, work_dir)
+
+    config = load_config(work_dir)
+    config["matcher_type"] = "WORDS"
+    save_config(config, work_dir)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset')
+    args = parser.parse_args([work_dir])
+
+    data = dataset.DataSet(args.dataset)
+
+    for image in data.images():
+        bows = bow.load_bows(data.config)
+        n_closest = data.config['bow_words_to_match']
+        p, f, c = data.load_features(image)
+        closest_words = bows.map_to_words(
+            f, n_closest, data.config['bow_matcher_type'])
+        data.save_words(image, closest_words)
+
+    return data
+
+
+def load_config(work_dir):
+    config = {}
+    filepath = os.path.join(work_dir, "config.yaml")
+    if os.path.isfile(filepath):
+        with open(filepath) as fin:
+            new_config = yaml.safe_load(fin)
+        if new_config:
+            for k, v in new_config.items():
+                config[k] = v
+
+    return config
+
+
+def save_config(config, work_dir):
+    with open(os.path.join(work_dir, 'config.yaml'), 'w') as fout:
+        yaml.dump(config, fout, default_flow_style=False)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Benchmark feature matching algorithms')
+    parser.add_argument('dataset',
+                        help='path to the dataset to be processed')
+
+    args = parser.parse_args()
+
+    commands.extract_metadata.Command().run(args)
+    commands.detect_features.Command().run(args)
+
+    bench_dir = create_bench_dir(args.dataset)
+
+    bf_data = create_brute_force_dataset(args.dataset, bench_dir)
+    f_data = create_flann_dataset(args.dataset, bench_dir)
+    w_data = create_words_dataset(args.dataset, bench_dir)
