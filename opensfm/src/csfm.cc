@@ -5,6 +5,10 @@
 #include <pybind11/eigen.h>
 
 #include "types.h"
+#include "akaze_bind.h"
+#include "theia_bind.h"
+#include "bundle.h"
+#include "depthmap_bind.h"
 #include "hahog.cc"
 #include "matching.h"
 #include "multiview.cc"
@@ -76,6 +80,8 @@ PYBIND11_MODULE(csfm, m) {
   );
 
   m.def("match_using_words", csfm::match_using_words);
+
+  m.def("match_using_cascade_hashing", csfm::match_using_cascade_hashing);
 
   m.def("triangulate_bearings_dlt", csfm::TriangulateBearingsDLT);
   m.def("triangulate_bearings_midpoint", csfm::TriangulateBearingsMidpoint);
@@ -209,8 +215,8 @@ PYBIND11_MODULE(csfm, m) {
   ;
 
   py::class_<BARelativeMotion>(m, "BARelativeMotion")
-    .def(py::init<const std::string &, const std::string &, 
-	        const std::string &, const std::string &, 
+    .def(py::init<const std::string &, const std::string &,
+	        const std::string &, const std::string &,
 				  const Eigen::Vector3d &, const Eigen::Vector3d &>())
     .def_readwrite("reconstruction_i", &BARelativeMotion::reconstruction_id_i)
     .def_readwrite("shot_i", &BARelativeMotion::shot_id_i)
@@ -222,13 +228,13 @@ PYBIND11_MODULE(csfm, m) {
   ;
 
   py::class_<BARelativeSimilarity>(m, "BARelativeSimilarity")
-    .def(py::init<const std::string &, const std::string &, 
-	        const std::string &, const std::string &, 
+    .def(py::init<const std::string &, const std::string &,
+	        const std::string &, const std::string &,
 				  const Eigen::Vector3d &, const Eigen::Vector3d &, double>())
     .def_readwrite("scale", &BARelativeSimilarity::scale)
     .def("set_scale_matrix", &BARelativeSimilarity::SetScaleMatrix)
   ;
-  
+
   py::class_<BARelativeSimilarityCovariance>(m, "BARelativeSimilarityCovariance")
     .def(py::init())
     .def("add_point", &BARelativeSimilarityCovariance::AddPoint)

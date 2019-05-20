@@ -73,6 +73,22 @@ add_library(akaze ${AKAZE_SRCS})
 target_link_libraries(akaze ${OpenCV_LIBS})
 
 
+# TheiaSfM
+include_directories(third_party/TheiaSfM/src/)
+set(THEIA_SRCS
+    third_party/TheiaSfM/src/theia/matching/cascade_hasher.h
+    third_party/TheiaSfM/src/theia/matching/cascade_hasher.cc
+    third_party/TheiaSfM/src/theia/matching/distance.h
+    third_party/TheiaSfM/src/theia/matching/indexed_feature_match.h
+    third_party/TheiaSfM/src/theia/util/map_util.h
+    third_party/TheiaSfM/src/theia/util/random.h
+    third_party/TheiaSfM/src/theia/util/random.cc
+    third_party/TheiaSfM/src/theia/util/util.h
+)
+add_library(theia ${THEIA_SRCS})
+target_link_libraries(theia ${SUITESPARSE_LIBRARIES})
+
+
 # VLFeat
 include_directories(third_party/vlfeat)
 file(GLOB VLFEAT_SRCS third_party/vlfeat/vl/*.c third_party/vlfeat/vl/*.h)
@@ -109,6 +125,7 @@ pybind11_add_module(csfm
     akaze_bind.cc
     matching.cc
     depthmap.cc
+    theia_bind.cc
 )
 target_link_libraries(csfm PRIVATE
     ${OpenCV_LIBS}
@@ -120,6 +137,7 @@ target_link_libraries(csfm PRIVATE
     vl
     akaze
     bundle
+    theia
 )
 set_target_properties(csfm PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${opensfm_SOURCE_DIR}/.."
