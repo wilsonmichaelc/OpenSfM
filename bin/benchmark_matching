@@ -51,6 +51,8 @@ def create_dataset(orig_dir, bench_dir, config):
         return create_words_dataset(orig_dir, bench_dir, config)
     elif config["matcher_type"] == "CASCADE_HASHING":
         return create_cascade_hashing_dataset(orig_dir, bench_dir, config)
+    elif config["matcher_type"] == "MATRIX":
+        return create_matrix_dataset(orig_dir, bench_dir, config)
     else:
         raise ValueError("Invalid matcher_type: {}".format(
             matcher_type))
@@ -121,6 +123,26 @@ def create_words_dataset(orig_dir, bench_dir, config):
     return data
 
 
+def create_matrix_dataset(orig_dir, bench_dir, config):
+    work_dir = os.path.join(bench_dir, "matrix")
+    shutil.copytree(orig_dir, work_dir)
+
+    overwrite_config(config, work_dir)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset')
+    args = parser.parse_args([work_dir])
+
+    data = dataset.DataSet(args.dataset)
+
+    for image in data.images():
+        p, f, c = data.load_features(image)
+        index = features.build_flann_index(f, data.config)
+        data.save_feature_index(image, index)
+
+    return data
+
+
 def create_cascade_hashing_dataset(orig_dir, bench_dir, config):
     work_dir = os.path.join(bench_dir, "cascade_hashing")
     shutil.copytree(orig_dir, work_dir)
@@ -187,6 +209,11 @@ def match(data):
                 t = timer()
                 matches = matching.match_flann_symmetric(
                     f1, i1, f2, i2,data.config)
+            elif matcher_type == 'MATRIX':
+                i1 = data.load_feature_index(im1, f1)
+                i2 = data.load_feature_index(im2, f2)
+                t = timer()
+                matches = matching.match_matrix_symmetric(f1, f2, data.config)
             elif matcher_type == 'BRUTEFORCE':
                 t = timer()
                 matches = matching.match_brute_force_symmetric(
