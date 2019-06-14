@@ -93,6 +93,7 @@ def match_unwrap_args(args):
     need_words = 'WORDS' in ctx.data.config['matcher_type']
     need_index = 'FLANN' in ctx.data.config['matcher_type']
 
+    im1_initial_matches = {}
     im1_matches = {}
     p1, f1, _ = feature_loader.load_points_features_colors(ctx.data, im1)
     w1 = feature_loader.load_words(ctx.data, im1) if need_words else None
@@ -111,13 +112,17 @@ def match_unwrap_args(args):
         f2_filtered = f2 if m2 is None else f2[m2]
         i2 = feature_loader.load_features_index(ctx.data, im2, f2_filtered) if need_index else None
 
-        im1_matches[im2] = match(im1, im2, camera1, camera2,
-                                 p1, p2, f1, f2, w1, w2,
-                                 i1, i2, m1, m2, ctx.data)
+        initial_im1_im2, im1_im2 = match(im1, im2, camera1, camera2,
+                                         p1, p2, f1, f2, w1, w2,
+                                         i1, i2, m1, m2, ctx.data)
+        im1_initial_matches[im2] = initial_im1_im2
+        im1_matches[im2] = im1_im2
 
     num_matches = sum(1 for m in im1_matches.values() if len(m) > 0)
     logger.debug('Image {} matches: {} out of {}'.format(
         im1, num_matches, len(candidates)))
+    if ctx.data.config['save_intial_matches']:
+        ctx.data.save_matches(im1, im1_initial_matches, 'intial_matches.pkl.gz')
     ctx.data.save_matches(im1, im1_matches)
     return im1, im1_matches
 
@@ -187,7 +192,7 @@ def match(im1, im2, camera1, camera2,
         logger.debug(
             'Matching {} and {}.  Matcher: {} T-desc: {:1.3f} '
             'Matches: FAILED'.format(im1, im2, matcher_type, time_2d_matching))
-        return []
+        return matches, []
 
     # robust matching
     rmatches = robust_match(p1, p2, camera1, camera2, matches, config)
@@ -203,7 +208,7 @@ def match(im1, im2, camera1, camera2,
                 im1, im2, matcher_type,
                 time_2d_matching, time_robust_matching, time_total,
                 len(matches)))
-        return []
+        return matches, []
 
     logger.debug(
         'Matching {} and {}.  Matcher: {} '
@@ -212,7 +217,7 @@ def match(im1, im2, camera1, camera2,
             im1, im2, matcher_type,
             time_2d_matching, time_robust_matching, time_total,
             len(matches), len(rmatches)))
-    return np.array(rmatches, dtype=int)
+    return matches, np.array(rmatches, dtype=int)
 
 
 def match_words(f1, words1, f2, words2, config):

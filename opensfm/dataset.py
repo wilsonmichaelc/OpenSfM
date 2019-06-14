@@ -530,21 +530,23 @@ class DataSet(object):
         """Return path of matches directory"""
         return os.path.join(self.data_path, 'matches')
 
-    def _matches_file(self, image):
+    def _matches_file(self, image, filename=None):
         """File for matches for an image"""
-        return os.path.join(self._matches_path(), '{}_matches.pkl.gz'.format(image))
+        return os.path.join(
+            self._matches_path(),
+            '{}_{}'.format(image, filename or 'matches.pkl.gz'))
 
-    def matches_exists(self, image):
-        return os.path.isfile(self._matches_file(image))
+    def matches_exists(self, image, filename=None):
+        return os.path.isfile(self._matches_file(image, filename))
 
-    def load_matches(self, image):
-        with gzip.open(self._matches_file(image), 'rb') as fin:
+    def load_matches(self, image, filename=None):
+        with gzip.open(self._matches_file(image, filename), 'rb') as fin:
             matches = pickle.load(fin)
         return matches
 
-    def save_matches(self, image, matches):
+    def save_matches(self, image, matches, filename=None):
         io.mkdir_p(self._matches_path())
-        with gzip.open(self._matches_file(image), 'wb') as fout:
+        with gzip.open(self._matches_file(image, filename), 'wb') as fout:
             pickle.dump(matches, fout)
 
     def find_matches(self, im1, im2):

@@ -24,11 +24,11 @@ def load_features(dataset, images):
     return features, colors
 
 
-def load_matches(dataset, images):
+def load_matches(dataset, images, filename=None):
     matches = {}
     for im1 in images:
         try:
-            im1_matches = dataset.load_matches(im1)
+            im1_matches = dataset.load_matches(im1, filename)
         except IOError:
             continue
         for im2 in im1_matches:
