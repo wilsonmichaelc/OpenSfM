@@ -7,7 +7,6 @@
 #include "types.h"
 #include "akaze_bind.h"
 #include "theia_bind.h"
-#include "bundle.h"
 #include "depthmap_bind.h"
 #include "hahog.cc"
 #include "matching.h"
