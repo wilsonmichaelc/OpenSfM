@@ -170,7 +170,10 @@ def benchmark(data, config):
 
     graph = data.load_tracks_graph()
 
-    for r in data.load_reconstruction():
+    rs = data.load_reconstruction()
+
+    if len(rs) >= 1:
+        r = rs[0]
         points_2 += len(r.points)
         for p in r.points:
             score += len(graph.neighbors(p)) - 2
