@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import logging
+import numpy as np
 import os.path
 import shutil
 import yaml
@@ -167,9 +168,10 @@ def benchmark(data, config):
     score = 0
     points_2 = 0
     points_3 = 0
+    re = []
+    re_pixel = []
 
     graph = data.load_tracks_graph()
-
     rs = data.load_reconstruction()
 
     if len(rs) >= 1:
@@ -181,8 +183,31 @@ def benchmark(data, config):
             if len(graph.neighbors(p)) > 2:
                 points_3 += 1
 
+        exif = {}
+        for shot in r.shots:
+            exif[shot] = data.load_exif(shot)
+
+        for p in r.points:
+            if len(graph.neighbors(p)) < 3:
+                continue
+
+            for im in graph.neighbors(p):
+                edge = graph.get_edge_data(p, im)
+
+                shot = r.shots[im]
+                point = r.points[p]
+                reprojection = shot.project(point.coordinates)
+                error = np.subtract(reprojection, edge['feature'])
+                scale = np.max([exif[im]['width'], exif[im]['height']])
+                error_pixel = scale * error
+
+                re.append(error)
+                re_pixel.append(error_pixel)
+
     return {
-        'score': score,
+        'score': float(score) / len(data.images()),
+        'reprojection_error': np.mean(np.linalg.norm(re, axis=1)),
+        'reprojection_error_pixel': np.mean(np.linalg.norm(re_pixel, axis=1)),
         'tracks_2': 0 if not len(tracks_2) else float(points_2) / len(tracks_2),
         'tracks_3': 0 if not len(tracks_3) else float(points_3) / len(tracks_3),
         'points_2': points_2,
@@ -230,6 +255,7 @@ if __name__ == '__main__':
         'save_initial_matches': True,
         'lowes_ratio': lowes_ratio,
         'feature_use_adaptive_suppression': False,
+        'feature_process_size': 2048,
     }
 
     configs = [
@@ -240,7 +266,7 @@ if __name__ == '__main__':
 
     for d in datasets:
         args.dataset = d
-        overwrite_config({ }, d)
+        overwrite_config(merge_dicts(default_config, {}), d)
 
         commands.extract_metadata.Command().run(args)
         commands.detect_features.Command().run(args)
@@ -280,6 +306,10 @@ if __name__ == '__main__':
         logger.info("\t".join(br["datasets"]))
         logger.info("Score:")
         logger.info("\t".join([str(r['score']) for r in br["results"]]))
+        logger.info("Reprojection error (OpenSfM coordinates):")
+        logger.info("\t".join([str(r['reprojection_error']) for r in br["results"]]))
+        logger.info("Reprojection error (pixels):")
+        logger.info("\t".join([str(r['reprojection_error_pixel']) for r in br["results"]]))
         logger.info("Reconstructed tracks (length >= 3):")
         logger.info("\t".join([str(r['tracks_3']) for r in br["results"]]))
         logger.info("========================================")
