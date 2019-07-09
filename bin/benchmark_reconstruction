@@ -155,7 +155,7 @@ def benchmark(data, config):
     features, colors = tracking.load_features(data, data.images())
     matches = tracking.load_matches(data,
                                     data.images(),
-                                    'intial_matches.pkl.gz')
+                                    'initial_matches.pkl.gz')
     g = tracking.create_tracks_graph(features,
                                      colors,
                                      matches,
@@ -227,7 +227,7 @@ if __name__ == '__main__':
         ]
 
     default_config = {
-        'save_intial_matches': True,
+        'save_initial_matches': True,
         'lowes_ratio': lowes_ratio,
         'feature_use_adaptive_suppression': False,
     }

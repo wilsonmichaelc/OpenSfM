@@ -40,7 +40,7 @@ hahog_normalize_to_uchar: yes
 # Params for general matching
 lowes_ratio: 0.8              # Ratio test for matches
 matcher_type: FLANN           # FLANN(symmetric) or BRUTEFORCE(symmetric), WORDS(one-way) or WORDS_SYMMETRIC(symmetric)
-save_intial_matches: no       # Save the initial matches used for the robust matching
+save_initial_matches: no      # Save the initial matches used for the robust matching
 
 # Params for FLANN matching
 flann_branching: 16           # See OpenCV doc

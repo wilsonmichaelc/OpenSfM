@@ -121,8 +121,8 @@ def match_unwrap_args(args):
     num_matches = sum(1 for m in im1_matches.values() if len(m) > 0)
     logger.debug('Image {} matches: {} out of {}'.format(
         im1, num_matches, len(candidates)))
-    if ctx.data.config['save_intial_matches']:
-        ctx.data.save_matches(im1, im1_initial_matches, 'intial_matches.pkl.gz')
+    if ctx.data.config['save_initial_matches']:
+        ctx.data.save_matches(im1, im1_initial_matches, 'initial_matches.pkl.gz')
     ctx.data.save_matches(im1, im1_matches)
     return im1, im1_matches
 
