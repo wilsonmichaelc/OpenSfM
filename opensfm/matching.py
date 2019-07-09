@@ -171,8 +171,6 @@ def match(im1, im2, camera1, camera2,
     elif matcher_type == 'BRUTEFORCE':
         matches = match_brute_force_symmetric(f1_filtered, f2_filtered, config)
     elif matcher_type == 'MATRIX':
-        i1 = ctx.data.load_feature_index(im1, f1)
-        i2 = ctx.data.load_feature_index(im2, f2)
         matches = matching.match_matrix_symmetric(f1, f2, config)
     else:
         raise ValueError("Invalid matcher_type: {}".format(matcher_type))
