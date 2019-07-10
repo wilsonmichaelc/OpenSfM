@@ -77,13 +77,13 @@ def create_args(work_dir):
 def create_dataset(orig_dir, bench_dir, config):
     if config['matcher_type'] == 'FLANN':
         return create_flann_dataset(orig_dir, bench_dir, config)
-    elif config['matcher_type'] == 'WORDS':
+    elif config['matcher_type'] in ['WORDS', 'WORDS_SYMMETRIC']:
         return create_words_dataset(orig_dir, bench_dir, config)
     elif config['matcher_type'] == 'MATRIX':
         return create_matrix_dataset(orig_dir, bench_dir, config)
     else:
         raise ValueError('Invalid matcher_type: {}'.format(
-            matcher_type))
+            config['matcher_type']))
 
 
 def create_flann_dataset(orig_dir, bench_dir, config):
@@ -261,7 +261,7 @@ if __name__ == '__main__':
     configs = [
         merge_dicts(default_config, { 'matcher_type': 'MATRIX' }),
         merge_dicts(default_config, { 'matcher_type': 'FLANN', 'flann_iterations': 10, 'flann_branching': 8, 'flann_checks': 20 }),
-        merge_dicts(default_config, { 'matcher_type': 'WORDS', 'bow_num_checks': 20 }),
+        merge_dicts(default_config, { 'matcher_type': 'WORDS_SYMMETRIC', 'bow_num_checks': 20 }),
     ]
 
     for d in datasets:
