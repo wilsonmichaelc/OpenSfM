@@ -171,7 +171,10 @@ def match(im1, im2, camera1, camera2,
     elif matcher_type == 'BRUTEFORCE':
         matches = match_brute_force_symmetric(f1_filtered, f2_filtered, config)
     elif matcher_type == 'MATRIX':
-        matches = matching.match_matrix_symmetric(f1, f2, config)
+        matches = match_matrix_symmetric(f1, f2, config)
+    elif matcher_type == "CASCADE_HASHING":
+        matches = csfm.match_using_cascade_hashing(f1, f2,
+            data.config['lowes_ratio'])
     else:
         raise ValueError("Invalid matcher_type: {}".format(matcher_type))
 
