@@ -14,6 +14,7 @@ import yaml
 from opensfm import bow
 from opensfm import commands
 from opensfm import dataset
+from opensfm import feature_loading
 from opensfm import io
 from opensfm import log
 from opensfm import matching
@@ -43,12 +44,12 @@ def create_bench_dir(dataset):
 
 
 def create_dataset(orig_dir, bench_dir, config):
-    if config["matcher_type"] == "WORDS":
+    if config["image_retrieval"] == "WORDS":
         return create_words_dataset(orig_dir, bench_dir, config)
-    elif config["matcher_type"] == "MATRIX":
-        return create_matrix_dataset(orig_dir, bench_dir, config)
+    elif config["image_retrieval"] == "VLAD":
+        return create_vlad_dataset(orig_dir, bench_dir, config)
     else:
-        raise ValueError("Invalid matcher_type: {}".format(
+        raise ValueError("Invalid image retreival type: {}".format(
             matcher_type))
 
 
@@ -73,6 +74,19 @@ def create_words_dataset(orig_dir, bench_dir, config):
         data.save_words(image, closest_words)
 
     return data
+
+
+def create_vlad_dataset(orig_dir, bench_dir, config):
+    work_dir = os.path.join(bench_dir, "vlad")
+    shutil.copytree(orig_dir, work_dir)
+
+    overwrite_config(config, work_dir)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset')
+    args = parser.parse_args([work_dir])
+
+    return dataset.DataSet(args.dataset)
 
 
 def load_config(work_dir):
@@ -108,6 +122,54 @@ def merge_dicts(x, y):
     return z
 
 
+def bow_retrieval_penalty(data, bench_matches):
+    images = data.images()
+    histograms = pairs_selection.load_histograms(data, images)
+
+    matches = {}
+    for im in images:
+        _, order, other = pairs_selection.bow_distances(im, images, histograms)
+        matches[im] = np.array(other)[order].tolist()
+
+    penalty = 0
+    for im in bench_matches[d]:
+        bm = bench_matches[d][im]
+        cm = matches[im]
+
+        for index, im2 in enumerate(bm):
+            if not im2 in cm:
+                penalty += len(bm) - index
+            penalty += abs(index - cm.index(im2))
+
+    penalty /= float(len(data.images()))
+
+    return penalty
+
+
+def vlad_retrieval_penalty(data, bench_matches):
+    ims = data.images()
+    histograms = pairs_selection.vlad_histograms(ims, data)
+
+    matches = {}
+    for im in ims:
+        _, order, other = pairs_selection.vlad_distances(im, ims, histograms)
+        matches[im] = np.array(other)[order].tolist()
+
+    penalty = 0
+    for im in bench_matches[d]:
+        bm = bench_matches[d][im]
+        cm = matches[im]
+
+        for index, im2 in enumerate(bm):
+            if not im2 in cm:
+                penalty += len(bm) - index
+            penalty += abs(index - cm.index(im2))
+
+    penalty /= float(len(data.images()))
+
+    return penalty
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Benchmark a reconstruction')
     parser.add_argument('--dataset', help='path to the dataset to be processed')
@@ -133,20 +195,16 @@ if __name__ == '__main__':
         'feature_process_size': 2048,
         'feature_use_adaptive_suppression': False,
         'save_initial_matches': True,
-        'matching_gps_distance': float("inf"),
-        'matching_gps_neighbors': 0,
-        'matching_time_neighbors': 0,
-        'matching_order_neighbors': 0,
-        'matching_bow_neighbors': 0,
-        'matching_bow_gps_distance': 0,
-        'matching_bow_gps_neighbors': 0,
     }
 
     configs = [
-        merge_dicts(default_config, { 'matcher_type': 'WORDS', 'bow_num_checks': 20 }),
+        merge_dicts(default_config, { 'image_retrieval': 'WORDS' }),
+        merge_dicts(default_config, { 'image_retrieval': 'VLAD' }),
     ]
 
     b_matches = {}
+    feature_loader = feature_loading.FeatureLoader()
+
     for d in datasets:
         b_matches[d] = {}
 
@@ -156,19 +214,30 @@ if __name__ == '__main__':
         commands.extract_metadata.Command().run(args)
         commands.detect_features.Command().run(args)
 
-        data = dataset.DataSet(args.dataset)
+        bd = dataset.DataSet(args.dataset)
 
-        ims = data.images()
-        for i, im in enumerate(ims):
-            print [im], ims[(i + 1):]
-            matching.match_images(data, [im], ims[(i + 1):])
+        ims = bd.images()
+        for i, im1 in enumerate(ims):
+            im1_matches = {}
+            _, f1, _ = feature_loader.load_points_features_colors(bd, im1)
+            m1 = feature_loader.load_masks(bd, im1)
+            f1_filtered = f1 if m1 is None else f1[m1]
+
+            for im2 in ims[(i + 1):]:
+                _, f2, _ = feature_loader.load_points_features_colors(bd, im2)
+                m2 = feature_loader.load_masks(bd, im2)
+                f2_filtered = f2 if m2 is None else f2[m2]
+
+                im1_matches[im2] = matching.match_matrix_symmetric(f1_filtered, f2_filtered, bd.config)
+
+            bd.save_matches(im1, im1_matches, 'initial_matches.pkl.gz')
 
         matches_graph = nx.Graph()
         for im in ims:
             matches_graph.add_node(im)
 
         for im1 in ims:
-            matches = data.load_matches(im1, 'initial_matches.pkl.gz')
+            matches = bd.load_matches(im1, 'initial_matches.pkl.gz')
             for im2 in matches:
                 matches_graph.add_edge(im1, im2, { 'n': len(matches[im2]) })
 
@@ -191,27 +260,15 @@ if __name__ == '__main__':
 
         for d in datasets:
             bench_dir = create_bench_dir(d)
-            t_data = create_dataset(d, bench_dir, c)
+            td = create_dataset(d, bench_dir, c)
 
-            images = t_data.images()
-            histograms = pairs_selection.load_histograms(t_data, images)
-
-            c_matches = {}
-            for im in images:
-                im, order, other = pairs_selection.bow_distances(im, images, histograms)
-                c_matches[im] = np.array(other)[order].tolist()
-
-            penalty = 0
-            for im in b_matches[d]:
-                bm = b_matches[d][im]
-                cm = c_matches[im]
-
-                for index, im2 in enumerate(bm):
-                    if not im2 in cm:
-                        penalty += len(bm) - index
-                    penalty += abs(index - cm.index(im2))
-
-            penalty /= float(len(t_data.images()))
+            if c['image_retrieval'] == "WORDS":
+                penalty = bow_retrieval_penalty(td, b_matches)
+            elif c['image_retrieval'] == 'VLAD':
+                penalty = vlad_retrieval_penalty(td, b_matches)
+            else:
+                raise ValueError("Invalid image retreival type: {}".format(
+                    matcher_type))
 
             bench_result["datasets"].append(d)
             bench_result["penalties"].append(str(penalty))
@@ -221,7 +278,7 @@ if __name__ == '__main__':
     for br in bench_results:
         logger.info("========================================")
         run_definition = "Report - "
-        for key, value in c.items():
+        for key, value in br['config'].items():
             run_definition += key + ": " + str(value) + ", "
 
         logger.info(run_definition)
