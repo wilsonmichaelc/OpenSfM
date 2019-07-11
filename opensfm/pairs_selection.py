@@ -27,6 +27,8 @@ def match_candidates_by_distance(images_ref, images_cand, exifs, reference,
     at different altitudes to be matched together.  Otherwise, for drone
     datasets, flights at different altitudes do not get matched.
     """
+    if len(images_cand) == 0:
+        return set()
     if max_neighbors <= 0 and max_distance <= 0:
         return set()
     max_neighbors = max_neighbors or 99999999
@@ -50,6 +52,9 @@ def match_candidates_by_distance(images_ref, images_cand, exifs, reference,
             gps['latitude'], gps['longitude'], 0)
         distances, neighbors = tree.query(
             point, k=nn, distance_upper_bound=max_distance)
+
+        distances = distances if isinstance(distances, np.ndarray) else np.array([distances])
+        neighbors = neighbors if isinstance(neighbors, np.ndarray) else np.array([neighbors])
 
         for j in neighbors:
             if j >= len(images_cand):
