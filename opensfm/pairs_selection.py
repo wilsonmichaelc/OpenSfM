@@ -1,12 +1,17 @@
 import logging
 from itertools import combinations
 from collections import defaultdict
+import math
 import numpy as np
 
 import scipy.spatial as spatial
 
 from opensfm import bow
 from opensfm import context
+from opensfm import feature_loading
+
+
+feature_loader = feature_loading.FeatureLoader()
 
 
 logger = logging.getLogger(__name__)
@@ -119,6 +124,60 @@ def match_candidates_with_bow(data, images_ref, images_cand,
             for i in order[:max_neighbors]:
                 pairs.add(tuple(sorted((im, other[i]))))
     return pairs
+
+
+def _sign(x):
+    return -1.0 if x < 0. else 1.0
+
+
+def vlad_histograms(images, data):
+    if len(images) == 0:
+        return {}
+
+    desc_size = 128
+    vlad_count = 64
+
+    _, vlads, _ = data.load_features(images[0])
+    vlads = vlads[:vlad_count]
+
+    image_vlads = {}
+    for im in images:
+        _, features, _ = data.load_features(im)
+        m = feature_loader.load_masks(data, im)
+        features = features if m is None else features[m]
+
+        vlad = np.zeros((vlad_count, desc_size), dtype=np.float32)
+        # VLAD itself
+        for f in features:
+            i = np.argmin(np.linalg.norm(f-vlads, axis=1))
+            vlad[i, :] += f-vlads[i]
+
+        vlad = np.ndarray.flatten(vlad)
+        # Square-rooting
+        for i in range(desc_size):
+            vlad[i] = _sign(vlad[i])*math.sqrt(math.fabs(vlad[i]))
+        vlad /= np.linalg.norm(vlad)
+        image_vlads[im] = vlad
+
+    return image_vlads
+
+
+def vlad_distances(image, other_images, histograms):
+    """ Compute BoW-based distance (L1 on histogram of words)
+        between an image and other images.
+    """
+    if image not in histograms:
+        return image, [], []
+
+    distances = []
+    other = []
+    h = histograms[image]
+    for im2 in other_images:
+        if im2 != image and im2 in histograms:
+            h2 = histograms[im2]
+            distances.append(np.linalg.norm(h - h2))
+            other.append(im2)
+    return image, np.argsort(distances), other
 
 
 def match_bow_arguments(candidates, histograms):
