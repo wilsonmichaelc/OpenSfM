@@ -126,10 +126,6 @@ def match_candidates_with_bow(data, images_ref, images_cand,
     return pairs
 
 
-def _sign(x):
-    return -1.0 if x < 0. else 1.0
-
-
 def vlad_histograms(images, data):
     if len(images) == 0:
         return {}
@@ -147,16 +143,17 @@ def vlad_histograms(images, data):
         features = features if m is None else features[m]
 
         vlad = np.zeros((vlad_count, desc_size), dtype=np.float32)
-        # VLAD itself
+
+        # Unnormalized VLAD
         for f in features:
             i = np.argmin(np.linalg.norm(f-vlads, axis=1))
             vlad[i, :] += f-vlads[i]
-
         vlad = np.ndarray.flatten(vlad)
-        # Square-rooting
-        for i in range(desc_size):
-            vlad[i] = _sign(vlad[i])*math.sqrt(math.fabs(vlad[i]))
+
+        # Signed square root (SSR) normalized VLAD
+        vlad = np.sign(vlad) * np.sqrt(np.abs(vlad))
         vlad /= np.linalg.norm(vlad)
+
         image_vlads[im] = vlad
 
     return image_vlads
