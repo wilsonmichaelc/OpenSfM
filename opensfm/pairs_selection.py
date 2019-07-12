@@ -134,6 +134,7 @@ def vlad_histograms(images, data):
     vlad_count = 64
 
     _, vlads, _ = data.load_features(images[0])
+    np.random.shuffle(vlads)
     vlads = vlads[:vlad_count]
 
     image_vlads = {}
