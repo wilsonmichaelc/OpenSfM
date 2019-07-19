@@ -53,11 +53,12 @@ struct BARelativeSimilarityError : public BARelativeMotionError {
   template <typename T>
   bool operator()(const T* const shot_i, const T* const scale_i,
                   const T* const shot_j, const T* const scale_j,
-                  T* r) const {
+                  const T* const switch_weight, T* r) const {
     Eigen::Map< Eigen::Matrix<T,7,1> > residual(r);
     residual.segment(0, 6) = BARelativeMotionError::Error(shot_i, scale_j, shot_j);
     residual(6) = (T(Sij_) - scale_j[0] / scale_i[0]);
     residual = scale_matrix_.cast<T>()*residual;
+    residual *= switch_weight[0];
     return true;
   }
 

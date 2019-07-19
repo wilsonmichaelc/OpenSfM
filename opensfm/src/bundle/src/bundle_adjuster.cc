@@ -439,6 +439,18 @@ void BundleAdjuster::AddLinearMotion(const std::string &shot0_id,
   linear_motion_prior_.push_back(a);
 }
 
+struct BASwitchableConstraint {
+  BASwitchableConstraint(double initial_value):initial_value_(initial_value){}
+
+  template <typename T>
+  bool operator()(const T* const weight, T* residuals) const {
+    residuals[0] = T(initial_value_)-weight[0];
+    return true;
+  }
+
+  double initial_value_;
+};
+
 void BundleAdjuster::Run() {
   ceres::Problem problem;
 
@@ -639,18 +651,28 @@ void BundleAdjuster::Run() {
   }
 
   // Add relative similarity errors
-  for (auto &rp : relative_similarity_) {
+  std::vector<double> rs_switch(relative_similarity_.size(), 1.0);
+  for (int i = 0; i < relative_similarity_.size(); ++i){
+    auto& rp = relative_similarity_[i];
     auto *cost_function =
         new ceres::AutoDiffCostFunction<BARelativeSimilarityError, 7, 6, 1, 6,
-                                        1>(new BARelativeSimilarityError(
+                                        1, 1>(new BARelativeSimilarityError(
             rp.parameters, rp.scale, rp.scale_matrix));
     double *scale_i =
         reconstructions_[rp.reconstruction_id_i].GetScalePtr(rp.shot_id_i);
     double *scale_j =
         reconstructions_[rp.reconstruction_id_j].GetScalePtr(rp.shot_id_j);
+    double* weight = rs_switch.data() + i;
     problem.AddResidualBlock(cost_function, loss,
                              shots_[rp.shot_id_i].parameters.data(), scale_i,
-                             shots_[rp.shot_id_j].parameters.data(), scale_j);
+                             shots_[rp.shot_id_j].parameters.data(), scale_j,
+                             weight);
+  }
+  for (int i = 0; i < rs_switch.size(); ++i) {
+     ceres::CostFunction* switch_cost_function =
+          new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
+              new BASwitchableConstraint(1.0));
+    problem.AddResidualBlock(switch_cost_function, NULL, &rs_switch[i]);
   }
 
   // Add relative rotation errors
@@ -675,8 +697,10 @@ void BundleAdjuster::Run() {
   }
 
   // Add absolute position errors
-  for (auto &a : absolute_positions_) {
+  std::vector<double> gps_switch(absolute_positions_.size(), 1.0);
+  for (int i = 0; i < absolute_positions_.size(); ++i) {
 
+    auto a = absolute_positions_[i];
     ceres::DynamicCostFunction *cost_function = nullptr;
 
     // camera parametrization
@@ -694,9 +718,17 @@ void BundleAdjuster::Run() {
     //     new BAAbsolutePositionError(pos_func, a.position, a.std_deviation));
 
     cost_function->AddParameterBlock(6);
+    cost_function->AddParameterBlock(1);
     cost_function->SetNumResiduals(3);
 
-    problem.AddResidualBlock(cost_function, NULL, a.shot->parameters.data());
+    double* weight = gps_switch.data() + i;
+    problem.AddResidualBlock(cost_function, NULL, a.shot->parameters.data(), weight);
+  }
+  for (int i = 0; i < gps_switch.size(); ++i) {
+     ceres::CostFunction* switch_cost_function =
+          new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
+              new BASwitchableConstraint(1.0));
+    problem.AddResidualBlock(switch_cost_function, NULL, &gps_switch[i]);
   }
 
   // Add absolute up vector errors
@@ -820,7 +852,17 @@ void BundleAdjuster::Run() {
   options.num_threads = num_threads_;
   options.max_num_iterations = max_num_iterations_;
 
+  std::cout << "SOLVE" << std::endl;
   ceres::Solve(options, &problem, &last_run_summary_);
+  std::cout << "DONE" << std::endl;
+
+  for (int i = 0; i < gps_switch.size(); ++i) {
+    std::cout << gps_switch[i] << std::endl;
+  }
+  std::cout << std::endl;
+  for (int i = 0; i < rs_switch.size(); ++i) {
+    std::cout << rs_switch[i] << std::endl;
+  }
 
   if (compute_covariances_) {
     ComputeCovariances(&problem);
