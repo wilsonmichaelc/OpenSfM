@@ -58,7 +58,7 @@ struct BARelativeSimilarityError : public BARelativeMotionError {
     residual.segment(0, 6) = BARelativeMotionError::Error(shot_i, scale_j, shot_j);
     residual(6) = (T(Sij_) - scale_j[0] / scale_i[0]);
     residual = scale_matrix_.cast<T>()*residual;
-    residual *= switch_weight[0];
+    //residual *= switch_weight[0];
     return true;
   }
 

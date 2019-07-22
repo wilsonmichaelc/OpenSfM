@@ -241,11 +241,13 @@ void BundleAdjuster::AddCommonPosition(const std::string &shot_id1,
 
 void BundleAdjuster::AddAbsolutePosition(const std::string &shot_id,
                                              const Eigen::Vector3d& position,
-                                             double std_deviation) {
+                                             double std_deviation,
+                                             const std::string& std_deviation_group) {
   BAAbsolutePosition a;
   a.shot = &shots_[shot_id];
   a.position = position;
   a.std_deviation = std_deviation;
+  a.std_deviation_group = std_deviation_group;
   absolute_positions_.push_back(a);
 }
 
@@ -449,6 +451,17 @@ struct BASwitchableConstraint {
   }
 
   double initial_value_;
+};
+
+struct BAStdDeviationConstraint {
+  BAStdDeviationConstraint() = default;
+
+  template <typename T>
+  bool operator()(const T* const std_deviation, T* residuals) const {
+    T std = std_deviation[0];
+    residuals[0] = ceres::log(T(1.0)/ceres::sqrt(T(2.0*M_PI)*std*std));
+    return true;
+  }
 };
 
 void BundleAdjuster::Run() {
@@ -668,12 +681,12 @@ void BundleAdjuster::Run() {
                              shots_[rp.shot_id_j].parameters.data(), scale_j,
                              weight);
   }
-  for (int i = 0; i < rs_switch.size(); ++i) {
-     ceres::CostFunction* switch_cost_function =
-          new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
-              new BASwitchableConstraint(1.0));
-    problem.AddResidualBlock(switch_cost_function, NULL, &rs_switch[i]);
-  }
+  // for (int i = 0; i < rs_switch.size(); ++i) {
+  //    ceres::CostFunction* switch_cost_function =
+  //         new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
+  //             new BASwitchableConstraint(1.0));
+  //   problem.AddResidualBlock(switch_cost_function, NULL, &rs_switch[i]);
+  // }
 
   // Add relative rotation errors
   for (auto &rr : relative_rotations_) {
@@ -697,6 +710,18 @@ void BundleAdjuster::Run() {
   }
 
   // Add absolute position errors
+  std::map<std::string,int> std_dev_group_remap;
+  for (const auto& a : absolute_positions_){
+    if(std_dev_group_remap.find(a.std_deviation_group) != std_dev_group_remap.end()){
+      continue;
+    }
+    std_dev_group_remap[a.std_deviation_group] = std_dev_group_remap.size()-1;
+  }
+  std::vector<double> std_deviations(std_dev_group_remap.size());
+  for (const auto& a : absolute_positions_){
+    std_deviations[std_dev_group_remap[a.std_deviation_group]] = a.std_deviation;
+  }
+
   std::vector<double> gps_switch(absolute_positions_.size(), 1.0);
   for (int i = 0; i < absolute_positions_.size(); ++i) {
 
@@ -708,7 +733,7 @@ void BundleAdjuster::Run() {
     cost_function = new ceres::DynamicAutoDiffCostFunction<
         BAAbsolutePositionError<ShotPositionShotParam>>(
         new BAAbsolutePositionError<ShotPositionShotParam>(
-            pos_func, a.position, a.std_deviation,
+            pos_func, a.position, 1.0,
             PositionConstraintType::XYZ));
 
     // world parametrization
@@ -721,15 +746,22 @@ void BundleAdjuster::Run() {
     cost_function->AddParameterBlock(1);
     cost_function->SetNumResiduals(3);
 
-    double* weight = gps_switch.data() + i;
-    problem.AddResidualBlock(cost_function, NULL, a.shot->parameters.data(), weight);
+    //double* weight = gps_switch.data() + i;
+    double* std__deviation = std_deviations.data() + std_dev_group_remap[a.std_deviation_group];
+    problem.AddResidualBlock(cost_function, NULL, a.shot->parameters.data(), std__deviation);
   }
-  for (int i = 0; i < gps_switch.size(); ++i) {
-     ceres::CostFunction* switch_cost_function =
-          new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
-              new BASwitchableConstraint(1.0));
-    problem.AddResidualBlock(switch_cost_function, NULL, &gps_switch[i]);
+  for (int i = 0; i < std_deviations.size(); ++i) {
+     ceres::CostFunction* std_dev_cost_fucntion =
+          new ceres::AutoDiffCostFunction<BAStdDeviationConstraint, 1, 1>(
+              new BAStdDeviationConstraint());
+    problem.AddResidualBlock(std_dev_cost_fucntion, NULL, &std_deviations[i]);
   }
+  // for (int i = 0; i < gps_switch.size(); ++i) {
+  //    ceres::CostFunction* switch_cost_function =
+  //         new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
+  //             new BASwitchableConstraint(1.0));
+  //   problem.AddResidualBlock(switch_cost_function, NULL, &gps_switch[i]);
+  // }
 
   // Add absolute up vector errors
   ceres::LossFunction *up_vector_loss = new ceres::CauchyLoss(1);
@@ -856,13 +888,13 @@ void BundleAdjuster::Run() {
   ceres::Solve(options, &problem, &last_run_summary_);
   std::cout << "DONE" << std::endl;
 
-  for (int i = 0; i < gps_switch.size(); ++i) {
-    std::cout << gps_switch[i] << std::endl;
+  for (int i = 0; i < std_deviations.size(); ++i) {
+    std::cout << std_deviations[i] << std::endl;
   }
-  std::cout << std::endl;
-  for (int i = 0; i < rs_switch.size(); ++i) {
-    std::cout << rs_switch[i] << std::endl;
-  }
+  // std::cout << std::endl;
+  // for (int i = 0; i < rs_switch.size(); ++i) {
+  //   std::cout << rs_switch[i] << std::endl;
+  // }
 
   if (compute_covariances_) {
     ComputeCovariances(&problem);
