@@ -681,12 +681,12 @@ void BundleAdjuster::Run() {
                              shots_[rp.shot_id_j].parameters.data(), scale_j,
                              weight);
   }
-  // for (int i = 0; i < rs_switch.size(); ++i) {
-  //    ceres::CostFunction* switch_cost_function =
-  //         new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
-  //             new BASwitchableConstraint(1.0));
-  //   problem.AddResidualBlock(switch_cost_function, NULL, &rs_switch[i]);
-  // }
+  for (int i = 0; i < rs_switch.size(); ++i) {
+     ceres::CostFunction* switch_cost_function =
+          new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
+              new BASwitchableConstraint(1.0));
+    problem.AddResidualBlock(switch_cost_function, NULL, &rs_switch[i]);
+  }
 
   // Add relative rotation errors
   for (auto &rr : relative_rotations_) {
@@ -750,12 +750,12 @@ void BundleAdjuster::Run() {
     double* std__deviation = std_deviations.data() + std_dev_group_remap[a.std_deviation_group];
     problem.AddResidualBlock(cost_function, NULL, a.shot->parameters.data(), std__deviation);
   }
-  // for (int i = 0; i < std_deviations.size(); ++i) {
-  //    ceres::CostFunction* std_dev_cost_fucntion =
-  //         new ceres::AutoDiffCostFunction<BAStdDeviationConstraint, 1, 1>(
-  //             new BAStdDeviationConstraint());
-  //   problem.AddResidualBlock(std_dev_cost_fucntion, NULL, &std_deviations[i]);
-  // }
+  for (int i = 0; i < std_deviations.size(); ++i) {
+     ceres::CostFunction* std_dev_cost_fucntion =
+          new ceres::AutoDiffCostFunction<BAStdDeviationConstraint, 1, 1>(
+              new BAStdDeviationConstraint());
+    problem.AddResidualBlock(std_dev_cost_fucntion, NULL, &std_deviations[i]);
+  }
   // for (int i = 0; i < gps_switch.size(); ++i) {
   //    ceres::CostFunction* switch_cost_function =
   //         new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
