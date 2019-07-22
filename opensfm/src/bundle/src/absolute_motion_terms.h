@@ -23,7 +23,7 @@ struct BAAbsolutePositionError {
 
     // error is : position_prior - adjusted_position
     residual =  T(scale_) * (pos_prior_.cast<T>() - pos_func_(p));
-    residual *= T(1.0)/p[1][0];
+    //residual *= T(1.0)/p[1][0];
 
     // filter axises to use
     const std::vector<PositionConstraintType> axises = {

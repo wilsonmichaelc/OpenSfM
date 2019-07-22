@@ -733,7 +733,7 @@ void BundleAdjuster::Run() {
     cost_function = new ceres::DynamicAutoDiffCostFunction<
         BAAbsolutePositionError<ShotPositionShotParam>>(
         new BAAbsolutePositionError<ShotPositionShotParam>(
-            pos_func, a.position, 1.0,
+            pos_func, a.position, a.std_deviation,
             PositionConstraintType::XYZ));
 
     // world parametrization
@@ -750,12 +750,12 @@ void BundleAdjuster::Run() {
     double* std__deviation = std_deviations.data() + std_dev_group_remap[a.std_deviation_group];
     problem.AddResidualBlock(cost_function, NULL, a.shot->parameters.data(), std__deviation);
   }
-  for (int i = 0; i < std_deviations.size(); ++i) {
-     ceres::CostFunction* std_dev_cost_fucntion =
-          new ceres::AutoDiffCostFunction<BAStdDeviationConstraint, 1, 1>(
-              new BAStdDeviationConstraint());
-    problem.AddResidualBlock(std_dev_cost_fucntion, NULL, &std_deviations[i]);
-  }
+  // for (int i = 0; i < std_deviations.size(); ++i) {
+  //    ceres::CostFunction* std_dev_cost_fucntion =
+  //         new ceres::AutoDiffCostFunction<BAStdDeviationConstraint, 1, 1>(
+  //             new BAStdDeviationConstraint());
+  //   problem.AddResidualBlock(std_dev_cost_fucntion, NULL, &std_deviations[i]);
+  // }
   // for (int i = 0; i < gps_switch.size(); ++i) {
   //    ceres::CostFunction* switch_cost_function =
   //         new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
