@@ -681,12 +681,12 @@ void BundleAdjuster::Run() {
                              shots_[rp.shot_id_j].parameters.data(), scale_j,
                              weight);
   }
-  for (int i = 0; i < rs_switch.size(); ++i) {
-     ceres::CostFunction* switch_cost_function =
-          new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
-              new BASwitchableConstraint(1.0));
-    problem.AddResidualBlock(switch_cost_function, NULL, &rs_switch[i]);
-  }
+  // for (int i = 0; i < rs_switch.size(); ++i) {
+  //    ceres::CostFunction* switch_cost_function =
+  //         new ceres::AutoDiffCostFunction<BASwitchableConstraint, 1, 1>(
+  //             new BASwitchableConstraint(1.0));
+  //   problem.AddResidualBlock(switch_cost_function, NULL, &rs_switch[i]);
+  // }
 
   // Add relative rotation errors
   for (auto &rr : relative_rotations_) {
