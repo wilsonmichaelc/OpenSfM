@@ -733,7 +733,7 @@ void BundleAdjuster::Run() {
     cost_function = new ceres::DynamicAutoDiffCostFunction<
         BAAbsolutePositionError<ShotPositionShotParam>>(
         new BAAbsolutePositionError<ShotPositionShotParam>(
-            pos_func, a.position, a.std_deviation,
+            pos_func, a.position, 1.0,
             PositionConstraintType::XYZ));
 
     // world parametrization
