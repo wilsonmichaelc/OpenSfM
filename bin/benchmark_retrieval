@@ -35,8 +35,8 @@ def create_bench_dir(dataset):
     bench_dir = os.path.join(
         base_dir,
         dataset_dir + \
-        "__bench_feat_match__" + \
-        datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        '__bench_feat_match__' + \
+        datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
     io.mkdir_p(bench_dir)
 
@@ -44,17 +44,17 @@ def create_bench_dir(dataset):
 
 
 def create_dataset(orig_dir, bench_dir, config):
-    if config["image_retrieval"] == "WORDS":
+    if config['image_retrieval'] == 'WORDS':
         return create_words_dataset(orig_dir, bench_dir, config)
-    elif config["image_retrieval"] == "VLAD":
+    elif config['image_retrieval'] == 'VLAD':
         return create_vlad_dataset(orig_dir, bench_dir, config)
     else:
-        raise ValueError("Invalid image retreival type: {}".format(
+        raise ValueError('Invalid image retreival type: {}'.format(
             matcher_type))
 
 
 def create_words_dataset(orig_dir, bench_dir, config):
-    work_dir = os.path.join(bench_dir, "words")
+    work_dir = os.path.join(bench_dir, 'words')
     shutil.copytree(orig_dir, work_dir)
 
     overwrite_config(config, work_dir)
@@ -77,7 +77,7 @@ def create_words_dataset(orig_dir, bench_dir, config):
 
 
 def create_vlad_dataset(orig_dir, bench_dir, config):
-    work_dir = os.path.join(bench_dir, "vlad")
+    work_dir = os.path.join(bench_dir, 'vlad')
     shutil.copytree(orig_dir, work_dir)
 
     overwrite_config(config, work_dir)
@@ -122,7 +122,28 @@ def merge_dicts(x, y):
     return z
 
 
-def bow_retrieval_penalty(data, bench_matches):
+def match_ratio(matches, bench_matches):
+    total = 0
+    hits = 0
+    for im in bench_matches[d]:
+        bm = bench_matches[d][im]
+        cm = matches[im]
+
+        im_total = len(bm)
+        im_hits = 0
+        for im2 in bm:
+            if im2 in cm[:im_total]:
+                im_hits += 1
+
+        total += im_total
+        hits += im_hits
+
+    ratio = float(hits) / total if total > 0 else 0
+
+    return ratio
+
+
+def bow_retrieval_ratio(data, bench_matches):
     images = data.images()
     histograms = pairs_selection.load_histograms(data, images)
 
@@ -131,22 +152,10 @@ def bow_retrieval_penalty(data, bench_matches):
         _, order, other = pairs_selection.bow_distances(im, images, histograms)
         matches[im] = np.array(other)[order].tolist()
 
-    penalty = 0
-    for im in bench_matches[d]:
-        bm = bench_matches[d][im]
-        cm = matches[im]
-
-        for index, im2 in enumerate(bm):
-            if not im2 in cm:
-                penalty += len(bm) - index
-            penalty += abs(index - cm.index(im2))
-
-    penalty /= float(len(data.images()))
-
-    return penalty
+    return match_ratio(matches, bench_matches)
 
 
-def vlad_retrieval_penalty(data, bench_matches):
+def vlad_retrieval_ratio(data, bench_matches):
     ims = data.images()
     histograms = pairs_selection.vlad_histograms(ims, data)
 
@@ -155,19 +164,7 @@ def vlad_retrieval_penalty(data, bench_matches):
         _, order, other = pairs_selection.vlad_distances(im, ims, histograms)
         matches[im] = np.array(other)[order].tolist()
 
-    penalty = 0
-    for im in bench_matches[d]:
-        bm = bench_matches[d][im]
-        cm = matches[im]
-
-        for index, im2 in enumerate(bm):
-            if not im2 in cm:
-                penalty += len(bm) - index
-            penalty += abs(index - cm.index(im2))
-
-    penalty /= float(len(data.images()))
-
-    return penalty
+    return match_ratio(matches, bench_matches)
 
 
 if __name__ == '__main__':
@@ -178,14 +175,14 @@ if __name__ == '__main__':
 
     datasets = [args.dataset] if args.dataset else \
         [
-            "data/benchmark_matching/amsterdam",
-            "data/benchmark_matching/copenhagen",
-            "data/benchmark_matching/lemans",
-            "data/benchmark_matching/malmo",
-            "data/benchmark_matching/malmohus",
-            "data/benchmark_matching/molleberga",
-            "data/benchmark_matching/portland",
-            "data/benchmark_matching/stapeln",
+            'data/benchmark_matching_run/amsterdam',
+            'data/benchmark_matching_run/copenhagen',
+            'data/benchmark_matching_run/lemans',
+            'data/benchmark_matching_run/malmo',
+            'data/benchmark_matching_run/malmohus',
+            'data/benchmark_matching_run/molleberga',
+            'data/benchmark_matching_run/portland',
+            'data/benchmark_matching_run/stapeln',
         ]
 
     default_config = {
@@ -194,7 +191,11 @@ if __name__ == '__main__':
         'feature_min_frames': 4000,
         'feature_process_size': 2048,
         'feature_use_adaptive_suppression': False,
-        'save_initial_matches': True,
+        'matching_gps_distance': 0,
+        'matching_gps_neighbors': 0,
+        'matching_time_neighbors': 0,
+        'matching_order_neighbors': 0,
+        'matching_bow_neighbors': 0,
     }
 
     configs = [
@@ -213,31 +214,17 @@ if __name__ == '__main__':
 
         commands.extract_metadata.Command().run(args)
         commands.detect_features.Command().run(args)
+        commands.match_features.Command().run(args)
 
         bd = dataset.DataSet(args.dataset)
 
         ims = bd.images()
-        for i, im1 in enumerate(ims):
-            im1_matches = {}
-            _, f1, _ = feature_loader.load_points_features_colors(bd, im1)
-            m1 = feature_loader.load_masks(bd, im1)
-            f1_filtered = f1 if m1 is None else f1[m1]
-
-            for im2 in ims[(i + 1):]:
-                _, f2, _ = feature_loader.load_points_features_colors(bd, im2)
-                m2 = feature_loader.load_masks(bd, im2)
-                f2_filtered = f2 if m2 is None else f2[m2]
-
-                im1_matches[im2] = matching.match_matrix_symmetric(f1_filtered, f2_filtered, bd.config)
-
-            bd.save_matches(im1, im1_matches, 'initial_matches.pkl.gz')
-
         matches_graph = nx.Graph()
         for im in ims:
             matches_graph.add_node(im)
 
         for im1 in ims:
-            matches = bd.load_matches(im1, 'initial_matches.pkl.gz')
+            matches = bd.load_matches(im1)
             for im2 in matches:
                 matches_graph.add_edge(im1, im2, { 'n': len(matches[im2]) })
 
@@ -246,44 +233,50 @@ if __name__ == '__main__':
             for im2 in ims:
                 if im1 == im2:
                     continue
-                im1_matches.append([im2, matches_graph.get_edge_data(im1, im2)['n']])
+
+                n_matches = matches_graph.get_edge_data(im1, im2)['n']
+                if n_matches > bd.config['robust_matching_min_match']:
+                    im1_matches.append([im2, n_matches])
+
             im1_matches = sorted(im1_matches, key=lambda m: m[1], reverse=True)
             b_matches[d][im1] = [i[0] for i in im1_matches]
 
     bench_results =  []
     for c in configs:
         bench_result = {
-            "config": c,
-            "datasets": [],
-            "penalties": [],
+            'config': c,
+            'datasets': [],
+            'ratios': [],
         }
 
         for d in datasets:
             bench_dir = create_bench_dir(d)
             td = create_dataset(d, bench_dir, c)
 
-            if c['image_retrieval'] == "WORDS":
-                penalty = bow_retrieval_penalty(td, b_matches)
+            if c['image_retrieval'] == 'WORDS':
+                ratio = bow_retrieval_ratio(td, b_matches)
             elif c['image_retrieval'] == 'VLAD':
-                penalty = vlad_retrieval_penalty(td, b_matches)
+                ratio = vlad_retrieval_ratio(td, b_matches)
             else:
-                raise ValueError("Invalid image retreival type: {}".format(
+                raise ValueError('Invalid image retreival type: {}'.format(
                     matcher_type))
 
-            bench_result["datasets"].append(d)
-            bench_result["penalties"].append(str(penalty))
+            bench_result['datasets'].append(d)
+            bench_result['ratios'].append(str(ratio))
 
         bench_results.append(bench_result)
 
     for br in bench_results:
-        logger.info("========================================")
-        run_definition = "Report - "
+        logger.info('========================================')
+        run_definition = 'Report: '
         for key, value in br['config'].items():
-            run_definition += key + ": " + str(value) + ", "
+            run_definition += key + ': ' + str(value) + ',' if 'matching' not in key else ''
+
+        run_definition = run_definition[:-1]
 
         logger.info(run_definition)
-        logger.info("Dataset:")
-        logger.info("\t".join(br["datasets"]))
-        logger.info("Penalty:")
-        logger.info("\t".join(br["penalties"]))
-        logger.info("========================================")
+        logger.info('Dataset:')
+        logger.info('\t'.join(br['datasets']))
+        logger.info('Ratio:')
+        logger.info('\t'.join(br['ratios']))
+        logger.info('========================================')
