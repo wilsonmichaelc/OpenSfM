@@ -122,17 +122,23 @@ def merge_dicts(x, y):
     return z
 
 
-def match_ratio(matches, bench_matches):
+def match_ratio(matches, bench_matches, data):
     total = 0
     hits = 0
+
+    sequences = {}
+    for im in data.images():
+        e = data.load_exif(im)
+        sequences[im] = e['skey'] if 'skey' in e else im
+
     for im in bench_matches[d]:
-        bm = bench_matches[d][im]
-        cm = matches[im]
+        bm = [bim for bim in bench_matches[d][im] if sequences[bim] != sequences[im]]
+        cm = [cim for cim in matches[im] if sequences[cim] != sequences[im]]
 
         im_total = len(bm)
         im_hits = 0
-        for im2 in bm:
-            if im2 in cm[:im_total]:
+        for bim in bm:
+            if bim in cm[:im_total]:
                 im_hits += 1
 
         total += im_total
@@ -152,7 +158,7 @@ def bow_retrieval_ratio(data, bench_matches):
         _, order, other = pairs_selection.bow_distances(im, images, histograms)
         matches[im] = np.array(other)[order].tolist()
 
-    return match_ratio(matches, bench_matches)
+    return match_ratio(matches, bench_matches, data)
 
 
 def vlad_retrieval_ratio(data, bench_matches):
@@ -164,7 +170,7 @@ def vlad_retrieval_ratio(data, bench_matches):
         _, order, other = pairs_selection.vlad_distances(im, ims, histograms)
         matches[im] = np.array(other)[order].tolist()
 
-    return match_ratio(matches, bench_matches)
+    return match_ratio(matches, bench_matches, data)
 
 
 if __name__ == '__main__':
