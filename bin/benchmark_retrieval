@@ -174,7 +174,7 @@ def vlad_retrieval_ratio(data, bench_matches):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Benchmark a reconstruction')
+    parser = argparse.ArgumentParser(description='Benchmark a reconstruction (exif data must exist)')
     parser.add_argument('--dataset', help='path to the dataset to be processed')
 
     args = parser.parse_args()
@@ -212,13 +212,12 @@ if __name__ == '__main__':
     b_matches = {}
     feature_loader = feature_loading.FeatureLoader()
 
-    for d in datasets:
+    for i, d in enumerate(datasets):
         b_matches[d] = {}
 
         args.dataset = d
         overwrite_config(merge_dicts(default_config, { 'matcher_type': 'MATRIX' }), d)
 
-        commands.extract_metadata.Command().run(args)
         commands.detect_features.Command().run(args)
         commands.match_features.Command().run(args)
 
@@ -247,6 +246,8 @@ if __name__ == '__main__':
             im1_matches = sorted(im1_matches, key=lambda m: m[1], reverse=True)
             b_matches[d][im1] = [i[0] for i in im1_matches]
 
+        logger.info('Matched dataset {} ({} / {})'.format(d, i + 1, len(datasets)))
+
     bench_results =  []
     for c in configs:
         bench_result = {
@@ -269,6 +270,8 @@ if __name__ == '__main__':
 
             bench_result['datasets'].append(d)
             bench_result['ratios'].append(str(ratio))
+
+            logger.info('Benched dataset {} ({} / {})'.format(d, i + 1, len(datasets)))
 
         bench_results.append(bench_result)
 
