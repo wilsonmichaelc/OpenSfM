@@ -131,8 +131,19 @@ def match_ratio(matches, bench_matches, data):
         e = data.load_exif(im)
         sequences[im] = e['skey'] if 'skey' in e else im
 
-    for im in bench_matches[d]:
-        bm = [bim for bim in bench_matches[d][im] if sequences[bim] != sequences[im]]
+    non_sequence_count = 0
+    for im1 in data.images():
+        for im2 in data.images():
+            if im2 == im1:
+                continue
+
+            if sequences[im2] == sequences[im1]:
+                continue
+
+            non_sequence_count += 1
+
+    for im in bench_matches:
+        bm = [bim for bim in bench_matches[im] if sequences[bim] != sequences[im]]
         cm = [cim for cim in matches[im] if sequences[cim] != sequences[im]]
 
         im_total = len(bm)
@@ -145,8 +156,10 @@ def match_ratio(matches, bench_matches, data):
         hits += im_hits
 
     ratio = float(hits) / total if total > 0 else 0
+    robust_ratio = float(total) / non_sequence_count
+    average_matchable = non_sequence_count / len(data.images())
 
-    return ratio
+    return ratio, robust_ratio, average_matchable
 
 
 def bow_retrieval_ratio(data, bench_matches):
@@ -163,7 +176,7 @@ def bow_retrieval_ratio(data, bench_matches):
 
 def vlad_retrieval_ratio(data, bench_matches):
     ims = data.images()
-    histograms = pairs_selection.vlad_histograms(ims, data)
+    histograms = pairs_selection.vlad_histograms(ims, data, data.config['vlad_count'])
 
     matches = {}
     for im in ims:
@@ -205,14 +218,13 @@ if __name__ == '__main__':
     }
 
     configs = [
-        merge_dicts(default_config, { 'image_retrieval': 'WORDS' }),
-        merge_dicts(default_config, { 'image_retrieval': 'VLAD' }),
+        merge_dicts(default_config, { 'image_retrieval': 'VLAD', 'vlad_count': 64 }),
     ]
 
     b_matches = {}
     feature_loader = feature_loading.FeatureLoader()
 
-    for i, d in enumerate(datasets):
+    for index, d in enumerate(datasets):
         b_matches[d] = {}
 
         args.dataset = d
@@ -246,7 +258,7 @@ if __name__ == '__main__':
             im1_matches = sorted(im1_matches, key=lambda m: m[1], reverse=True)
             b_matches[d][im1] = [i[0] for i in im1_matches]
 
-        logger.info('Matched dataset {} ({} / {})'.format(d, i + 1, len(datasets)))
+        logger.info('Matched dataset {} ({} / {})'.format(d, index + 1, len(datasets)))
 
     bench_results =  []
     for c in configs:
@@ -254,24 +266,28 @@ if __name__ == '__main__':
             'config': c,
             'datasets': [],
             'ratios': [],
+            'robust_ratios': [],
+            'average_matchables': [],
         }
 
-        for d in datasets:
+        for index, d in enumerate(datasets):
             bench_dir = create_bench_dir(d)
             td = create_dataset(d, bench_dir, c)
 
             if c['image_retrieval'] == 'WORDS':
-                ratio = bow_retrieval_ratio(td, b_matches)
+                ratio, robust_ratio, average_matchable = bow_retrieval_ratio(td, b_matches[d])
             elif c['image_retrieval'] == 'VLAD':
-                ratio = vlad_retrieval_ratio(td, b_matches)
+                ratio, robust_ratio, average_matchable = vlad_retrieval_ratio(td, b_matches[d])
             else:
                 raise ValueError('Invalid image retreival type: {}'.format(
                     matcher_type))
 
             bench_result['datasets'].append(d)
             bench_result['ratios'].append(str(ratio))
+            bench_result['robust_ratios'].append(str(robust_ratio))
+            bench_result['average_matchables'].append(str(average_matchable))
 
-            logger.info('Benched dataset {} ({} / {})'.format(d, i + 1, len(datasets)))
+            logger.info('Benched dataset {} ({} / {})'.format(d, index + 1, len(datasets)))
 
         bench_results.append(bench_result)
 
@@ -288,4 +304,8 @@ if __name__ == '__main__':
         logger.info('\t'.join(br['datasets']))
         logger.info('Ratio:')
         logger.info('\t'.join(br['ratios']))
+        logger.info('Robust ratio:')
+        logger.info('\t'.join(br['robust_ratios']))
+        logger.info('Average matchable per image:')
+        logger.info('\t'.join(br['average_matchables']))
         logger.info('========================================')
