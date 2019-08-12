@@ -2,7 +2,10 @@ import logging
 from itertools import combinations
 from collections import defaultdict
 import math
+import random
 import numpy as np
+import cv2
+import os.path
 
 import scipy.spatial as spatial
 
@@ -126,16 +129,12 @@ def match_candidates_with_bow(data, images_ref, images_cand,
     return pairs
 
 
-def vlad_histograms(images, data):
+def vlad_histograms(images, data, vlad_count):
     if len(images) == 0:
         return {}
 
     desc_size = 128
-    vlad_count = 64
-
-    _, vlads, _ = data.load_features(images[0])
-    np.random.shuffle(vlads)
-    vlads = vlads[:vlad_count]
+    vlads = random_single_image_vocabulary(data)
 
     image_vlads = {}
     for im in images:
@@ -143,25 +142,124 @@ def vlad_histograms(images, data):
         m = feature_loader.load_masks(data, im)
         features = features if m is None else features[m]
 
-        vlad = np.zeros((vlad_count, desc_size), dtype=np.float32)
-
-        # Unnormalized VLAD
-        for f in features:
-            i = np.argmin(np.linalg.norm(f-vlads, axis=1))
-            vlad[i, :] += f-vlads[i]
-        vlad = np.ndarray.flatten(vlad)
-
-        # Signed square root (SSR) normalized VLAD
-        vlad = np.sign(vlad) * np.sqrt(np.abs(vlad))
-        vlad /= np.linalg.norm(vlad)
-
+        vlad = unnormalized_vlad(features, vlads, vlad_count, desc_size)
+        vlad = signed_square_root_normalize(vlad)
         image_vlads[im] = vlad
 
     return image_vlads
 
 
+def load_features(data):
+    fs = []
+    for im in data.images():
+        _, features, _ = data.load_features(im)
+        m = feature_loader.load_masks(data, im)
+        features = features if m is None else features[m]
+        fs.extend(list(features))
+    return np.array(fs)
+
+
+def random_single_image_vocabulary(data):
+    # Random feature from a single image
+    _, vlads, _ = data.load_features(data.images()[0])
+    np.random.shuffle(vlads)
+    vlads = vlads[:vlad_count]
+    return vlads
+
+
+def random_image_vocabulary(data, vlad_count):
+    # Random features from all images
+    c = int(math.ceil(float(vlad_count) / len(images)))
+    vlads = []
+    for im in images:
+        _, f, _ = data.load_features(im)
+        indices = random.sample(range(0, len(f)), c)
+        vlads.extend(f[indices])
+
+    np.random.shuffle(vlads)
+    vlads = np.array(vlads)[:vlad_count]
+    return vlads
+
+
+def random_bow_vocabulary(data, vlad_count):
+    # Random words from the bow vocabulary
+    vlads, _ = bow.load_bow_words_and_frequencies(data.config)
+    np.random.shuffle(vlads)
+    vlads = vlads[:vlad_count]
+    return vlads
+
+
+def one_step_kmeans_vocabulary(data):
+    samples = []
+    for im in images:
+        _, fs, _ = data.load_features(im)
+        samples.extend(fs)
+
+    samples = np.array(samples)
+
+    max_iter = 1
+    attempts = 1
+    nclusters = vlad_count
+    criteria = (cv2.TERM_CRITERIA_MAX_ITER, max_iter, 1.0)
+    flags = cv2.KMEANS_RANDOM_CENTERS
+
+    _, _, vlads = cv2.kmeans(samples, nclusters, None, criteria, attempts, flags)
+    return vlads
+
+
+def vlad_vocabulary():
+    vlads_file = os.path.join(context.BOW_PATH, 'vlads_hahog_root_uchar.npy')
+    vlads = np.load(vlads_file)
+    return vlads
+
+
+def unnormalized_vlad(features, centers, vlad_count, desc_size):
+    # Unnormalized VLAD
+    vlad = np.zeros((vlad_count, desc_size), dtype=np.float32)
+    for f in features:
+        i = np.argmin(np.linalg.norm(f-centers, axis=1))
+        vlad[i, :] += f-centers[i]
+    vlad = np.ndarray.flatten(vlad)
+    return vlad
+
+
+def adapt_cluster_centers(features, centers, vlad_count):
+    assignments = { i: [] for i in range(vlad_count) }
+    for f in features:
+        i = np.argmin(np.linalg.norm(f-centers, axis=1))
+        assignments[i].append(f)
+
+    adapted_centers = []
+    for i in assignments:
+        if not len(assignments[i]):
+            continue
+
+        adapted_centers.append(np.mean(np.array(assignments[i]), axis=0))
+
+    return np.array(adapted_centers)
+
+def intra_normalize(v, count, size):
+    for i in range(0, count):
+        n = np.linalg.norm(v[size * i:size * (i+1)])
+        n = n if n > 0 else 1
+        v[size * i:size * (i+1)] /= n
+
+    return normalize(v)
+
+
+def signed_square_root_normalize(v):
+    # Signed square root (SSR) normalization
+    v = np.sign(v) * np.sqrt(np.abs(v))
+    return normalize(v)
+
+
+def normalize(v):
+    v /= np.linalg.norm(v)
+    return v
+
+
 def vlad_distances(image, other_images, histograms):
-    """ Compute BoW-based distance (L1 on histogram of words)
+    """ Compute VLAD-based distance (L2 on VLAD-histogram)
         between an image and other images.
     """
     if image not in histograms:
