@@ -232,7 +232,7 @@ def report(data, config):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Benchmark a reconstruction')
+    parser = argparse.ArgumentParser(description='Benchmark a reconstruction (exif data must exist)')
     parser.add_argument('--dataset', help='path to the dataset to be processed')
 
     args = parser.parse_args()
@@ -268,7 +268,6 @@ if __name__ == '__main__':
         args.dataset = d
         overwrite_config(merge_dicts(default_config, {}), d)
 
-        commands.extract_metadata.Command().run(args)
         commands.detect_features.Command().run(args)
 
     bench_results = []
