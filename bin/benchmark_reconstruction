@@ -77,6 +77,8 @@ def create_args(work_dir):
 def create_dataset(orig_dir, bench_dir, config):
     if config['matcher_type'] == 'FLANN':
         return create_flann_dataset(orig_dir, bench_dir, config)
+    if config['matcher_type'] == 'FLANN_COM':
+        return create_flann_com_dataset(orig_dir, bench_dir, config)
     elif config['matcher_type'] in ['WORDS', 'WORDS_SYMMETRIC']:
         return create_words_dataset(orig_dir, bench_dir, config)
     elif config['matcher_type'] == 'MATRIX':
@@ -104,6 +106,19 @@ def create_flann_dataset(orig_dir, bench_dir, config):
         data.save_feature_index(image, index)
 
     return data
+
+
+def create_flann_com_dataset(orig_dir, bench_dir, config):
+    work_dir = os.path.join(bench_dir, 'flann_com')
+    shutil.copytree(orig_dir, work_dir)
+
+    overwrite_config(config, work_dir)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset')
+    args = parser.parse_args([work_dir])
+
+    return dataset.DataSet(args.dataset)
 
 
 def create_words_dataset(orig_dir, bench_dir, config):
@@ -192,6 +207,9 @@ def benchmark(data, config):
                 continue
 
             for im in graph.neighbors(p):
+                if im not in r.shots:
+                    continue
+
                 edge = graph.get_edge_data(p, im)
 
                 shot = r.shots[im]
@@ -241,32 +259,49 @@ if __name__ == '__main__':
 
     datasets = [args.dataset] if args.dataset else \
         [
-            'data/benchmark_matching_full/amsterdam',
-            'data/benchmark_matching_full/copenhagen',
-            'data/benchmark_matching_full/lemans',
-            'data/benchmark_matching_full/malmo',
-            'data/benchmark_matching_full/malmohus',
-            'data/benchmark_matching_full/molleberga',
-            'data/benchmark_matching_full/portland',
-            'data/benchmark_matching_full/stapeln',
+            'data/benchmark_run/aizu1',
+            'data/benchmark_run/aizu2',
+            'data/benchmark_run/brussels1',
+            'data/benchmark_run/cph1',
+            'data/benchmark_run/geelong1',
+            'data/benchmark_run/hertogenbosch1',
+            'data/benchmark_run/london1',
+            'data/benchmark_run/portland1',
+            'data/benchmark_run/sf1',
+            'data/benchmark_run/vancouver1',
         ]
 
     default_config = {
+        'processes': 1,
         'save_initial_matches': True,
         'lowes_ratio': lowes_ratio,
         'feature_use_adaptive_suppression': False,
         'feature_process_size': 2048,
+        'matching_bow_neighbors': 0,
+        'matching_gps_distance': 0,
+        'matching_gps_neighbors': 0,
+        'matching_order_neighbors': 0,
+        'matching_time_neighbors': 0,
+        'matching_bow_neighbors': 0,
+        'matching_bow_gps_distance': 0,
+        'matching_bow_gps_neighbors': 0,
+        'matching_vlad_neighbors': 0,
+        'matching_vlad_gps_distance': 0,
+        'matching_vlad_gps_neighbors': 0,
     }
 
     configs = [
-        merge_dicts(default_config, { 'matcher_type': 'MATRIX' }),
-        merge_dicts(default_config, { 'matcher_type': 'FLANN', 'flann_iterations': 10, 'flann_branching': 8, 'flann_checks': 20 }),
-        merge_dicts(default_config, { 'matcher_type': 'WORDS_SYMMETRIC', 'bow_num_checks': 20 }),
+        merge_dicts(default_config,
+        { 'matcher_type': 'MATRIX', 'matching_gps_neighbors': 100 }),
+        merge_dicts(default_config,
+        { 'matcher_type': 'WORDS_SYMMETRIC', 'bow_num_checks': 20, 'matching_bow_neighbors': 15 }),
+        merge_dicts(default_config,
+        { 'matcher_type': 'FLANN_COM', 'flann_iterations': 10, 'flann_branching': 8, 'flann_checks': 20, 'matching_vlad_neighbors': 15 }),
     ]
 
     for d in datasets:
         args.dataset = d
-        overwrite_config(merge_dicts(default_config, {}), d)
+        overwrite_config(merge_dicts(default_config, { 'matcher_type': 'MATRIX' }), d)
 
         commands.detect_features.Command().run(args)
 
