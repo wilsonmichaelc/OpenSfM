@@ -129,12 +129,61 @@ def match_candidates_with_bow(data, images_ref, images_cand,
     return pairs
 
 
+def match_candidates_with_vlad(data, images_ref, images_cand,
+                              exifs, reference, max_neighbors,
+                              max_gps_distance, max_gps_neighbors):
+    """Find candidate matching pairs using VLAD-based distance.
+
+    If max_gps_distance > 0, then we use first restrain a set of
+    candidates using max_gps_neighbors neighbors selected using
+    GPS distance.
+    """
+    if max_neighbors <= 0:
+        return set()
+
+    # preempt candidates images using GPS
+    preempted_cand = {im: images_cand for im in images_ref}
+    if max_gps_distance > 0 or max_gps_neighbors > 0:
+        gps_pairs = match_candidates_by_distance(images_ref, images_cand,
+                                                 exifs, reference,
+                                                 max_gps_neighbors,
+                                                 max_gps_distance)
+        preempted_cand = defaultdict(list)
+        for p in gps_pairs:
+            preempted_cand[p[0]].append(p[1])
+            preempted_cand[p[1]].append(p[0])
+
+    # reduce sets of images from which to load words (RAM saver)
+    need_load = set(preempted_cand.keys())
+    for v in preempted_cand.values():
+        need_load.update(v)
+
+    # construct VLAD histograms
+    logger.info("Computing %d VLAD histograms" % len(need_load))
+    histograms = vlad_histograms(need_load, data, 64)
+    args = list(match_bow_arguments(preempted_cand, histograms))
+
+    # parallel VLAD neighbors computation
+    per_process = 512
+    processes = context.processes_that_fit_in_memory(data.config['processes'], per_process)
+    logger.info("Computing VLAD candidates with %d processes" % processes)
+    results = context.parallel_map(match_vlad_unwrap_args, args, processes)
+
+    # construct final sets of pairs to match
+    pairs = set()
+    for im, order, other in results:
+        for i in order[:max_neighbors]:
+            pairs.add(tuple(sorted((im, other[i]))))
+    return pairs
+
+
 def vlad_histograms(images, data, vlad_count):
     if len(images) == 0:
         return {}
 
     desc_size = 128
-    vlads = random_single_image_vocabulary(data)
+    vlads = vlad_vocabulary()
+    vlad_count = 64
 
     image_vlads = {}
     for im in images:
@@ -159,7 +208,7 @@ def load_features(data):
     return np.array(fs)
 
 
-def random_single_image_vocabulary(data):
+def random_single_image_vocabulary(data, vlad_count):
     # Random feature from a single image
     _, vlads, _ = data.load_features(data.images()[0])
     np.random.shuffle(vlads)
@@ -288,6 +337,12 @@ def match_bow_unwrap_args(args):
     return bow_distances(image, other_images, histograms)
 
 
+def match_vlad_unwrap_args(args):
+    """ Wrapper for parralel processing of BoW """
+    image, other_images, histograms = args
+    return vlad_distances(image, other_images, histograms)
+
+
 def match_candidates_by_time(images_ref, images_cand, exifs, max_neighbors):
     """Find candidate matching pairs by time difference."""
     if max_neighbors <= 0:
@@ -346,6 +401,9 @@ def match_candidates_from_metadata(images_ref, images_cand, exifs, data):
     bow_gps_distance = data.config['matching_bow_gps_distance']
     bow_gps_neighbors = data.config['matching_bow_gps_neighbors']
     bow_other_cameras = data.config['matching_bow_other_cameras']
+    vlad_neighbors = data.config['matching_vlad_neighbors']
+    vlad_gps_distance = data.config['matching_vlad_gps_distance']
+    vlad_gps_neighbors = data.config['matching_vlad_gps_neighbors']
 
     if not data.reference_lla_exists():
         data.invent_reference_lla()
@@ -360,7 +418,7 @@ def match_candidates_from_metadata(images_ref, images_cand, exifs, data):
 
     images_ref.sort()
 
-    if max_distance == gps_neighbors == time_neighbors == order_neighbors == bow_neighbors == 0:
+    if max_distance == gps_neighbors == time_neighbors == order_neighbors == bow_neighbors == vlad_neighbors == 0:
         # All pair selection strategies deactivated so we match all pairs
         d = set()
         t = set()
@@ -376,7 +434,11 @@ def match_candidates_from_metadata(images_ref, images_cand, exifs, data):
                                       exifs, reference, bow_neighbors,
                                       bow_gps_distance, bow_gps_neighbors,
                                       bow_other_cameras)
-        pairs = d | t | o | b
+        v = match_candidates_with_vlad(data, images_ref, images_cand,
+                                       exifs, reference, vlad_neighbors,
+                                       vlad_gps_distance, vlad_gps_neighbors)
+        logger.warn("{}, {}, {}, {}, {}".format(len(d), len(t), len(o), len(b), len(v)))
+        pairs = d | t | o | b | v
 
     pairs = ordered_pairs(pairs, images_ref)
 

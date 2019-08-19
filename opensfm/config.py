@@ -53,7 +53,7 @@ bow_words_to_match: 50        # Number of words to explore per feature.
 bow_num_checks: 20            # Number of matching features to check.
 bow_matcher_type: FLANN       # Matcher type to assign words to features
 
-# Params for matching
+# Params for image retrieval
 matching_gps_distance: 150            # Maximum gps distance between two images for matching
 matching_gps_neighbors: 0             # Number of images to match selected by GPS distance. Set to 0 to use no limit (or disable if matching_gps_distance is also 0)
 matching_time_neighbors: 0            # Number of images to match selected by time taken. Set to 0 to disable
@@ -62,6 +62,9 @@ matching_bow_neighbors: 0             # Number of images to match selected by Bo
 matching_bow_gps_distance: 0          # Maximum GPS distance for preempting images before using selection by BoW distance. Set to 0 to disable
 matching_bow_gps_neighbors: 0         # Number of images (selected by GPS distance) to preempt before using selection by BoW distance. Set to 0 to use no limit (or disable if matching_bow_gps_distance is also 0)
 matching_bow_other_cameras: False     # If True, BoW image selection will use N neighbors from the same camera + N neighbors from any different camera.
+matching_vlad_neighbors: 0            # Number of images to match selected by VLAD distance. Set to 0 to disable
+matching_vlad_gps_distance: 0          # Maximum GPS distance for preempting images before using selection by VLAD distance. Set to 0 to disable
+matching_vlad_gps_neighbors: 0         # Number of images (selected by GPS distance) to preempt before using selection by VLAD distance. Set to 0 to use no limit (or disable if matching_vlad_gps_distance is also 0)
 matching_use_filters: False           # If True, removes static matches using ad-hoc heuristics
 
 # Params for geometric estimation
