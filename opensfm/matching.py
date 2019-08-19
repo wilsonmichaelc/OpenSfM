@@ -12,6 +12,7 @@ from opensfm import log
 from opensfm import multiview
 from opensfm import pairs_selection
 from opensfm import feature_loading
+from opensfm import features
 
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,8 @@ def match_unwrap_args(args):
     im1, candidates, ctx = args
 
     need_words = 'WORDS' in ctx.data.config['matcher_type']
-    need_index = 'FLANN' in ctx.data.config['matcher_type']
+    need_index = 'FLANN' == ctx.data.config['matcher_type']
+    build_index = 'FLANN_COM' == ctx.data.config['matcher_type']
 
     im1_initial_matches = {}
     im1_matches = {}
@@ -102,6 +104,7 @@ def match_unwrap_args(args):
 
     f1_filtered = f1 if m1 is None else f1[m1]
     i1 = feature_loader.load_features_index(ctx.data, im1, f1_filtered) if need_index else None
+    i1 = features.build_flann_index(f1_filtered, ctx.data.config) if build_index else i1
 
     for im2 in candidates:
         p2, f2, _ = feature_loader.load_points_features_colors(ctx.data, im2)
@@ -111,6 +114,7 @@ def match_unwrap_args(args):
 
         f2_filtered = f2 if m2 is None else f2[m2]
         i2 = feature_loader.load_features_index(ctx.data, im2, f2_filtered) if need_index else None
+        i2 = features.build_flann_index(f2_filtered, ctx.data.config) if build_index else i2
 
         initial_im1_im2, im1_im2 = match(im1, im2, camera1, camera2,
                                          p1, p2, f1, f2, w1, w2,
@@ -166,7 +170,7 @@ def match(im1, im2, camera1, camera2,
         matches = match_words_symmetric(
             f1_filtered, w1_filtered,
             f2_filtered, w2_filtered, config)
-    elif matcher_type == 'FLANN':
+    elif matcher_type == 'FLANN' or matcher_type == 'FLANN_COM':
         matches = match_flann_symmetric(f1_filtered, i1, f2_filtered, i2, config)
     elif matcher_type == 'BRUTEFORCE':
         matches = match_brute_force_symmetric(f1_filtered, f2_filtered, config)
