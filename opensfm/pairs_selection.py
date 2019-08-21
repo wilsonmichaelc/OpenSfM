@@ -257,8 +257,8 @@ def one_step_kmeans_vocabulary(data):
 
 
 def vlad_vocabulary():
-    vlads_file = os.path.join(context.BOW_PATH, 'vlads_hahog_root_uchar.npy')
-    vlads = np.load(vlads_file)
+    vlads_file = os.path.join(context.BOW_PATH, 'bow_hahog_root_uchar_64.npz')
+    vlads = np.load(vlads_file)['words']
     return vlads
 
 
