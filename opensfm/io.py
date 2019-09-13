@@ -102,6 +102,7 @@ def shot_from_json(key, obj, cameras):
     metadata.capture_time = obj.get("capture_time")
     metadata.gps_dop = obj.get("gps_dop")
     metadata.gps_position = obj.get("gps_position")
+    metadata.skey = obj.get("skey")
 
     shot = types.Shot()
     shot.id = key
@@ -166,6 +167,8 @@ def reconstruction_from_json(obj):
     # Extract main and unit shots
     if 'main_shot' in obj:
         reconstruction.main_shot = obj['main_shot']
+    if 'main_shots' in obj:
+        reconstruction.main_shots = obj['main_shots']
     if 'unit_shot' in obj:
         reconstruction.unit_shot = obj['unit_shot']
 
@@ -334,6 +337,8 @@ def reconstruction_to_json(reconstruction):
     # Extract main and unit shots
     if hasattr(reconstruction, 'main_shot'):
         obj['main_shot'] = reconstruction.main_shot
+    if hasattr(reconstruction, 'main_shots'):
+        obj['main_shots'] = reconstruction.main_shots
     if hasattr(reconstruction, 'unit_shot'):
         obj['unit_shot'] = reconstruction.unit_shot
 
@@ -387,13 +392,18 @@ def _read_gcp_list_lines(lines, projection, reference, exif):
                 lon, lat = projection(easting, northing, inverse=True)
             else:
                 lon, lat = easting, northing
-            x, y, z = reference.to_topocentric(lat, lon, alt)
 
             point = types.GroundControlPoint()
             point.id = "unnamed-%d" % len(points)
             point.lla = np.array([lat, lon, alt])
-            point.coordinates = np.array([x, y, z])
             point.has_altitude = has_altitude
+
+            if reference:
+                x, y, z = reference.to_topocentric(lat, lon, alt)
+                point.coordinates = np.array([x, y, z])
+            else:
+                point.coordinates = None
+
             points[key] = point
 
         # Convert 2D coordinates
@@ -448,6 +458,7 @@ def read_gcp_list(fileobj, reference, exif):
     """Read a ground control points from a gcp_list.txt file.
 
     It requires the points to be in the WGS84 lat, lon, alt format.
+    If reference is None, topocentric data won't be initialized.
     """
     all_lines = fileobj.readlines()
     lines = iter(filter(_valid_gcp_line, all_lines))
@@ -469,11 +480,14 @@ def read_ground_control_points(fileobj, reference):
         point.id = point_dict['id']
         point.lla = point_dict.get('position')
         if point.lla:
-            point.coordinates = reference.to_topocentric(
-                point.lla['latitude'],
-                point.lla['longitude'],
-                point.lla.get('altitude', 0))
             point.has_altitude = ('altitude' in point.lla)
+            if reference:
+                point.coordinates = reference.to_topocentric(
+                    point.lla['latitude'],
+                    point.lla['longitude'],
+                    point.lla.get('altitude', 0))
+            else:
+                point.coordinates = None
 
         point.observations = []
         for o_dict in point_dict['observations']:
@@ -484,6 +498,41 @@ def read_ground_control_points(fileobj, reference):
             point.observations.append(o)
         points.append(point)
     return points
+
+
+def write_ground_control_points(gcp, fileobj, reference):
+    """Write ground control points to json file."""
+    obj = {"points": []}
+
+    for point in gcp:
+        point_obj = {}
+        point_obj['id'] = point.id
+        if point.lla:
+            point_obj['position'] = {
+                'latitude': point.lla['latitude'],
+                'longitude': point.lla['longitude'],
+            }
+            if point.has_altitude:
+                point_obj['position']['altitude'] = point.lla['altitude']
+        elif point.coordinates:
+            lat, lon, alt = reference.to_lla(*point.coordinates)
+            point_obj['position'] = {
+                'latitude': lat,
+                'longitude': lon,
+            }
+            if point.has_altitude:
+                point_obj['position']['altitude'] = alt
+
+        point_obj['observations'] = []
+        for observation in point.observations:
+            point_obj['observations'].append({
+                'shot_id': observation.shot_id,
+                'projection': tuple(observation.projection),
+            })
+
+        obj['points'].append(point_obj)
+
+    json_dump(obj, fileobj)
 
 
 def mkdir_p(path):
@@ -699,8 +748,13 @@ def export_bundler(image_list, reconstructions, track_graph, bundle_file_path,
             if shot_id in shots:
                 shot = shots[shot_id]
                 camera = shot.camera
+                if type(camera) == types.BrownPerspectiveCamera:
+                    # Will aproximate Brown model, not optimal
+                    focal_normalized = camera.focal_x
+                else:
+                    focal_normalized = camera.focal
                 scale = max(camera.width, camera.height)
-                focal = camera.focal * scale
+                focal = focal_normalized * scale
                 k1 = camera.k1
                 k2 = camera.k2
                 R = shot.pose.get_rotation_matrix()

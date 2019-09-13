@@ -123,18 +123,20 @@ class DataSet(object):
             mask = None
         return mask
 
-    def load_features_mask(self, image, feat):
-        """Load a feature-wise mask if it exists, otherwise return None.
+    def load_features_mask(self, image, points):
+        """Load a feature-wise mask.
 
-        This mask is used when performing features matching.
+        This is a binary array true for features that lie inside the
+        combined mask.
+        The array is all true when there's no mask.
         """
-        if feat is None or len(feat) == 0:
+        if points is None or len(points) == 0:
             return np.array([], dtype=bool)
 
         mask_image = self.load_combined_mask(image)
         if mask_image is None:
             logger.debug('No segmentation for {}, no features masked.'.format(image))
-            return np.ones((feat.shape[0],), dtype=bool)
+            return np.ones((points.shape[0],), dtype=bool)
 
         exif = self.load_exif(image)
         width = exif["width"]
@@ -142,13 +144,14 @@ class DataSet(object):
         orientation = exif["orientation"]
 
         new_height, new_width = mask_image.shape
-        ps = upright.opensfm_to_upright(feat, width, height, orientation,
-                                        new_width=new_width, new_height=new_height).astype(int)
+        ps = upright.opensfm_to_upright(
+            points[:, :2], width, height, orientation,
+            new_width=new_width, new_height=new_height).astype(int)
         mask = mask_image[ps[:, 1], ps[:, 0]]
 
-        n_removed = len(mask) - np.sum(mask)
+        n_removed = np.sum(mask == 0)
         logger.debug('Masking {} / {} ({:.2f}) features for {}'.format(
-                    n_removed, len(mask), n_removed / len(mask), image))
+            n_removed, len(mask), n_removed / len(mask), image))
 
         return np.array(mask, dtype=bool)
 
@@ -493,26 +496,6 @@ class DataSet(object):
     def save_features(self, image, points, descriptors, colors):
         self._save_features(self._feature_file(image), points, descriptors, colors)
 
-    def feature_index_exists(self, image):
-        return os.path.isfile(self._feature_index_file(image))
-
-    def _feature_index_file(self, image):
-        """
-        Return path of FLANN index file for specified image
-        :param image: Image name, with extension (i.e. 123.jpg)
-        """
-        return os.path.join(self._feature_path(), image + '.flann')
-
-    def load_feature_index(self, image, features):
-        if not self.feature_index_exists(image):
-            raise IOError("FLANN index file for {} doesn't exists.".format(image))
-        index = context.flann_Index()
-        index.load(features, self._feature_index_file(image))
-        return index
-
-    def save_feature_index(self, image, index):
-        index.save(self._feature_index_file(image))
-
     def _words_file(self, image):
         return os.path.join(self._feature_path(), image + '.words.npz')
 
@@ -625,6 +608,16 @@ class DataSet(object):
                 if 'altitude' in d['gps']:
                     alt += w * d['gps']['altitude']
                     walt += w
+
+        if not wlat and not wlon:
+            for gcp in self._load_ground_control_points(None):
+                lat += gcp.lla[0]
+                lon += gcp.lla[1]
+                alt += gcp.lla[2]
+                wlat += 1
+                wlon += 1
+                walt += 1
+
         if wlat: lat /= wlat
         if wlon: lon /= wlon
         if walt: alt /= walt
@@ -747,8 +740,19 @@ class DataSet(object):
         It uses reference_lla to convert the coordinates
         to topocentric reference frame.
         """
-        exif = {image: self.load_exif(image) for image in self.images()}
+
         reference = self.load_reference()
+        return self._load_ground_control_points(reference)
+
+    def _load_ground_control_points(self, reference):
+        """Load ground control points.
+
+        It might use reference to convert the coordinates
+        to topocentric reference frame.
+        If reference is None, it won't initialize topocentric data,
+        thus allowing loading raw data only.
+        """
+        exif = {image: self.load_exif(image) for image in self.images()}
 
         gcp = []
         if os.path.isfile(self._gcp_list_file()):

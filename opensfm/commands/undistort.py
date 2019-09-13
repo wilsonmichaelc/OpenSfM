@@ -26,7 +26,7 @@ class Command:
     def run(self, args):
         data = dataset.DataSet(args.dataset)
         reconstructions = data.load_reconstruction()
-        graph = data.load_tracks_graph()
+        graph = data.load_tracks_graph() if data.tracks_exists() else None
 
         if reconstructions:
             self.undistort_reconstruction(graph, reconstructions[0], data)
@@ -55,11 +55,13 @@ class Command:
             for subshot in subshots:
                 urec.add_camera(subshot.camera)
                 urec.add_shot(subshot)
-                add_subshot_tracks(graph, ugraph, shot, subshot)
+                if graph:
+                    add_subshot_tracks(graph, ugraph, shot, subshot)
             undistorted_shots[shot.id] = subshots
 
         data.save_undistorted_reconstruction([urec])
-        data.save_undistorted_tracks_graph(ugraph)
+        if graph:
+            data.save_undistorted_tracks_graph(ugraph)
 
         arguments = []
         for shot in reconstruction.shots.values():
@@ -277,7 +279,8 @@ def perspective_views_of_a_panorama(spherical_shot, width):
 
 
 def render_perspective_view_of_a_panorama(image, panoshot, perspectiveshot,
-                                          interpolation=cv2.INTER_LINEAR):
+                                          interpolation=cv2.INTER_LINEAR,
+                                          borderMode=cv2.BORDER_WRAP):
     """Render a perspective view of a panorama."""
     # Get destination pixel coordinates
     dst_shape = (perspectiveshot.camera.height, perspectiveshot.camera.width)
@@ -311,7 +314,7 @@ def render_perspective_view_of_a_panorama(image, panoshot, perspectiveshot,
     # Sample color
     x = src_pixels_denormalized[..., 0].astype(np.float32)
     y = src_pixels_denormalized[..., 1].astype(np.float32)
-    colors = cv2.remap(image, x, y, interpolation, borderMode=cv2.BORDER_WRAP)
+    colors = cv2.remap(image, x, y, interpolation, borderMode=borderMode)
 
     return colors
 
@@ -360,5 +363,6 @@ def add_pano_subshot_tracks(graph, ugraph, panoshot, perspectiveshot):
         ugraph.add_edge(perspectiveshot.id,
                         track,
                         feature=perspective_feature,
+                        feature_scale=edge['feature_scale'],
                         feature_id=edge['feature_id'],
                         feature_color=edge['feature_color'])
