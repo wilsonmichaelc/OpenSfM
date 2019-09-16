@@ -179,54 +179,6 @@ def construct_pairs(results, max_neighbors, exifs, enforce_other_cameras):
     return pairs
 
 
-def match_candidates_with_vlad(data, images_ref, images_cand,
-                              exifs, reference, max_neighbors,
-                              max_gps_distance, max_gps_neighbors):
-    """Find candidate matching pairs using VLAD-based distance.
-
-    If max_gps_distance > 0, then we use first restrain a set of
-    candidates using max_gps_neighbors neighbors selected using
-    GPS distance.
-    """
-    if max_neighbors <= 0:
-        return set()
-
-    # preempt candidates images using GPS
-    preempted_cand = {im: images_cand for im in images_ref}
-    if max_gps_distance > 0 or max_gps_neighbors > 0:
-        gps_pairs = match_candidates_by_distance(images_ref, images_cand,
-                                                 exifs, reference,
-                                                 max_gps_neighbors,
-                                                 max_gps_distance)
-        preempted_cand = defaultdict(list)
-        for p in gps_pairs:
-            preempted_cand[p[0]].append(p[1])
-            preempted_cand[p[1]].append(p[0])
-
-    # reduce sets of images from which to load words (RAM saver)
-    need_load = set(preempted_cand.keys())
-    for v in preempted_cand.values():
-        need_load.update(v)
-
-    # construct VLAD histograms
-    logger.info("Computing %d VLAD histograms" % len(need_load))
-    histograms = vlad_histograms(need_load, data, 64)
-    args = list(match_bow_arguments(preempted_cand, histograms))
-
-    # parallel VLAD neighbors computation
-    per_process = 512
-    processes = context.processes_that_fit_in_memory(data.config['processes'], per_process)
-    logger.info("Computing VLAD candidates with %d processes" % processes)
-    results = context.parallel_map(match_vlad_unwrap_args, args, processes)
-
-    # construct final sets of pairs to match
-    pairs = set()
-    for im, order, other in results:
-        for i in order[:max_neighbors]:
-            pairs.add(tuple(sorted((im, other[i]))))
-    return pairs
-
-
 def vlad_histograms(images, data, vlad_count):
     if len(images) == 0:
         return {}
@@ -246,16 +198,6 @@ def vlad_histograms(images, data, vlad_count):
         image_vlads[im] = vlad
 
     return image_vlads
-
-
-def load_features(data):
-    fs = []
-    for im in data.images():
-        _, features, _ = data.load_features(im)
-        m = feature_loader.load_masks(data, im)
-        features = features if m is None else features[m]
-        fs.extend(list(features))
-    return np.array(fs)
 
 
 def random_single_image_vocabulary(data, vlad_count):
