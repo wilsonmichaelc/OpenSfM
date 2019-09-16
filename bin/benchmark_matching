@@ -112,7 +112,7 @@ def match(data):
     images = data.images()
     images.sort()
 
-    pairs = combinations(images, 2)
+    pairs = list(combinations(images, 2))
     comb = {im: [] for im in images}
     for im1, im2 in pairs:
         comb[im1].append(im2)
@@ -131,12 +131,13 @@ def match(data):
         matching_time.append(timer() - t)
 
     mean_time = sum(matching_time) / len(matching_time)
+    mean_time_pair = sum(matching_time) / len(pairs)
 
-    logger.debug("Average matching time ({}): {}".format(
+    logger.debug("Average matching time ({}): {} per image, {} per pair".format(
         data.config["matcher_type"],
-        mean_time))
+        mean_time, mean_time_pair))
 
-    return mean_time
+    return mean_time, mean_time_pair
 
 
 def load_matches(data):
@@ -182,14 +183,14 @@ def benchmark_matches(matches, truth):
 
 
 def match_and_report(data, bench_matches):
-    matching_time = match(data)
+    matching_time, matching_time_pair = match(data)
     matches = load_matches(data)
     bench_res = benchmark_matches(matches, bench_matches)
     report(bench_res, data.config["matcher_type"])
 
     precision, recall = precision_recall(bench_res)
 
-    return matching_time, precision, recall
+    return matching_time, matching_time_pair, precision, recall
 
 
 def precision_recall(bench_res):
@@ -247,7 +248,8 @@ if __name__ == "__main__":
 
     matrix_config = merge_dicts(default_config, { "matcher_type": "MATRIX" })
     flann_config = merge_dicts(default_config, { "matcher_type": "FLANN" })
-    words_config = merge_dicts(default_config, { "matcher_type": "WORDS_SYMMETRIC" })
+    words_sym_config = merge_dicts(default_config, { "matcher_type": "WORDS_SYMMETRIC" })
+    words_config = merge_dicts(default_config, { "matcher_type": "WORDS" })
     cascade_config = merge_dicts(default_config, { "matcher_type": "CASCADE_HASHING" })
 
     b_matches = {}
@@ -267,6 +269,7 @@ if __name__ == "__main__":
         merge_dicts(flann_config, { "flann_iterations": 10, "flann_branching": 8, "flann_checks": 20 }),
         merge_dicts(flann_config, { "flann_iterations": 10, "flann_branching": 8, "flann_checks": 10 }),
         merge_dicts(words_config, { "bow_num_checks": 20 }),
+        merge_dicts(words_sym_config, { "bow_num_checks": 20 }),
         matrix_config,
     ]
 
@@ -276,6 +279,7 @@ if __name__ == "__main__":
             "config": c,
             "datasets": [],
             "matching_times": [],
+            "matching_times_pair": [],
             "precisions": [],
             "recalls": []
         }
@@ -286,10 +290,11 @@ if __name__ == "__main__":
 
             feature_loader.instance.clear_cache()
 
-            t, p, r = match_and_report(t_data, b_matches[d])
+            t, tp, p, r = match_and_report(t_data, b_matches[d])
 
             bench_result["datasets"].append(d)
             bench_result["matching_times"].append(str(t))
+            bench_result["matching_times_pair"].append(str(tp))
             bench_result["precisions"].append(str(p))
             bench_result["recalls"].append(str(r))
 
@@ -306,6 +311,8 @@ if __name__ == "__main__":
         logger.info("\t".join(br["datasets"]))
         logger.info("Matching time:")
         logger.info("\t".join(br["matching_times"]))
+        logger.info("Matching time pair:")
+        logger.info("\t".join(br["matching_times_pair"]))
         logger.info("Precision:")
         logger.info("\t".join(br["precisions"]))
         logger.info("Recall:")
