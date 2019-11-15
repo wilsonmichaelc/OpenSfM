@@ -1,30 +1,36 @@
 import cv2
 
 
-def video_source(object):
+class video_source(object):
 
     def __init__(self, video_path, skip_frames=0):
         self.video_stream = cv2.VideoCapture(video_path)
-        if (self.video_stream and skip_frames > 0):
-            cv2.set(cv2.CAP_PROP_POS_FRAMES, skip_frames)
+        if not self.video_stream.isOpened():
+            if skip_frames > 0:
+                cv2.set(cv2.CAP_PROP_POS_FRAMES, skip_frames)
+        else:
+            print("Couldn't open video!", video_path)
 
     def get_next_frame(self, frame):
         """Return the next frame in the video stream"""
-        return self.video_stream.read(frame)
+        ret, frame = self.video_stream.read()
+        return ret
 
 
-def image_source(self, object):
+class image_source(object):
 
     def __init__(self, dataset):
-        self.folder_path = dataset.data_path
+        #self.folder_path = dataset.data_path
+        self.dataset = dataset
         self.sorted_image_list = sorted(dataset.image_list)
         """Creates a list of imfile names to read from"""
         self.curr_frame_n = 0
 
     def get_next_frame(self, frame):
         """Return the next frame in the file list"""
-        if (self.curr_frame_n < len(self.image_list)):
-            frame = cv2.imread(self.image_list[self.curr_frame_n])
+        if (self.curr_frame_n < len(self.sorted_image_list)):
+            frame = self.dataset.load_image(self.sorted_image_list[self.curr_frame_n])    
         else:
             frame = None
+        self.curr_frame_n += 1
         return frame is not None
