@@ -26,11 +26,14 @@ class image_source(object):
         """Creates a list of imfile names to read from"""
         self.curr_frame_n = 0
 
-    def get_next_frame(self, frame):
+    def get_next_frame(self):
         """Return the next frame in the file list"""
         if (self.curr_frame_n < len(self.sorted_image_list)):
-            frame = self.dataset.load_image(self.sorted_image_list[self.curr_frame_n])    
+            print("Reading frame: ", self.sorted_image_list[self.curr_frame_n])
+            print("data path: ", self.dataset.data_path)
+            frame = self.dataset.load_image(
+                        self.sorted_image_list[self.curr_frame_n])
         else:
             frame = None
         self.curr_frame_n += 1
-        return frame is not None
+        return frame #frame is not None

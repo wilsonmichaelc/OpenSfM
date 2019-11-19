@@ -142,11 +142,11 @@ def match_unwrap_args(args):
     im1, candidates, ctx = args
 
     im1_matches = {}
-    p1, f1, _ = feature_loader.instance.load_points_features_colors(ctx.data, im1)
+    # p1, f1, _ = feature_loader.instance.load_points_features_colors(ctx.data, im1)
     camera1 = ctx.cameras[ctx.exifs[im1]['camera']]
 
     for im2 in candidates:
-        p2, f2, _ = feature_loader.instance.load_points_features_colors(ctx.data, im2)
+        # p2, f2, _ = feature_loader.instance.load_points_features_colors(ctx.data, im2)
         camera2 = ctx.cameras[ctx.exifs[im2]['camera']]
 
         im1_matches[im2] = match(im1, im2, camera1, camera2, ctx.data)
@@ -166,7 +166,7 @@ def match(im1, im2, camera1, camera2, data):
         data, im1, masked=True)
     p2, f2, _ = feature_loader.instance.load_points_features_colors(
         data, im2, masked=True)
-
+    print("p1: ", len(p1), " p2: ", len(p2))
     if p1 is None or p2 is None:
         return []
 
@@ -244,7 +244,6 @@ def match(im1, im2, camera1, camera2, data):
 
     if len(rmatches) < robust_matching_min_match:
         return []
-
     return np.array(rmatches, dtype=int)
 
 

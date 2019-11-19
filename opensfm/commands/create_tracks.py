@@ -24,6 +24,7 @@ class Command:
         features, colors = tracking.load_features(data, data.images())
         features_end = timer()
         matches = tracking.load_matches(data, data.images())
+        
         matches_end = timer()
         graph = tracking.create_tracks_graph(features, colors, matches,
                                              data.config)

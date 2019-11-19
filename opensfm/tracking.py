@@ -43,6 +43,7 @@ def create_tracks_graph(features, colors, matches, config):
     uf = UnionFind()
     for im1, im2 in matches:
         for f1, f2 in matches[im1, im2]:
+            print("(im1,f1):", (im1, f1), "(im2, f2): ", (im2, f2))
             uf.union((im1, f1), (im2, f2))
 
     sets = {}
@@ -64,6 +65,10 @@ def create_tracks_graph(features, colors, matches, config):
                 continue
             x, y, s = features[image][featureid]
             r, g, b = colors[image][featureid]
+            # print("addNode: ", str(image))
+            # print("addNode: ", str(track_id))
+            # print("addEdge: ", str(image), "t id: ", str(track_id), float(x), float(y))
+            
             tracks_graph.add_node(str(image), bipartite=0)
             tracks_graph.add_node(str(track_id), bipartite=1)
             tracks_graph.add_edge(str(image),
@@ -72,7 +77,7 @@ def create_tracks_graph(features, colors, matches, config):
                                   feature_scale=float(s),
                                   feature_id=int(featureid),
                                   feature_color=(float(r), float(g), float(b)))
-
+            # print("nNodes: ", len(tracks_graph.nodes()))
     return tracks_graph
 
 

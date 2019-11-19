@@ -16,7 +16,7 @@ class Command:
 
     def add_arguments(self, parser):
         parser.add_argument('dataset', help='dataset to process')
-
+        
     def run(self, args):
         start = time.time()
         data = dataset.DataSet(args.dataset)
