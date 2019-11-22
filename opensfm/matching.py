@@ -167,6 +167,9 @@ def match(im1, im2, camera1, camera2, data):
     p2, f2, _ = feature_loader.instance.load_points_features_colors(
         data, im2, masked=True)
     print("p1: ", len(p1), " p2: ", len(p2))
+    print("f1: ", len(f1), " f2: ", len(p2))
+    print("p1_1: ", p1.shape, "p1_2: ", p2.shape)
+    print("f1_1: ", f1.shape, "f1_2: ", f2.shape)
     if p1 is None or p2 is None:
         return []
 

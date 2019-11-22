@@ -1,6 +1,23 @@
 import networkx as nx
 import logging
 logger = logging.getLogger(__name__)
+
+
+class LandmarkStorage(object):
+    """Stores the 3D pos, desc and 2D pos of landmarks from a previous frame """
+    def __init__(self):
+        self.pos3Dworld = []
+        self.pos2D = []
+        self.descs = []
+        self.name = ''
+        self.valid_idx = [] # Note: this is currently a workaround since we currently store all features
+    
+    def update(self, pos3Dworld, pos2D, descs, name, valid_idx):
+        self.pos3Dworld = pos3Dworld
+        self.pos2D = pos2D
+        self.descs = descs
+        self.name = name
+
 class SlamMapper(object):
 
     def __init__(self, data, config):
@@ -13,6 +30,9 @@ class SlamMapper(object):
         self.lms_ratio_thr = 0.9
         self.n_tracks = 0
         self.graph = nx.Graph()
+        self.reconstruction = [] # dict of 3D points
+        self.landmarks_ref = LandmarkStorage()
+        self.landmarks_last = LandmarkStorage()
 
     def add_new_tracks(self, im1, im2, matches):
         for m in matches:

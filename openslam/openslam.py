@@ -1,6 +1,6 @@
 import os.path, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from initializer import SlamInitializer
+from slam_initializer import SlamInitializer
 from slam_matcher import SlamMatcher
 from slam_mapper import SlamMapper
 
@@ -14,8 +14,11 @@ from opensfm import feature_loader
 import numpy as np
 from opensfm import feature_loading
 import networkx as nx
+from opensfm import log
+import logging
 
-
+log.setup()
+logger = logging.getLogger(__name__)
 class SlamSystem(object):
     
     
@@ -23,8 +26,11 @@ class SlamSystem(object):
         print("Init slam system", args)
         self.data = dataset.DataSet(args.dataset)
         cameras = self.data.load_camera_models()
+        print("cameras.items()", cameras.items())
+        print("cameras.values()", cameras.values())
         self.config = self.data.config
         self.camera = next(iter(cameras.items()))
+        self.camera_object = next(iter(cameras.values()))
         self.system_initialized = False
         self.system_lost = True
         self.slam_matcher = SlamMatcher(self.config)
@@ -56,7 +62,11 @@ class SlamSystem(object):
             matches = []
         else:
             self.system_initialized, matches = self.initializer.initialize(data, frame)
-        print("Returning", self.system_initialized)
+        print("init: {}, matches {} ".format(self.system_initialized, matches))
+        if (self.system_initialized):
+        # if len(matches is not None:
+            print("Returning", self.system_initialized, len(matches), len(matches[1][frame.im_name]))
+        print(self.tracked_frames, self.system_initialized, matches)
         return self.system_initialized, matches
 
     def track_next_frame(self, data, frame): #, slam_matcher, slam_mapper):
@@ -64,25 +74,68 @@ class SlamSystem(object):
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
             success, matches = self.init_slam_system(data, frame)
-            im1, im2 = self.initializer.ref_frame.im_name, frame.im_name
-            print(im1, im2)
-            p1, f1, _ = feature_loader.instance.load_points_features_colors(
-                data, im1, masked=True)
-            p2, f2, _ = feature_loader.instance.load_points_features_colors(
-                data, im2, masked=True)
-            threshold = data.config['five_point_algo_threshold']
-            # print(self.camera)
-            # print(self.camera[1].pixel_bearing_many(p1))
-            R, t, inliers,_ = \
-                reconstruction.two_view_reconstruction_general(p1, p2, self.camera[1], self.camera[1], threshold)
-            # print("here",p1)
-            # print(len(p1),len(p1(matches[:,0])))
-            print("R: ", R, " t: ", t)
-            print("inliers: ", inliers)
+            self.tracked_frames += 1
+            return False
+            # im1, im2 = self.initializer.ref_frame.im_name, frame.im_name
+            # print(im1, im2)
+            # p1, f1, _ = data.load_features(im1)
+            # # p1v, f1v, _ = feature_loader.instance.load_points_features_colors(
+            # #    data, im1, masked=True)
+            # # print("p1:",p1, "p1v:", p1v)
+            # # print("f1:",f1, "f1v:", f1v)
+            # # print(p1.shape,p1v.shape,f1.shape,f1v.shape)
+            # p2, f2, _ = data.load_features(im2)
+            # #feature_loader.instance.load_points_features_colors(
+            # #    data, im2, masked=True)
+            # threshold = data.config['five_point_algo_threshold']
+            # if not success:
+            #     self.tracked_frames += 1
+            #     return False
+            # print(p1[:,:3])
+            # print(len(matches))
+            # print(matches[frame.im_name])
+            # matches = matches[frame.im_name]
+            # # print(len(matches))
+            # # print(len(p1),len(p2))
+            # # print(p1.shape, p2.shape)
+            # # print(p1)
+            # p1 = p1[matches[:,0],:]
+            # p2 = p2[matches[:,1],:]
+            # # print(len(p1),len(p2))
+            # print(p1.shape, p2.shape)
+            # print(p1)
+            # threshold = 4 * data.config['five_point_algo_threshold']
+            # args = []
+            # args.append((im1, im2, p1[:,0:2], p2[:,0:2], self.camera_object, self.camera_object, threshold))
+            # # im1, im2, p1, p2, camera1, camera2, threshold = args
+            # # print("self.camera_object.pixel_bearing_many(p1)", self.camera_object.pixel_bearing_many(p1))
+            
+            # i1, i2, r = reconstruction._compute_pair_reconstructability(args[0])
+            # print("i1:", i1, " i2: ", i2)
+            # print("r:", r)
+            # # stop
+            # # print(self.camera)
+            # # print(self.camera[1].pixel_bearing_many(p1))
+            # R, t, inliers,_ = \
+            #     reconstruction.two_view_reconstruction_general(p1, p2, self.camera[1], self.camera[1], threshold)
+            # if len(inliers) <= 5:
+            #     report['decision'] = "Could not find initial motion"
+            #     logger.info(report['decision'])
+            #     return False
+            #     # return None, None, report
+            # # print("here",p1)
+            # # print(len(p1),len(p1(matches[:,0])))
+            # print("R: ", R, " t: ", t)
+            # print("inliers: ", inliers, len(inliers))
+
+
+
             if success:
+                print("success")
+                # stop
                 #initialized
-                self.slam_mapper.add_new_tracks(self.initializer.ref_frame.im_name,
-                                                frame.im_name, matches)
+                # self.slam_mapper.add_new_tracks(self.initializer.ref_frame.im_name,
+                                                # frame.im_name, matches)
                 # slam_matcher.match(self.initializer)
                 # matching.match
                 # system is initialized now
@@ -100,11 +153,6 @@ class SlamSystem(object):
                 #                     feature_color=(float(r), float(g), float(b)))
                 
                 # TODO: Use _good_track....
-
-
-        
-        
-
         self.tracked_frames += 1
         return not self.system_lost
 

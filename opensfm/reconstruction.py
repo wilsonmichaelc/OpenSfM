@@ -148,6 +148,156 @@ def _add_gcp_to_bundle(ba, gcp, shots):
                     observation.projection[1],
                     scale)
 
+# def track(graph, reconstruction, landmarks, last_frame, frame, camera, init_pose, config):
+#     """Align the current frame to the already estimated landmarks
+#         (visible in the last frame)
+#         landmarks visible in last frame
+#     """
+
+#     # tracks are the matched landmarks
+#     # match landmarks to current frame
+#     # last frame is typically != last keyframe
+#     # landmarks contain feature id in last frame
+    
+#     #load feature so both frames
+#     # p1, f1, _ = 
+#     #landmarks = LandmarkStorage()
+
+#     # for landmark in landmarks:
+#         # feature_id = landmark.fid
+        
+    
+
+#     if n_matches < 100: # kind of random number
+#         return False
+
+#     # velocity = T_(N-1)_(N-2) pre last to last
+#     # init_pose = T_(N_1)_w * T_(N-1)_W * inv(T_(N_2)_W)
+#     # match "last frame" to "current frame"
+#     # last frame could be reference frame
+#     # somehow match world points/landmarks seen in last frame
+#     # to feature matches
+#     fix_cameras = not config['optimize_camera_parameters']
+
+#     chrono = Chronometer()
+#     ba = csfm.BundleAdjuster()
+#     # for camera in reconstruction.cameras.values():
+#     _add_camera_to_bundle(ba, camera, false)
+#     # init with a constant motion model!
+#     # shot == last image
+#     # shot = reconstruction.shots[last_frame]
+#     # r = shot.pose.rotation
+#     # t = shot.pose.translation
+#     # fix the world pose of the last_frame
+#     # ba.add_shot(shot.id, 0, r, t, True)
+
+#     # constant motion velocity -> just say id
+#     shot_id = 0
+#     camera_id = 0
+#     ba.add_shot(shot_id, camera_id, init_pose)
+
+    
+
+#     # Add points in world coordinates
+#     for point in landmarks:
+#         print("point id: ", point.id, " coord: ", point.coordinates)
+#         ba.add_point(point.id, point.coordinates, False)
+
+    
+
+#     for track in graph[shot_id]:
+#         #track = id of the 3D point
+#         if track in reconstruction.points:
+#             point = graph[shot_id][track]['feature']
+#             scale = graph[shot_id][track]['feature_scale']
+#             print("track: ", track, " shot_id: ", shot_id)
+#             print("point: ", point, " scale: ", scale)
+#             ba.add_point_projection_observation(
+#                 shot_id, track, point[0], point[1], scale)
+    
+#     for shot_id in reconstruction.shots:
+#         if shot_id in graph:
+#             for track in graph[shot_id]:
+#                 #track = id of the 3D point
+#                 if track in reconstruction.points:
+#                     point = graph[shot_id][track]['feature']
+#                     scale = graph[shot_id][track]['feature_scale']
+#                     print("track: ", track, " shot_id: ", shot_id)
+#                     print("point: ", point, " scale: ", scale)
+#                     ba.add_point_projection_observation(
+#                         shot_id, track, point[0], point[1], scale)
+#     #now match
+
+    
+#     chrono.lap('setup')
+#     ba.run()
+#     chrono.lap('run')
+
+#     return True
+
+def track_reprojection(points3D, observations, init_pose, camera, config, data):
+    # match "last frame" to "current frame"
+    # last frame could be reference frame
+    # somehow match world points/landmarks seen in last frame
+    # to feature matches
+    fix_cameras = not config['optimize_camera_parameters']
+
+    chrono = Chronometer()
+    ba = csfm.BundleAdjuster()
+    # for camera in reconstruction.cameras.values():
+    _add_camera_to_bundle(ba, camera, false)
+    # init with a constant motion model!
+    # shot == last image
+    # shot = reconstruction.shots[last_frame]
+    # r = shot.pose.rotation
+    # t = shot.pose.translation
+    # fix the world pose of the last_frame
+    # ba.add_shot(shot.id, 0, r, t, True)
+
+    # constant motion velocity -> just say id
+    shot_id = 0
+    camera_id = 0
+    ba.add_shot(shot_id, camera_id, init_pose)
+
+    
+
+    # Add points in world coordinates
+    for point in landmarks:
+        print("point id: ", point.id, " coord: ", point.coordinates)
+        ba.add_point(point.id, point.coordinates, False)
+
+    
+
+    for track in graph[shot_id]:
+        #track = id of the 3D point
+        if track in reconstruction.points:
+            point = graph[shot_id][track]['feature']
+            scale = graph[shot_id][track]['feature_scale']
+            print("track: ", track, " shot_id: ", shot_id)
+            print("point: ", point, " scale: ", scale)
+            ba.add_point_projection_observation(
+                shot_id, track, point[0], point[1], scale)
+    
+    for shot_id in reconstruction.shots:
+        if shot_id in graph:
+            for track in graph[shot_id]:
+                #track = id of the 3D point
+                if track in reconstruction.points:
+                    point = graph[shot_id][track]['feature']
+                    scale = graph[shot_id][track]['feature_scale']
+                    print("track: ", track, " shot_id: ", shot_id)
+                    print("point: ", point, " scale: ", scale)
+                    ba.add_point_projection_observation(
+                        shot_id, track, point[0], point[1], scale)
+    #now match
+
+    
+    chrono.lap('setup')
+    ba.run()
+    chrono.lap('run')
+
+    return True
+
 
 def bundle(graph, reconstruction, gcp, config):
     """Bundle adjust a reconstruction."""
@@ -165,14 +315,18 @@ def bundle(graph, reconstruction, gcp, config):
         ba.add_shot(shot.id, shot.camera.id, r, t, False)
 
     for point in reconstruction.points.values():
+        print("point id: ", point.id, " coord: ", point.coordinates)
         ba.add_point(point.id, point.coordinates, False)
 
     for shot_id in reconstruction.shots:
         if shot_id in graph:
             for track in graph[shot_id]:
+                #track = id of the 3D point
                 if track in reconstruction.points:
                     point = graph[shot_id][track]['feature']
                     scale = graph[shot_id][track]['feature_scale']
+                    print("track: ", track, " shot_id: ", shot_id)
+                    print("point: ", point, " scale: ", scale)
                     ba.add_point_projection_observation(
                         shot_id, track, point[0], point[1], scale)
 
@@ -473,9 +627,13 @@ def _pair_reconstructability_arguments(track_dict, data):
 def _compute_pair_reconstructability(args):
     log.setup()
     im1, im2, p1, p2, camera1, camera2, threshold = args
+    print("p1", p1, "p2", p2)
+    print("p1", len(p1), "p2", len(p2))
     R, inliers = two_view_reconstruction_rotation_only(
         p1, p2, camera1, camera2, threshold)
     r = pairwise_reconstructability(len(p1), len(inliers))
+    print("im1, im2, r", im1, im2, r)
+    # stop
     return (im1, im2, r)
 
 
@@ -596,6 +754,9 @@ def two_view_reconstruction(p1, p2, camera1, camera2, threshold):
     # Here we arbitrarily assume that the threshold is given for a camera of
     # focal length 1.  Also, arctan(threshold) \approx threshold since
     # threshold is small
+    print("b1: ", len(b1), " b2: ", len(b2))
+    print("p1: ", len(p1), " p2: ", len(p2))
+    print(b1, b2)
     T = multiview.relative_pose_ransac(
         b1, b2, b"STEWENIUS", 1 - np.cos(threshold), 1000, 0.999)
     R = T[:, :3]
@@ -674,6 +835,7 @@ def two_view_reconstruction_general(p1, p2, camera1, camera2, threshold):
 
 def bootstrap_reconstruction(data, graph, im1, im2, p1, p2):
     """Start a reconstruction using two shots."""
+    print("Starting reconstruction with {} and {}".format(im1, im2))
     logger.info("Starting reconstruction with {} and {}".format(im1, im2))
     report = {
         'image_pair': (im1, im2),
@@ -686,12 +848,17 @@ def bootstrap_reconstruction(data, graph, im1, im2, p1, p2):
 
     threshold = data.config['five_point_algo_threshold']
     min_inliers = data.config['five_point_algo_min_inliers']
+    # print(p1.shape, p2.shape)
+    # print(len(p1), len(p2))
+    # print(p1)
+    # print(p2)
     R, t, inliers, report['two_view_reconstruction'] = \
         two_view_reconstruction_general(p1, p2, camera1, camera2, threshold)
 
     logger.info("Two-view reconstruction inliers: {} / {}".format(
         len(inliers), len(p1)))
-
+    print("Two-view reconstruction inliers: {} / {}".format(
+        len(inliers), len(p1)))
     if len(inliers) <= 5:
         report['decision'] = "Could not find initial motion"
         logger.info(report['decision'])
@@ -715,6 +882,7 @@ def bootstrap_reconstruction(data, graph, im1, im2, p1, p2):
     shot2.metadata = get_image_metadata(data, im2)
     reconstruction.add_shot(shot2)
 
+    print("len(inliers):", len(inliers))
     graph_inliers = nx.Graph()
     triangulate_shot_features(graph, graph_inliers, reconstruction, im1, data.config)
 
@@ -933,6 +1101,7 @@ class TrackTriangulator:
                     if optimal_iter <= ransac_tries:
                         break
 
+        print("best_inliers: ", len(best_inliers))
         if len(best_inliers) > 1:
             self.reconstruction.add_point(best_point)
             for i, succeed in enumerate(best_inliers):
@@ -1362,11 +1531,13 @@ def incremental_reconstruction(data, graph):
     common_tracks = tracking.all_common_tracks(graph, tracks)
     reconstructions = []
     pairs = compute_image_pairs(common_tracks, data)
+    print(pairs)
     chrono.lap('compute_image_pairs')
     report['num_candidate_image_pairs'] = len(pairs)
     report['reconstructions'] = []
     for im1, im2 in pairs:
         if im1 in remaining_images and im2 in remaining_images:
+            print("inc rec im1: ", im1, " im2: ", im2)
             rec_report = {}
             report['reconstructions'].append(rec_report)
             tracks, p1, p2 = common_tracks[im1, im2]

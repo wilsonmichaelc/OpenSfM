@@ -92,6 +92,8 @@ class SlamInitializer(object):
                                 feature_scale=float(s),
                                 feature_id=int(featureid),
                                 feature_color=(float(r), float(g), float(b)))
+            
+            
         # graph_inliers = nx.Graph()
         rec_report = {}
         reconstruction_init, graph_inliers, rec_report['bootstrap'] = reconstruction.bootstrap_reconstruction(data, tracks_graph, self.ref_frame, frame, p1, p2)
@@ -99,15 +101,15 @@ class SlamInitializer(object):
         print("reconstruction", reconstruction_init)
 
         stop
-        # print(self.camera)
-        # print(self.camera[1].pixel_bearing_many(p1))
-        R, t, inliers,_ = \
-            reconstruction.two_view_reconstruction_general(p1, p2, camera, camera, threshold)
-            # reconstruction.two_view_reconstruction_general(p1, p2, self.camera[1], self.camera[1], threshold)
-        if len(inliers) <= 5:
-            report['decision'] = "Could not find initial motion"
-            logger.info(report['decision'])
-            return False, []
+        # # print(self.camera)
+        # # print(self.camera[1].pixel_bearing_many(p1))
+        # R, t, inliers,_ = \
+        #     reconstruction.two_view_reconstruction_general(p1, p2, camera, camera, threshold)
+        #     # reconstruction.two_view_reconstruction_general(p1, p2, self.camera[1], self.camera[1], threshold)
+        # if len(inliers) <= 5:
+        #     report['decision'] = "Could not find initial motion"
+        #     logger.info(report['decision'])
+        #     return False, []
         
         # reconstruction = types.Reconstruction()
         # reconstruction.reference = data.load_reference()

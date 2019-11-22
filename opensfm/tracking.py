@@ -43,7 +43,7 @@ def create_tracks_graph(features, colors, matches, config):
     uf = UnionFind()
     for im1, im2 in matches:
         for f1, f2 in matches[im1, im2]:
-            print("(im1,f1):", (im1, f1), "(im2, f2): ", (im2, f2))
+            # print("(im1,f1):", (im1, f1), "(im2, f2): ", (im2, f2))
             uf.union((im1, f1), (im2, f2))
 
     sets = {}
