@@ -42,7 +42,7 @@ for im_name in sorted(data.image_list):
     else:
         print("slam trying to init")
 
-stop
+exit()
 frame = input_source.get_next_frame()
 n_frames = 1
 while frame is not None:

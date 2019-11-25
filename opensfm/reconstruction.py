@@ -563,13 +563,10 @@ def _pair_reconstructability_arguments(track_dict, data):
 def _compute_pair_reconstructability(args):
     log.setup()
     im1, im2, p1, p2, camera1, camera2, threshold = args
-    print("p1", p1, "p2", p2)
-    print("p1", len(p1), "p2", len(p2))
     R, inliers = two_view_reconstruction_rotation_only(
         p1, p2, camera1, camera2, threshold)
     r = pairwise_reconstructability(len(p1), len(inliers))
-    print("im1, im2, r", im1, im2, r)
-    # stop
+    print("_compute_pair_reconstructability: im1, im2, r", im1, im2, r)
     return (im1, im2, r)
 
 
