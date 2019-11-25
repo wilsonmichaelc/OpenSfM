@@ -1,12 +1,13 @@
 import datetime
 import logging
 
+from opensfm import types
 from opensfm import csfm
 from opensfm.reconstruction import Chronometer
 from opensfm import reconstruction
 
 from slam_matcher import SlamMatcher
-
+from slam_mapper import SlamMapper
 
 class SlamTracker(object):
 
@@ -125,14 +126,61 @@ class SlamTracker(object):
         #
         return True
 
-    def track(self, graph, reconstruction, landmarks, last_frame, 
-              frame, camera, init_pose, config, data):
-        """Align the current frame to the already estimated landmarks
+    def _track_internal(self, landmarks, frame1, frame2,
+                        init_pose, config, data):
+        """Estimate 6 DOF pose between frame 1 and frame2
+        
+        Reprojects the landmarks seen in frame 1 to frame2
+        and estimates the relative 6 DOF motion between 
+        frame1 and frame2 by minimizing the reprojection
+        error.
+
+        Arguments:
+            landmarks: 3D points in frame1 to be reprojected
+            frame1: image name in dataset
+            frame2: image name in dataset
+            init_pose: initial 6 DOF estimate
+            config, data
+        """
+        m1, idx1, idx2 = self.slam_matcher.match_landmarks_to_image(
+                        landmarks, frame, last_frame, camera, data)
+        
+
+    def track(self, slam_mapper, frame, config, camera, data):
+        """Tracks the current frame with respect to the reconstruction
+        """
+
+        """ last_frame, frame, camera, init_pose, config, data):
+        Align the current frame to the already estimated landmarks
             (visible in the last frame)
             landmarks visible in last frame
         """
-        m1, idx1, idx2 = self.slam_matcher.match_landmarks_to_image(
-                            landmarks, frame, last_frame, camera, data)
+
+        # #Try to match to last frame first
+        # m1, idx1, idx2 = self.slam_matcher.match_landmarks_to_image(
+        #                 slam_mapper.last_frame.visible_landmarks,
+        #                 frame, slam_mapper.last_frame.im_name,
+        #                 camera, data)
+
+        init_pose = slam_mapper.estimate_pose()
+        success = self._track_internal(
+                                slam_mapper.last_frame.visible_landmarks,
+                                slam_mapper.last_frame.im_name,
+                                frame, init_pose)
+
+        #Now, try to match to last kf
+        if not success:
+            init_pose = types.Pose()
+            success = self._track_internal(
+                        slam_mapper.last_keyframe.visible_landmarks,
+                        slam_mapper.last_keyframe.im_name,
+                        frame, init_pose)
+
+
+
+        # m1, idx1, idx2 = self.slam_matcher.match_landmarks_to_image(
+                            # landmarks, frame, last_frame, camera, data)
+
 
         #prepare the bundle
         

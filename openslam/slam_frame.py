@@ -1,5 +1,6 @@
 from opensfm import feature_loader
 from opensfm import features
+from opensfm import types
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,6 +10,28 @@ class Frame(object):
 
     def __init__(self, name):
         self.im_name = name
+        self.visible_landmarks = []
+        self.frame_id = -1
+        self.world_pose = types.Pose()
+        self.is_keyframe = False
+        self.rel_pose_to_kf = types.Pose()
+        self.kf_id = -1
+    
+    def set_visible_landmarks(self, idx):
+        self.visible_landmarks = self.visible_landmarks[idx,:]
+
+    def store(self):
+        """Reduces the object to just the header"""
+        self.visible_landmarks = []
+
+    def make_keyframe(self, world_pose, rel_pose, kf_id):
+        self.kf_id = kf_id
+        self.rel_pose_to_kf = rel_pose
+        self.world_pose = world_pose
+        self.is_keyframe = True
+
+    #in case it is removed
+    # def make_non_keyframe(self, )
 
     def load_points_features_clr(self, data):
         # image = self.image_list[self.tracked_frames]

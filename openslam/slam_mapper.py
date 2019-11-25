@@ -1,3 +1,4 @@
+from opensfm import types
 import networkx as nx
 import logging
 logger = logging.getLogger(__name__)
@@ -24,33 +25,57 @@ class SlamMapper(object):
         """SlamMapper holds a local and global map
         """
         self.num_keyfrms = 0
-        
+        self.reconstruction = None
         # Threshold of the ratio of the number of 3D points observed in the current frame to the number of 3D points observed in the latest key frame
         self.num_tracked_lms_thr = 15
         self.lms_ratio_thr = 0.9
         self.n_tracks = 0
         self.graph = nx.Graph()
         self.reconstruction = [] # dict of 3D points
-        self.landmarks_ref = LandmarkStorage()
-        self.landmarks_last = LandmarkStorage()
+        self.n_keyframes = 0
+        self.n_frames = 0
+        self.last_frame = None
+        self.last_keyframe = None
 
-    def add_new_tracks(self, im1, im2, matches):
-        for m in matches:
-            self.graph.add_node(str(im1), bipartite=0)
-            self.graph.add_node(str(im2), bipartite=0)
-            #figure out the feature id
-            fid1 = 0
-            fid2 = 1
-            self.graph.add_node(str(fid1), bipartite=1)
-            self.graph.add_node(str(fid2), bipartite=1)
-            self.graph.add_edge(str(image),
-                                str(track_id),
-                                feature=(float(x), float(y)),
-                                feature_scale=float(s),
-                                feature_id=int(featureid),
-                                feature_color=(float(r), float(g), float(b)))
-            # Add the edges
-        return True
+    def estimate_pose(self):
+        return types.Pose()
+
+    def set_last_keyframe(self, keyframe):
+        """Sets a new keyframe
+
+        Arguments:
+            keyframe: of type Frame
+        """
+        self.last_keyframe = keyframe
+        self.n_keyframes += 1
+        self.set_last_frame(keyframe)
+
+    def set_last_frame(self, frame):
+        """Sets the last frame
+
+        Arguments:
+            frame: of Frame
+        """ 
+        self.n_frames += 1
+        self.last_frame = frame
+
+    # def add_new_tracks(self, im1, im2, matches):
+    #     for m in matches:
+    #         self.graph.add_node(str(im1), bipartite=0)
+    #         self.graph.add_node(str(im2), bipartite=0)
+    #         #figure out the feature id
+    #         fid1 = 0
+    #         fid2 = 1
+    #         self.graph.add_node(str(fid1), bipartite=1)
+    #         self.graph.add_node(str(fid2), bipartite=1)
+    #         self.graph.add_edge(str(image),
+    #                             str(track_id),
+    #                             feature=(float(x), float(y)),
+    #                             feature_scale=float(s),
+    #                             feature_id=int(featureid),
+    #                             feature_color=(float(r), float(g), float(b)))
+    #         # Add the edges
+    #     return True
 
     def clean_landmarks(self):
         return True
@@ -94,13 +119,6 @@ class SlamMapper(object):
         # if (mapper_is_idle) {
         #     # mapping module: If is not in process, add keyframe for now
         #     return True;
-        # }
-
-        # mapping module: If is processing, stop local BA and add keyframe
-        # if (setup_type_ != camera::setup_type_t::Monocular
-        #     && mapper_->get_num_queued_keyframes() <= 2) {
-        #     mapper_->abort_local_BA();
-        #     return true;
         # }
 
         return False

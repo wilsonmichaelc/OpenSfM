@@ -37,10 +37,8 @@ class SlamSystem(object):
         self.initializer = SlamInitializer(self.config, self.slam_matcher)
         self.initializer.matcher = self.slam_matcher
         self.tracked_frames = 0
-        # self.feature_loader = feature_loading.FeatureLoader()
+        self.reconstruction_init = None
         self.image_list = sorted(self.data.image_list)
-        # self.global_graph = nx.Graph()
-        
         self.slam_mapper = SlamMapper(self.data, self.config)
         self.slam_tracker = SlamTracker(self.data, self.config)
 
@@ -77,16 +75,19 @@ class SlamSystem(object):
 
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
-            success, reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame)
+            self.system_initialize, self.reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame)
             # success, matches = self.init_slam_system(data, frame)
             self.tracked_frames += 1
+            self.slam_mapper.reconstruction = self.reconstruction_init
             return False
         else:
             print("success")
-            self.slam_tracker.track_reprojection
+            print("self.reconstruction_init: ", len(self.reconstruction_init.points))
+            self.slam_tracker.track(self.slam_mapper.reconstruction)
+
             return True
         return False
-        
+
             # im1, im2 = self.initializer.ref_frame.im_name, frame.im_name
             # print(im1, im2)
             # p1, f1, _ = data.load_features(im1)
