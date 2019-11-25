@@ -35,16 +35,14 @@ frame = None
 # initializer = slam_initializer()
 
 for im_name in sorted(data.image_list):
-    # print(im_name)
-    # frame = Frame(im_name)
     ret = slam_system.track_next_frame(data, im_name)
     if ret:
-        print("slam is starting")
-        print(frame.im_name)
-        stop
+        print("slam tracking")
+        print(im_name)
     else:
         print("slam trying to init")
 
+stop
 frame = input_source.get_next_frame()
 n_frames = 1
 while frame is not None:

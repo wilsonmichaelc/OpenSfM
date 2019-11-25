@@ -3,8 +3,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from slam_initializer import SlamInitializer
 from slam_matcher import SlamMatcher
 from slam_mapper import SlamMapper
-
-# from openslam import initializer
+from slam_tracker import SlamTracker
 
 from opensfm import dataset
 from opensfm import features
@@ -19,9 +18,10 @@ import logging
 
 log.setup()
 logger = logging.getLogger(__name__)
+
+
 class SlamSystem(object):
-    
-    
+
     def __init__(self, args):
         print("Init slam system", args)
         self.data = dataset.DataSet(args.dataset)
@@ -35,13 +35,14 @@ class SlamSystem(object):
         self.system_lost = True
         self.slam_matcher = SlamMatcher(self.config)
         self.initializer = SlamInitializer(self.config, self.slam_matcher)
+        self.initializer.matcher = self.slam_matcher
         self.tracked_frames = 0
         # self.feature_loader = feature_loading.FeatureLoader()
         self.image_list = sorted(self.data.image_list)
         # self.global_graph = nx.Graph()
         
         self.slam_mapper = SlamMapper(self.data, self.config)
-        self.initializer.matcher = self.slam_matcher
+        self.slam_tracker = SlamTracker(self.data, self.config)
 
     def add_arguments(self, parser):
         parser.add_argument('dataset', help='dataset to process')
@@ -60,22 +61,32 @@ class SlamSystem(object):
         if self.tracked_frames == 0:
             self.initializer.set_initial_frame(data, frame)
             matches = []
+            return False, None, None, None
         else:
-            self.system_initialized, matches = self.initializer.initialize(data, frame)
-        print("init: {}, matches {} ".format(self.system_initialized, matches))
-        if (self.system_initialized):
-        # if len(matches is not None:
-            print("Returning", self.system_initialized, len(matches), len(matches[1][frame.im_name]))
-        print(self.tracked_frames, self.system_initialized, matches)
-        return self.system_initialized, matches
+            # , matches = self.initializer.initialize(data, frame)
+            reconstruction_init, graph_inliers, matches = self.initializer.initialize(data, frame)
+            self.system_initialized = reconstruction_init is not None
+            print("init: {}, matches {} ".format(self.system_initialized, matches))
+            if (self.system_initialized):
+                print("System initialized!")
+                # print("Returning", self.system_initialized, len(matches), len(matches[1][frame]))
+            print(self.tracked_frames, self.system_initialized, matches)
+            return self.system_initialized, reconstruction_init, graph_inliers, matches
 
     def track_next_frame(self, data, frame): #, slam_matcher, slam_mapper):
 
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
-            success, matches = self.init_slam_system(data, frame)
+            success, reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame)
+            # success, matches = self.init_slam_system(data, frame)
             self.tracked_frames += 1
             return False
+        else:
+            print("success")
+            self.slam_tracker.track_reprojection
+            return True
+        return False
+        
             # im1, im2 = self.initializer.ref_frame.im_name, frame.im_name
             # print(im1, im2)
             # p1, f1, _ = data.load_features(im1)
@@ -130,8 +141,8 @@ class SlamSystem(object):
 
 
 
-            if success:
-                print("success")
+            # if success:
+                # print("success")
                 # stop
                 #initialized
                 # self.slam_mapper.add_new_tracks(self.initializer.ref_frame.im_name,
