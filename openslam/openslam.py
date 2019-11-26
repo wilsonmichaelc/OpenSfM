@@ -4,7 +4,7 @@ from slam_initializer import SlamInitializer
 from slam_matcher import SlamMatcher
 from slam_mapper import SlamMapper
 from slam_tracker import SlamTracker
-
+from slam_frame import Frame
 from opensfm import dataset
 from opensfm import features
 from opensfm import reconstruction
@@ -56,34 +56,51 @@ class SlamSystem(object):
 
     def init_slam_system(self, data, frame):
         """Find the initial depth estimates for the slam map"""
+        print("init_slam_system: ", frame)
         if self.tracked_frames == 0:
             self.initializer.set_initial_frame(data, frame)
+            self.tracked_frames += 1
             matches = []
             return False, None, None, None
         else:
-            # , matches = self.initializer.initialize(data, frame)
+            print("Trying initialize")
             reconstruction_init, graph_inliers, matches = self.initializer.initialize(data, frame)
-            self.system_initialized = reconstruction_init is not None
+            print("Tried to initialize ", reconstruction_init)
+            self.system_initialized = (reconstruction_init is not None)
+            
             print("init: {}, matches {} ".format(self.system_initialized, matches))
             if (self.system_initialized):
-                print("System initialized!")
+                print("System initialized!", len(matches))
                 # print("Returning", self.system_initialized, len(matches), len(matches[1][frame]))
+                # print(graph_inliers[str(frame)])
             print(self.tracked_frames, self.system_initialized, matches)
             return self.system_initialized, reconstruction_init, graph_inliers, matches
 
-    def track_next_frame(self, data, frame): #, slam_matcher, slam_mapper):
-
+    def track_next_frame(self, data, frame: str):
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
-            self.system_initialize, self.reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame)
-            # success, matches = self.init_slam_system(data, frame)
-            self.tracked_frames += 1
-            self.slam_mapper.reconstruction = self.reconstruction_init
-            return False
+            self.system_initialized, self.reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame)
+            if self.system_initialized:
+                self.tracked_frames += 1
+                self.slam_mapper.reconstruction = self.reconstruction_init
+                # init successful, create new kf
+                kf = Frame(frame)
+                print(matches[:, 1].max())
+                print(graph_inliers[str(frame)])
+                print(len(graph_inliers[str(frame)].keys()))
+
+                # Take all points as landmarks
+                kf.set_visible_landmarks(self.reconstruction_init.points, graph_inliers[str(frame)])
+                # , matches[:, 1])
+                self.slam_mapper.set_last_keyframe(kf)
+            print("Init: ", self.system_initialized)
+            return self.system_initialized
         else:
             print("success")
-            print("self.reconstruction_init: ", len(self.reconstruction_init.points))
-            self.slam_tracker.track(self.slam_mapper.reconstruction)
+            print("self.reconstruction_init: ",
+                  len(self.reconstruction_init.points))
+            self.slam_tracker.track(self.slam_mapper, frame,
+                                    self.config, self.camera, data)
 
             return True
         return False

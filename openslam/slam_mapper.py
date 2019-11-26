@@ -4,20 +4,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class LandmarkStorage(object):
-    """Stores the 3D pos, desc and 2D pos of landmarks from a previous frame """
-    def __init__(self):
-        self.pos3Dworld = []
-        self.pos2D = []
-        self.descs = []
-        self.name = ''
-        self.valid_idx = [] # Note: this is currently a workaround since we currently store all features
+# class LandmarkStorage(object):
+#     """Stores the 3D pos, desc and 2D pos of landmarks from a previous frame """
+#     def __init__(self):
+#         self.pos3Dworld = []
+#         self.pos2D = []
+#         self.descs = []
+#         self.name = ''
+#         self.valid_idx = [] # Note: this is currently a workaround since we currently store all features
     
-    def update(self, pos3Dworld, pos2D, descs, name, valid_idx):
-        self.pos3Dworld = pos3Dworld
-        self.pos2D = pos2D
-        self.descs = descs
-        self.name = name
+#     def update(self, pos3Dworld, pos2D, descs, name, valid_idx):
+#         self.pos3Dworld = pos3Dworld
+#         self.pos2D = pos2D
+#         self.descs = descs
+#         self.name = name
 
 class SlamMapper(object):
 
@@ -36,8 +36,12 @@ class SlamMapper(object):
         self.n_frames = 0
         self.last_frame = None
         self.last_keyframe = None
+        self.keyframes = []
+        self.frames = []
 
     def estimate_pose(self):
+        if self.last_keyframe is not None:
+            return self.last_keyframe.world_pose
         return types.Pose()
 
     def set_last_keyframe(self, keyframe):
@@ -49,15 +53,21 @@ class SlamMapper(object):
         self.last_keyframe = keyframe
         self.n_keyframes += 1
         self.set_last_frame(keyframe)
+        # TODO: Think about initializing the new keyframe with the
+        #       old landmarks
+        if len(self.keyframes) > 0:
+            self.keyframes[-1].store()
+        self.keyframes.append(keyframe) 
 
     def set_last_frame(self, frame):
         """Sets the last frame
 
         Arguments:
             frame: of Frame
-        """ 
+        """
         self.n_frames += 1
         self.last_frame = frame
+        self.frames.append(frame)
 
     # def add_new_tracks(self, im1, im2, matches):
     #     for m in matches:

@@ -2,6 +2,7 @@ from opensfm import feature_loader
 from opensfm import features
 from opensfm import types
 import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -10,15 +11,25 @@ class Frame(object):
 
     def __init__(self, name):
         self.im_name = name
-        self.visible_landmarks = []
+        self.visible_landmarks = None
         self.frame_id = -1
         self.world_pose = types.Pose()
         self.is_keyframe = False
         self.rel_pose_to_kf = types.Pose()
         self.kf_id = -1
-    
-    def set_visible_landmarks(self, idx):
-        self.visible_landmarks = self.visible_landmarks[idx,:]
+
+    def update_visible_landmarks(self, idx):
+        if self.visible_landmarks is None:
+            return
+        self.visible_landmarks = self.visible_landmarks[idx, :]
+
+    def set_visible_landmarks(self, points, inliers):
+        self.visible_landmarks = points  # id, coordinates
+        print(np.arange(len(points)).shape)
+        self.idx_valid = np.zeros(len(inliers.values()))
+        for (idx, feature) in enumerate(inliers.values()):
+            self.idx_valid[idx] = feature['feature_id']
+        print("self.idx_valid ", self.idx_valid)
 
     def store(self):
         """Reduces the object to just the header"""

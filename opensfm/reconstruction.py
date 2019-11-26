@@ -687,9 +687,9 @@ def two_view_reconstruction(p1, p2, camera1, camera2, threshold):
     # Here we arbitrarily assume that the threshold is given for a camera of
     # focal length 1.  Also, arctan(threshold) \approx threshold since
     # threshold is small
-    print("b1: ", len(b1), " b2: ", len(b2))
-    print("p1: ", len(p1), " p2: ", len(p2))
-    print(b1, b2)
+    # print("b1: ", len(b1), " b2: ", len(b2))
+    # print("p1: ", len(p1), " p2: ", len(p2))
+    # print(b1, b2)
     T = multiview.relative_pose_ransac(
         b1, b2, b"STEWENIUS", 1 - np.cos(threshold), 1000, 0.999)
     R = T[:, :3]
@@ -781,10 +781,6 @@ def bootstrap_reconstruction(data, graph, im1, im2, p1, p2):
 
     threshold = data.config['five_point_algo_threshold']
     min_inliers = data.config['five_point_algo_min_inliers']
-    # print(p1.shape, p2.shape)
-    # print(len(p1), len(p2))
-    # print(p1)
-    # print(p2)
     R, t, inliers, report['two_view_reconstruction'] = \
         two_view_reconstruction_general(p1, p2, camera1, camera2, threshold)
 
