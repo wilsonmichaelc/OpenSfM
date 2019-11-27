@@ -91,6 +91,7 @@ class SlamSystem(object):
 
                 # Take all points as landmarks
                 kf.set_visible_landmarks(self.reconstruction_init.points, graph_inliers[str(frame)])
+                self.slam_mapper.graph = graph_inliers
                 # , matches[:, 1])
                 self.slam_mapper.set_last_keyframe(kf)
             print("Init: ", self.system_initialized)

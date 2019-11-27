@@ -1,4 +1,5 @@
 from opensfm import types
+from opensfm import reconstruction
 import networkx as nx
 import logging
 logger = logging.getLogger(__name__)
@@ -68,6 +69,25 @@ class SlamMapper(object):
         self.n_frames += 1
         self.last_frame = frame
         self.frames.append(frame)
+
+    def add_frame_to_reconstruction(self, frame, pose, camera, data):
+        shot1 = types.Shot()
+        shot1.id = frame
+        shot1.camera = camera[1]
+        shot1.pose = types.Pose(pose.rotation, pose.translation)
+        shot1.metadata = reconstruction.get_image_metadata(data, frame)
+        self.reconstruction.add_shot(shot1)
+
+    def paint_reconstruction(self, data):
+        reconstruction.paint_reconstruction(data, self.graph,
+                                            self.reconstruction)
+
+    def save_reconstruction(self, data, name: str):
+        
+        data.save_reconstruction([self.reconstruction],
+                                 'reconstruction'+name+'.json')
+
+
 
     # def add_new_tracks(self, im1, im2, matches):
     #     for m in matches:

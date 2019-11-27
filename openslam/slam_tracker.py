@@ -113,16 +113,16 @@ class SlamTracker(object):
 
         # constant motion velocity -> just say id
         shot_id = str(0)
-        camera_id = str(0)
+        camera_id = str(camera[0])
         camera_const = False
         ba.add_shot(shot_id, str(camera_id), init_pose.rotation, init_pose.translation, camera_const)
         points_3D_constant = True
         # Add points in world coordinates
         for (pt_id, pt_coord) in enumerate(points3D):
-            print("point id: ", pt_id, " coord: ", pt_coord)
+            # print("point id: ", pt_id, " coord: ", pt_coord)
             ba.add_point(str(pt_id), pt_coord, points_3D_constant)
             ft = observations[pt_id, :]
-            print("Adding obs: ", pt_id, ft)
+            # print("Adding obs: ", pt_id, ft)
             ba.add_point_projection_observation(shot_id, str(pt_id),
                                                 ft[0], ft[1], ft[2])
         #Assume observations N x 3 (x,y,s)
@@ -141,8 +141,9 @@ class SlamTracker(object):
         #     if config['align_orientation_prior'] == 'horizontal':
         #         for shot_id in reconstruction.shots:
         #             ba.add_absolute_up_vector(shot_id, [0, 1, 0], 1e-3)
+        ba.add_absolute_up_vector(shot_id, [0, 0, -1], 1e-3)
         print("Added points")
-        ba.add_absolute_up_vector(shot_id, [0, 1, 0], 1e-3)
+        # ba.add_absolute_up_vector(shot_id, [0, 1, 0], 1e-3)
         print("Added add_absolute_up_vector")
         ba.set_point_projection_loss_function(config['loss_function'],
                                               config['loss_function_threshold'])
@@ -184,27 +185,32 @@ class SlamTracker(object):
         #now match
 
         
-        chrono.lap('setup')
+        # chrono.lap('setup')
         ba.run()
-        chrono.lap('run')
+        # chrono.lap('run')
 
         print("BA finished")
 
         # for camera in reconstruction.cameras.values():
         # _get_camera_from_bundle(ba, camera)
 
+        
         # for shot in reconstruction.shots.values():
         s = ba.get_shot(shot_id)
         pose = types.Pose()
         pose.rotation = [s.r[0], s.r[1], s.r[2]]
         pose.translation = [s.t[0], s.t[1], s.t[2]]
+        print("Estimated pose: ", pose.rotation, pose.translation)
+        print("Init pose: ", init_pose.rotation, init_pose.translation)
+        # reproject_landmarks(points3D, observations, pose, , camera[1], data)
+        # reproject_landmarks(points3D, points2D, init_pose, frame2, camera[1], data)
 
-        print("Estimated pose: ", pose)
+
         # for point in reconstruction.points.values():
         #     p = ba.get_point(point.id)
         #     point.coordinates = [p.p[0], p.p[1], p.p[2]]
         #     point.reprojection_errors = p.reprojection_errors
-        return True
+        return True, pose
 
     # def _track_internal(self, landmarks1, frame1 : Frame, frame2 : str,
     #                     init_pose, camera, config, data):
@@ -244,18 +250,23 @@ class SlamTracker(object):
         points2D = points2D[matches[idx2, 1], :]
         # points2D = points2D[idx2, :]
         points3D = points3D[idx1, :] #matches[:, 0]]
-        print("m1", m1)
-        print("idx1 ", idx1)
-        print("idx2 ", idx2)
+        # print("m1", m1)
+        # print("idx1 ", idx1)
+        # print("idx2 ", idx2)
         
-        print("lengths: ", len(points2D), len(points3D))
-        reproject_landmarks(points3D, points2D, init_pose, frame2, camera[1], data)
+        # print("lengths: ", len(points2D), len(points3D))
+        # reproject_landmarks(points3D, points2D, init_pose, frame2, camera[1], data)
 
         if len(m1) < 100:
-            return False
+            return None
 
         #Start tracking
-        self.track_reprojection(points3D, points2D, init_pose, camera, config, data)
+        success, pose = self.track_reprojection(points3D, points2D, init_pose, camera, config, data)
+        reproject_landmarks(points3D, points2D, init_pose, frame2, camera[1], data)
+        reproject_landmarks(points3D, points2D, pose, frame2, camera[1], data)
+
+        return pose
+        
 
     def track(self, slam_mapper: SlamMapper, frame: str, config, camera, data):
         """Tracks the current frame with respect to the reconstruction
@@ -273,20 +284,27 @@ class SlamTracker(object):
         #                         slam_mapper.last_frame.visible_landmarks,
         #                         slam_mapper.last_frame.im_name, frame,
         #                         init_pose, camera, config, data)
-        success = self._track_internal(
+        # print("camera: ", camera)
+        # print("rec camera: ", slam_mapper.reconstruction.cameras.values())
+        # for c in slam_mapper.reconstruction.cameras.values():
+        #     print("r cam: ", c, c.id, " id2: ", camera[1].id)
+        # exit()
+        pose = self._track_internal(
                                 slam_mapper.last_frame, frame,
                                 init_pose, camera, config, data)
         # Now, try to match to last kf
-        if slam_mapper.last_frame.frame_id == \
-           slam_mapper.last_keyframe.frame_id or not success:
+        if slam_mapper.last_frame.frame_id != \
+           slam_mapper.last_keyframe.frame_id and pose is None:
 
             init_pose = types.Pose()
-            success = self._track_internal(
+            pose = self._track_internal(
                         slam_mapper.last_keyframe.visible_landmarks,
                         slam_mapper.last_keyframe.im_name,
                         frame, init_pose)
 
-
+        slam_mapper.add_frame_to_reconstruction(frame, pose, camera, data)
+        slam_mapper.paint_reconstruction(data)
+        slam_mapper.save_reconstruction(data, frame)
 
         #prepare the bundle
         
