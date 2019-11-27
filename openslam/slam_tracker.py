@@ -102,7 +102,7 @@ class SlamTracker(object):
         chrono = Chronometer()
         ba = csfm.BundleAdjuster()
         # for camera in reconstruction.cameras.values():
-        reconstruction._add_camera_to_bundle(ba, camera, False)
+        reconstruction._add_camera_to_bundle(ba, camera[1], True)
         # init with a constant motion model!
         # shot == last image
         # shot = reconstruction.shots[last_frame]
@@ -112,17 +112,18 @@ class SlamTracker(object):
         # ba.add_shot(shot.id, 0, r, t, True)
 
         # constant motion velocity -> just say id
-        shot_id = 0
-        camera_id = 0
-        ba.add_shot(shot_id, camera_id, init_pose)
+        shot_id = str(0)
+        camera_id = str(0)
+        camera_const = False
+        ba.add_shot(shot_id, str(camera_id), init_pose.rotation, init_pose.translation, camera_const)
         points_3D_constant = True
         # Add points in world coordinates
         for (pt_id, pt_coord) in enumerate(points3D):
             print("point id: ", pt_id, " coord: ", pt_coord)
-            ba.add_point(pt_id, pt_coord, points_3D_constant)
+            ba.add_point(str(pt_id), pt_coord, points_3D_constant)
             ft = observations[pt_id, :]
             print("Adding obs: ", pt_id, ft)
-            ba.add_point_projection_observation(shot_id, pt_id,
+            ba.add_point_projection_observation(shot_id, str(pt_id),
                                                 ft[0], ft[1], ft[2])
         #Assume observations N x 3 (x,y,s)
         # for (ft_id, ft) in enumerate(observations):
@@ -140,10 +141,12 @@ class SlamTracker(object):
         #     if config['align_orientation_prior'] == 'horizontal':
         #         for shot_id in reconstruction.shots:
         #             ba.add_absolute_up_vector(shot_id, [0, 1, 0], 1e-3)
-
+        print("Added points")
         ba.add_absolute_up_vector(shot_id, [0, 1, 0], 1e-3)
+        print("Added add_absolute_up_vector")
         ba.set_point_projection_loss_function(config['loss_function'],
                                               config['loss_function_threshold'])
+        print("Added set_point_projection_loss_function")
         ba.set_internal_parameters_prior_sd(
             config['exif_focal_sd'],
             config['principal_point_sd'],
@@ -152,9 +155,11 @@ class SlamTracker(object):
             config['radial_distorsion_p1_sd'],
             config['radial_distorsion_p2_sd'],
             config['radial_distorsion_k3_sd'])
+        print("Added set_internal_parameters_prior_sd")
         ba.set_num_threads(config['processes'])
         ba.set_max_num_iterations(50)
         ba.set_linear_solver_type("SPARSE_SCHUR")
+        print("set_linear_solver_type")
         # for track in graph[shot_id]:
         #     #track = id of the 3D point
         #     if track in reconstruction.points:
@@ -182,6 +187,8 @@ class SlamTracker(object):
         chrono.lap('setup')
         ba.run()
         chrono.lap('run')
+
+        print("BA finished")
 
         # for camera in reconstruction.cameras.values():
         # _get_camera_from_bundle(ba, camera)
