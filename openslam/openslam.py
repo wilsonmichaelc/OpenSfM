@@ -57,9 +57,9 @@ class SlamSystem(object):
     def init_slam_system(self, data, frame):
         """Find the initial depth estimates for the slam map"""
         print("init_slam_system: ", frame)
-        if self.tracked_frames == 0:
+        if self.initializer.ref_frame is None:
             self.initializer.set_initial_frame(data, frame)
-            self.tracked_frames += 1
+            # self.tracked_frames += 1
             matches = []
             return False, None, None, None
         else:
@@ -68,29 +68,26 @@ class SlamSystem(object):
             print("Tried to initialize ", reconstruction_init)
             self.system_initialized = (reconstruction_init is not None)
             
-            print("init: {}, matches {} ".format(self.system_initialized, matches))
+            # print("init: {}, matches {} ".format(self.system_initialized, matches))
             if (self.system_initialized):
                 print("System initialized!", len(matches))
                 # print("Returning", self.system_initialized, len(matches), len(matches[1][frame]))
                 # print(graph_inliers[str(frame)])
-            print(self.tracked_frames, self.system_initialized, matches)
+            # print(self.tracked_frames, self.system_initialized, matches)
             return self.system_initialized, reconstruction_init, graph_inliers, matches
 
-    def track_next_frame(self, data, frame: str):
+    def track_next_frame(self, data, frame: Frame):
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
-            self.system_initialized, self.reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame)
+            self.system_initialized, self.reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame.im_name)
             if self.system_initialized:
+                frame.id = self.tracked_frames
                 self.tracked_frames += 1
                 self.slam_mapper.reconstruction = self.reconstruction_init
                 # init successful, create new kf
-                kf = Frame(frame)
-                print(matches[:, 1].max())
-                print(graph_inliers[str(frame)])
-                print(len(graph_inliers[str(frame)].keys()))
-
+                kf = Frame(frame.im_name)
                 # Take all points as landmarks
-                kf.set_visible_landmarks(self.reconstruction_init.points, graph_inliers[str(frame)])
+                kf.set_visible_landmarks(self.reconstruction_init.points, graph_inliers[str(frame.im_name)])
                 self.slam_mapper.graph = graph_inliers
                 # , matches[:, 1])
                 self.slam_mapper.set_last_keyframe(kf)
@@ -100,91 +97,21 @@ class SlamSystem(object):
             print("success")
             print("self.reconstruction_init: ",
                   len(self.reconstruction_init.points))
-            self.slam_tracker.track(self.slam_mapper, frame,
-                                    self.config, self.camera, data)
-
+            pose = self.slam_tracker.track(self.slam_mapper, frame,
+                                           self.config, self.camera, data)
+            if pose is not None:
+                self.slam_mapper.update_local_map()
+                pose = self.slam_mapper.track_with_local_map()
+                if pose is not None:
+                    self.tracked_frames += 1
+                    # Store the map
+                    self.slam_mapper.add_frame_to_reconstruction(frame, pose, self.camera, data)
+                    self.slam_mapper.paint_reconstruction(data)
+                    self.slam_mapper.save_reconstruction(data, frame)
+                    new_kf = self.slam_mapper.new_kf_needed(1000, frame)
+                    print("New kf needed: ", new_kf)
             return True
-        return False
-
-            # im1, im2 = self.initializer.ref_frame.im_name, frame.im_name
-            # print(im1, im2)
-            # p1, f1, _ = data.load_features(im1)
-            # # p1v, f1v, _ = feature_loader.instance.load_points_features_colors(
-            # #    data, im1, masked=True)
-            # # print("p1:",p1, "p1v:", p1v)
-            # # print("f1:",f1, "f1v:", f1v)
-            # # print(p1.shape,p1v.shape,f1.shape,f1v.shape)
-            # p2, f2, _ = data.load_features(im2)
-            # #feature_loader.instance.load_points_features_colors(
-            # #    data, im2, masked=True)
-            # threshold = data.config['five_point_algo_threshold']
-            # if not success:
-            #     self.tracked_frames += 1
-            #     return False
-            # print(p1[:,:3])
-            # print(len(matches))
-            # print(matches[frame.im_name])
-            # matches = matches[frame.im_name]
-            # # print(len(matches))
-            # # print(len(p1),len(p2))
-            # # print(p1.shape, p2.shape)
-            # # print(p1)
-            # p1 = p1[matches[:,0],:]
-            # p2 = p2[matches[:,1],:]
-            # # print(len(p1),len(p2))
-            # print(p1.shape, p2.shape)
-            # print(p1)
-            # threshold = 4 * data.config['five_point_algo_threshold']
-            # args = []
-            # args.append((im1, im2, p1[:,0:2], p2[:,0:2], self.camera_object, self.camera_object, threshold))
-            # # im1, im2, p1, p2, camera1, camera2, threshold = args
-            # # print("self.camera_object.pixel_bearing_many(p1)", self.camera_object.pixel_bearing_many(p1))
-            
-            # i1, i2, r = reconstruction._compute_pair_reconstructability(args[0])
-            # print("i1:", i1, " i2: ", i2)
-            # print("r:", r)
-            # # stop
-            # # print(self.camera)
-            # # print(self.camera[1].pixel_bearing_many(p1))
-            # R, t, inliers,_ = \
-            #     reconstruction.two_view_reconstruction_general(p1, p2, self.camera[1], self.camera[1], threshold)
-            # if len(inliers) <= 5:
-            #     report['decision'] = "Could not find initial motion"
-            #     logger.info(report['decision'])
-            #     return False
-            #     # return None, None, report
-            # # print("here",p1)
-            # # print(len(p1),len(p1(matches[:,0])))
-            # print("R: ", R, " t: ", t)
-            # print("inliers: ", inliers, len(inliers))
-
-
-
-            # if success:
-                # print("success")
-                # stop
-                #initialized
-                # self.slam_mapper.add_new_tracks(self.initializer.ref_frame.im_name,
-                                                # frame.im_name, matches)
-                # slam_matcher.match(self.initializer)
-                # matching.match
-                # system is initialized now
-                # add first frame and current frame to the graph!        
-                # self.global_graph.add_node(str(self.initializer.ref_frame.im_name), bipartite=0)
-                # self.global_graph.add_node(str(frame.im_name), bipartite=0)
-                #now add the matches between both -> where do I get the matches from?
-                #for track_id 
-                # tracks_graph.add_node(str(track_id), bipartite=1)
-                # tracks_graph.add_edge(str(image),
-                #                     str(track_id),
-                #                     feature=(float(x), float(y)),
-                #                     feature_scale=float(s),
-                #                     feature_id=int(featureid),
-                #                     feature_color=(float(r), float(g), float(b)))
-                
-                # TODO: Use _good_track....
-        self.tracked_frames += 1
-        return not self.system_lost
+        # return False
 
     def local_optimization(self):
         return True

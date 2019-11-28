@@ -30,31 +30,22 @@ class SlamInitializer(object):
         success, matches = self.slam_matcher.match(data, im1, im2, camera)
         if not success:
             return None, None, None
-        print(p1[:, :3])
-        print(len(matches))
-        print(matches[im2])
-
         matches = matches[im2]
         p1 = p1[matches[:, 0], :]
         p2 = p2[matches[:, 1], :]
         f1, f2 = f1[matches[:, 0], :], f2[matches[:, 1], :]
         c1, c2 = c1[matches[:, 0], :], c2[matches[:, 1], :]
-        print(p1.shape, p2.shape)
-        print(p1)
+        # print(p1.shape, p2.shape)
+        # print(p1)
         threshold = 4 * data.config['five_point_algo_threshold']
         args = []
         args.append((im1, im2, p1[:, 0:2], p2[:, 0:2],
                      camera, camera, threshold))
-        # args.append((im1, im2, p1[:,0:2], p2[:,0:2], self.camera_object, self.camera_object, threshold))
-        # im1, im2, p1, p2, camera1, camera2, threshold = args
-        # print("self.camera_object.pixel_bearing_many(p1)", self.camera_object.pixel_bearing_many(p1))
-
         i1, i2, r = reconstruction._compute_pair_reconstructability(args[0])
-        print("i1:", i1, " i2: ", i2)
-        print("r:", r)
+        # print("i1:", i1, " i2: ", i2)
+        # print("r:", r)
         if r == 0:
             return None, None, None
-            #return False, [], []
 
         # create the graph
         tracks_graph = nx.Graph()
@@ -81,34 +72,14 @@ class SlamInitializer(object):
                                   feature_id=int(f2_id),
                                   feature_color=(float(r), float(g), float(b)))
 
-        # # only add the matches
-        # for i in range(0, len(f1)):
-        #     track_id = i
-        #     x, y, s = p1[track_id, :-1]
-        #     r, g, b = c1[track_id, :]
-        #     tracks_graph.add_node(str(i), bipartite=1)
-        #     tracks_graph.add_edge(str(self.ref_frame),
-        #                           str(i),
-        #                           feature=(float(x), float(y)),
-        #                           feature_scale=float(s),
-        #                           feature_id=int(feature_id),
-        #                           feature_color=(float(r), float(g), float(b)))
-        #     x, y, s = p2[track_id, :-1]
-        #     r, g, b = c2[track_id, :]
-        #     tracks_graph.add_edge(str(frame),
-        #                           str(i),
-        #                           feature=(float(x), float(y)),
-        #                           feature_scale=float(s),
-        #                           feature_id=int(feature_id),
-        #                           feature_color=(float(r), float(g), float(b)))
-
         rec_report = {}
         reconstruction_init, graph_inliers, rec_report['bootstrap'] = \
             reconstruction.bootstrap_reconstruction(data, tracks_graph,
                                                     self.ref_frame, frame, p1,
                                                     p2)
-
-        print("reconstruction", reconstruction_init)
+        # for v in graph_inliers[frame]:
+        #     print("v: ", v)
+        #     print(graph_inliers[frame][v])
         return reconstruction_init, graph_inliers, matches
 
     def initialize_openvslam(self, data, frame):
