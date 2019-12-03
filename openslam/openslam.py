@@ -4,7 +4,8 @@ from slam_initializer import SlamInitializer
 from slam_matcher import SlamMatcher
 from slam_mapper import SlamMapper
 from slam_tracker import SlamTracker
-from slam_frame import Frame
+from slam_types import Frame
+from slam_types import Keyframe
 from opensfm import dataset
 from opensfm import features
 from opensfm import reconstruction
@@ -57,11 +58,11 @@ class SlamSystem(object):
     def init_slam_system(self, data, frame):
         """Find the initial depth estimates for the slam map"""
         print("init_slam_system: ", frame)
-        if self.initializer.ref_frame is None:
+        if self.initializer.init_frame is None:
             self.initializer.set_initial_frame(data, frame)
             # self.tracked_frames += 1
             matches = []
-            return False, None, None, None
+            return False #, None, None, None
         else:
             print("Trying initialize")
             reconstruction_init, graph_inliers, matches = self.initializer.initialize(data, frame)
@@ -71,32 +72,51 @@ class SlamSystem(object):
             # print("init: {}, matches {} ".format(self.system_initialized, matches))
             if (self.system_initialized):
                 print("System initialized!", len(matches))
-                # print("Returning", self.system_initialized, len(matches), len(matches[1][frame]))
-                # print(graph_inliers[str(frame)])
+                # print(reconstruction_init.shots)
+                # print(reconstruction_init.points)
+                print(graph_inliers.nodes())
+                # print(graph_inliers['00000.png',])
+                self.slam_mapper.create_init_map(graph_inliers,
+                                                 reconstruction_init,
+                                                 self.initializer.init_frame,
+                                                 frame)
+                # exit()
+                # #let's create two keyframes and add them to the mapper
+                # init_keyfrm = Keyframe(self.initializer.init_frame)
+                # ref_keyfrm = Keyframe(frame)
+                # self.slam_mapper.
             # print(self.tracked_frames, self.system_initialized, matches)
-            return self.system_initialized, reconstruction_init, graph_inliers, matches
+            return self.system_initialized #, reconstruction_init, graph_inliers, matches
 
     def track_next_frame(self, data, frame: Frame):
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
-            self.system_initialized, self.reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame.im_name)
+            self.system_initialized = self.init_slam_system(data, frame)
+            # self.reconstruction_init, graph_inliers, matches = self.init_slam_system(data, frame)
             if self.system_initialized:
-                frame.id = self.tracked_frames
+                # frame.id = self.tracked_frames
                 self.tracked_frames += 1
-                self.slam_mapper.reconstruction = self.reconstruction_init
+                # self.slam_mapper.reconstruction = self.reconstruction_init
                 # init successful, create new kf
-                kf = Frame(frame.im_name)
+                # kf = Frame(frame.im_name)
                 # Take all points as landmarks
-                kf.set_visible_landmarks(self.reconstruction_init.points, graph_inliers[str(frame.im_name)])
-                self.slam_mapper.graph = graph_inliers
+                # kf.set_visible_landmarks(self.reconstruction_init.points, graph_inliers[str(frame.im_name)])
+                # self.slam_mapper.graph = graph_inliers
                 # , matches[:, 1])
-                self.slam_mapper.set_last_keyframe(kf)
+                self.slam_mapper.update_local_map()
+                # self.slam_mapper.set_curr_kf(kf)
             print("Init: ", self.system_initialized)
             return self.system_initialized
         else:
             print("success")
             print("self.reconstruction_init: ",
-                  len(self.reconstruction_init.points))
+                  len(self.slam_mapper.reconstruction.points))
+            
+            # Maybe remove most of the slam_mapper stuff
+            # to tracking
+            self.slam_mapper.apply_landmark_replace()
+            # self.slam_mapper.update_last_keyframe()
+            # frame.
             pose = self.slam_tracker.track(self.slam_mapper, frame,
                                            self.config, self.camera, data)
             if pose is not None:

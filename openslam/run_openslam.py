@@ -1,7 +1,7 @@
 import os.path, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # from openslam import initializer
-from slam_frame import Frame
+from slam_types import Frame
 from openslam import SlamSystem
 
 from slam_input_sources import video_source

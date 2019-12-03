@@ -1,7 +1,9 @@
 from opensfm import matching
+# from feature_loader import instance
+from opensfm import feature_loader
 import logging
 import numpy as np
-from slam_frame import Frame
+from slam_types import Frame
 logger = logging.getLogger(__name__)
 
 #TODO: implement an instance similar to feature loader!
@@ -27,7 +29,17 @@ class SlamMatcher(object):
             return False, {}
         return True, im1_matches
 
-    def match_landmarks_to_image(self, last_frame: Frame, frame: Frame, camera, data):
+    def match_current_and_last_frame(self, last_frame: Frame, frame: Frame,
+                                     camera, data):
+        cameras = data.load_camera_models()
+        camera_obj = next(iter(cameras.values()))
+        print("Last frame: ", last_frame)
+        print("match_frame_to_frame", last_frame.im_name, frame.im_name)                         
+        margin = 10
+        self.match_frame_to_landmarks(last_frame.landmarks_, frame, margin)
+
+    def match_frame_to_frame(self, last_frame: Frame, frame: Frame, 
+                             camera, data):
         # think about simply passing the descriptors of the last frame
         # for now, load
         # im1_matches = {}
@@ -36,8 +48,9 @@ class SlamMatcher(object):
         cameras = data.load_camera_models()
         camera_obj = next(iter(cameras.values()))
         print("Last frame: ", last_frame)
-        print("match_landmarks_to_image", last_frame.im_name, frame.im_name)
-        success, matches = self.match(data, last_frame.im_name, frame.im_name, camera_obj)
+        print("match_frame_to_frame", last_frame.im_name, frame.im_name)
+        success, matches = self.match(data, last_frame.im_name, frame.im_name,
+                                      camera_obj)
         if success:
             # valid_idx == idx of lm in features
             # matches[:,0] == valid idx of matches
@@ -61,6 +74,23 @@ class SlamMatcher(object):
     # def distribute_keypoints_on_pyr(self, , width, height):
 
 
+    def match_frame_to_landmarks(self, frame: Frame, landmarks, margin):
+        """Matches a frame to landmarks
+        """
+        p1, f1, _ = feature_loader.instance.load_points_features_colors(
+        data, im1, masked=True)
+        f2 = []
+        for lm in landmarks:
+            
+            if lm.is_observable_in_tracking and \
+               lm.descriptors is not None:
+                f2.append(lm.descriptor)
+        matches = matching.match_brute_force_symmetric(f1, f2, self.config)
+        # TODO: Do some additional checks
+        for (m1, _) in matches:
+            frame.visible_landmarks = landmarks[m1].lm_id
+        
+        return len(matches)
 
     def matchOpenVSlam(self):
         return True

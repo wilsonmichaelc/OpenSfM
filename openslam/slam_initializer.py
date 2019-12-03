@@ -12,15 +12,15 @@ class SlamInitializer(object):
     def __init__(self, config, slam_matcher):
         print("initializer")
         self.init_type = "OpenSfM"
-        self.ref_frame = None
+        self.init_frame = None
         self.slam_matcher = slam_matcher
 
     def set_initial_frame(self, data, frame):
         """Sets the first frame"""
-        self.ref_frame = frame
+        self.init_frame = frame
 
     def initialize_opensfm(self, data, frame):
-        im1, im2 = self.ref_frame, frame
+        im1, im2 = self.init_frame.im_name, frame.im_name
         print(im1, im2)
         p1, f1, c1 = data.load_features(im1)
         p2, f2, c2 = data.load_features(im2)
@@ -49,15 +49,15 @@ class SlamInitializer(object):
 
         # create the graph
         tracks_graph = nx.Graph()
-        tracks_graph.add_node(str(self.ref_frame), bipartite=0)
-        tracks_graph.add_node(str(frame), bipartite=0)
+        tracks_graph.add_node(str(im1), bipartite=0)
+        tracks_graph.add_node(str(im2), bipartite=0)
 
         for (track_id, (f1_id, f2_id)) in enumerate(matches):
             # track_id = i
             x, y, s = p1[track_id, :-1]
             r, g, b = c1[track_id, :]
             tracks_graph.add_node(str(track_id), bipartite=1)
-            tracks_graph.add_edge(str(self.ref_frame),
+            tracks_graph.add_edge(str(im1),
                                   str(track_id),
                                   feature=(float(x), float(y)),
                                   feature_scale=float(s),
@@ -65,7 +65,7 @@ class SlamInitializer(object):
                                   feature_color=(float(r), float(g), float(b)))
             x, y, s = p2[track_id, :-1]
             r, g, b = c2[track_id, :]
-            tracks_graph.add_edge(str(frame),
+            tracks_graph.add_edge(str(im2),
                                   str(track_id),
                                   feature=(float(x), float(y)),
                                   feature_scale=float(s),
@@ -75,11 +75,7 @@ class SlamInitializer(object):
         rec_report = {}
         reconstruction_init, graph_inliers, rec_report['bootstrap'] = \
             reconstruction.bootstrap_reconstruction(data, tracks_graph,
-                                                    self.ref_frame, frame, p1,
-                                                    p2)
-        # for v in graph_inliers[frame]:
-        #     print("v: ", v)
-        #     print(graph_inliers[frame][v])
+                                                    im1, im2, p1, p2)
         return reconstruction_init, graph_inliers, matches
 
     def initialize_openvslam(self, data, frame):
