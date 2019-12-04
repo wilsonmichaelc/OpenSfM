@@ -40,7 +40,7 @@ class SlamSystem(object):
         self.tracked_frames = 0
         self.reconstruction_init = None
         self.image_list = sorted(self.data.image_list)
-        self.slam_mapper = SlamMapper(self.data, self.config)
+        self.slam_mapper = SlamMapper(self.data, self.config, self.camera)
         self.slam_tracker = SlamTracker(self.data, self.config)
 
     def add_arguments(self, parser):
@@ -72,10 +72,6 @@ class SlamSystem(object):
             # print("init: {}, matches {} ".format(self.system_initialized, matches))
             if (self.system_initialized):
                 print("System initialized!", len(matches))
-                # print(reconstruction_init.shots)
-                # print(reconstruction_init.points)
-                print(graph_inliers.nodes())
-                # print(graph_inliers['00000.png',])
                 self.slam_mapper.create_init_map(graph_inliers,
                                                  reconstruction_init,
                                                  self.initializer.init_frame,
@@ -119,17 +115,40 @@ class SlamSystem(object):
             # frame.
             pose = self.slam_tracker.track(self.slam_mapper, frame,
                                            self.config, self.camera, data)
+            print("pose after track: ", pose)
             if pose is not None:
                 self.slam_mapper.update_local_map()
-                pose = self.slam_mapper.track_with_local_map()
+                print("update_local_map: ", pose)
+                pose = self.slam_mapper.track_with_local_map(frame, self.slam_tracker)
+                print("pose after track_with_local_map: ", pose)
                 if pose is not None:
                     self.tracked_frames += 1
+                    self.slam_mapper.n_frames += 1
                     # Store the map
-                    self.slam_mapper.add_frame_to_reconstruction(frame, pose, self.camera, data)
+                    self.slam_mapper.\
+                        add_frame_to_reconstruction(frame.im_name, pose, self.camera, data)
                     self.slam_mapper.paint_reconstruction(data)
-                    self.slam_mapper.save_reconstruction(data, frame)
-                    new_kf = self.slam_mapper.new_kf_needed(1000, frame)
-                    print("New kf needed: ", new_kf)
+                    self.slam_mapper.save_reconstruction(data, frame.im_name)
+                    n_lms = len(self.slam_mapper.local_landmarks)
+                    
+                    # TODO: Check that
+                    self.slam_mapper.set_last_frame(frame)
+                    # self.last_frame.landmarks_ = self.slam_mapper.local_landmarks
+                    # self.last_frame.im_name = frame.im_name
+                    # self.last_frame.frame_id = frame.frame_id
+
+                    if self.slam_mapper.new_kf_needed(n_lms, frame):
+                        new_kf = Keyframe(frame, data, self.slam_mapper.n_keyframes)
+                        self.slam_mapper.add_keyframe(new_kf)
+                        self.slam_mapper.curr_kf = new_kf
+                        print("New kf needed: ", new_kf)
+                    else:
+                        print("No kf needed")
+                    # print("n_lms: ", n_lms)
+                    # print("New kf needed: ", new_kf)
+                    # if new_kf:
+                        # print("New kf needed!!")
+                        # exit()
             return True
         # return False
 

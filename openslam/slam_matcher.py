@@ -34,9 +34,11 @@ class SlamMatcher(object):
         cameras = data.load_camera_models()
         camera_obj = next(iter(cameras.values()))
         print("Last frame: ", last_frame)
-        print("match_frame_to_frame", last_frame.im_name, frame.im_name)                         
+        print("Frame: ", frame)
+        print("match_current_and_last_frame", last_frame.im_name, frame.im_name)
         margin = 10
-        self.match_frame_to_landmarks(last_frame.landmarks_, frame, margin)
+        return self.match_frame_to_landmarks(frame, last_frame.landmarks_,
+                                             margin, data)
 
     def match_frame_to_frame(self, last_frame: Frame, frame: Frame, 
                              camera, data):
@@ -74,23 +76,38 @@ class SlamMatcher(object):
     # def distribute_keypoints_on_pyr(self, , width, height):
 
 
-    def match_frame_to_landmarks(self, frame: Frame, landmarks, margin):
+    def match_frame_to_landmarks(self, frame: Frame, landmarks, margin, data):
         """Matches a frame to landmarks
         """
+        print("frame obj: ", frame)
+        print("frame: ", frame.im_name)
         p1, f1, _ = feature_loader.instance.load_points_features_colors(
-        data, im1, masked=True)
+            data, frame.im_name, masked=True)
         f2 = []
+        # print(landmarks)
         for lm in landmarks:
-            
-            if lm.is_observable_in_tracking and \
-               lm.descriptors is not None:
+            # print("lm: ", lm, lm.lm_id, lm.is_observable_in_tracking)
+            # if lm.is_observable_in_tracking and \
+            #    lm.descriptors is not None:
+            if lm.descriptor is not None:
                 f2.append(lm.descriptor)
-        matches = matching.match_brute_force_symmetric(f1, f2, self.config)
+        # print("f1: ", f1)
+        # print("f2: ", list(f2))
+        print("f1, f2: ", len(f1), len(f2))
+        print("f1 type: ", type(f1))
+        print("f2 type: ", type(np.asarray(f2)), type(f2))
+        f2 = np.asarray(f2)
+        # print("f1.dtype: ", f1.dtype)
+        # print("f2.dtype: ", f2.dtype)
+        matches = matching.match_brute_force_symmetric(f1, f2, data.config)
+        # print(len(matches))
         # TODO: Do some additional checks
-        for (m1, _) in matches:
-            frame.visible_landmarks = landmarks[m1].lm_id
+        # indexes = [2, 3, 5]
+        # for index in sorted(matches[:, 1], reverse=True):
+            # del landmarks[index]
+
         
-        return len(matches)
+        return matches #len(matches), matches
 
     def matchOpenVSlam(self):
         return True

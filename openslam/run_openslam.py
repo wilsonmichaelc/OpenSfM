@@ -35,7 +35,8 @@ frame = None
 # initializer = slam_initializer()
 
 for im_name in sorted(data.image_list):
-    frame = Frame(im_name)
+    frame = Frame(im_name, slam_system.slam_mapper.n_frames)
+    print("frame: ", frame.im_name, frame.frame_id)
     ret = slam_system.track_next_frame(data, frame)
     if ret:
         print("slam tracking")

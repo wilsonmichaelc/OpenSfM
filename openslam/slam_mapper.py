@@ -3,6 +3,7 @@ from opensfm import reconstruction
 from slam_types import Frame
 from slam_types import Keyframe
 from slam_types import Landmark
+import slam_utils
 # from slam_tracker import SlamTracker
 from slam_matcher import SlamMatcher
 from collections import defaultdict
@@ -14,12 +15,13 @@ logger = logging.getLogger(__name__)
 
 class SlamMapper(object):
 
-    def __init__(self, data, config):
+    def __init__(self, data, config, camera):
         """SlamMapper holds a local and global map
         """
         self.data = data
+        self.camera = camera
         self.reconstruction = None
-        self.last_frame = Frame("dummy")
+        self.last_frame = Frame("dummy", -1)
         # Threshold of the ratio of the number of 3D points observed in the
         # current frame to the number of 3D points observed in the latest KF
         self.num_tracked_lms_thr = 15
@@ -42,6 +44,7 @@ class SlamMapper(object):
         self.covisibility = nx.Graph()
         self.fresh_landmarks = []
         self.current_lm_i = 0
+        
 
     def estimate_pose(self):
         if self.curr_kf is not None:
@@ -58,30 +61,40 @@ class SlamMapper(object):
         self.graph = graph_inliers
         self.reconstruction = reconstruction_init
         # Create keyframes
-        self.init_frame = Keyframe(init_frame, self.data)
+        self.init_frame = Keyframe(init_frame, self.data, 0)
         self.init_frame.world_pose = \
             reconstruction_init.shots[init_frame.im_name].pose
-        self.curr_kf = Keyframe(curr_frame, self.data)
+        self.curr_kf = Keyframe(curr_frame, self.data, 1)
         self.curr_kf.world_pose = reconstruction_init.shots[curr_frame.im_name].pose
         
         #Add to data and covisibility
         self.add_keyframe(self.init_frame)
         self.add_keyframe(self.curr_kf)
+        # self.n_keyframes = 2
+        self.n_frames = 2
+        
 
         max_lm = 0
+        # print("lm: ", self.graph[self.init_frame.im_name])
         #Add landmarks to nodes
         for lm_id in self.graph[self.init_frame.im_name]:
+            # print("lm_id: ", lm_id)
             lm = Landmark(int(lm_id))
             self.graph.add_node(lm_id, data=lm)
+
             int_id = int(lm_id)
             if int_id > max_lm:
                 max_lm = int_id
             lm.compute_descriptor(self.graph)
-            lm.update_normal_and_depth(self.graph)
+            pos_w = reconstruction_init.points[str(lm_id)].coordinates
+            lm.update_normal_and_depth(pos_w, self.graph)
+            self.local_landmarks.append(lm)
         
         self.current_lm_id = max_lm
 
-        SET THE curr_frame WITH THE INIT/KF,....
+        self.last_frame.landmarks_ = self.local_landmarks
+        self.last_frame.im_name = self.curr_kf.im_name
+        # SET THE curr_frame WITH THE INIT/KF,....
         # pass
 
     # def compute_descriptor(self, lm: Landmark):
@@ -106,6 +119,7 @@ class SlamMapper(object):
         # self.keyframes[keyframe.]
         self.graph.add_node(str(kf.im_name), bipartitite=0, data=kf)
         self.covisibility.add_node(str(kf.im_name))
+        self.n_keyframes += 1
 
     def add_landmark(self, lm: Landmark):
         """Add landmark to graph"""
@@ -142,7 +156,7 @@ class SlamMapper(object):
         """
         self.n_frames += 1
         self.last_frame = frame
-        self.frames[frame.id] = frame
+        self.frames[frame.frame_id] = frame
 
     def add_frame_to_reconstruction(self, frame, pose, camera, data):
         shot1 = types.Shot()
@@ -172,7 +186,7 @@ class SlamMapper(object):
         print("update_local_keyframes")
         kfs_weights = defaultdict(int)
         print("self.curr_kf: ", self.curr_kf)
-        for lm in self.curr_kf.landmarks:
+        for lm in self.curr_kf.landmarks_:
             # find the number of sharing landmarks between 
             # the current frame and each of the neighbor keyframes
             connected_kfs = self.graph[lm]
@@ -234,7 +248,7 @@ class SlamMapper(object):
         """ Acquire more 2D-3D matches by reprojecting the 
         local landmarks to the current frame
         """
-        for lm in frame.visible_landmarks:
+        for lm in frame.landmarks_:
             lm.is_observable_in_tracking = False
             lm.identifier_in_local_lm_search_ = \
                 frame.identifier_in_local_lm_search_
@@ -257,35 +271,44 @@ class SlamMapper(object):
         #                             ? 10.0 : 5.0);
         # projection_matcher.match_frame_and_landmarks(curr_frm_, local_landmarks_, margin);
         margin = 5
-        num_matches = self.slam_matcher.match_frame_to_landmarks(frame, self.local_landmarks, margin)
-        print("num_matches: ", num_matches)
-        return num_matches
+
+        matches = self.slam_matcher.\
+            match_frame_to_landmarks(frame, self.local_landmarks, margin,
+                                     self.data)
+        print("matches: ", len(matches))
+        return matches
 
     def observable_in_frame(self, frame: Frame):
         """ Similar to frame.can_observe in OpenVSlam
         """
         pose_world_to_cam = frame.world_pose
         cam_center = frame.world_pose.get_origin()
+        factor = self.camera[1].height/self.camera[1].width
         # found_candidate = False
         observations = []
         for lm in self.local_landmarks:
             if lm.identifier_in_local_lm_search_ == frame.frame_id:
                 continue
             # check if observeable
-            p = self.reconstruction.points[lm.lm_id]
+            p = self.reconstruction.points[str(lm.lm_id)].coordinates
             
             camera_point = pose_world_to_cam.transform(p)
+            # print("camera_point", camera_point)
             if camera_point[2] <= 0.0:
                 continue
-            point2D = self.camera.project(camera_point)
+            point2D = self.camera[1].project(camera_point)
+            # print("point2D: ", point2D)
+            is_in_image = slam_utils.in_image(point2D, factor)
+            # print("point2D: ", point2D, factor, is_in_image)
             #TODO: check boundaries?
             cam_to_lm_vec = p - cam_center
-            dist = np.norm(cam_to_lm_vec)
+            cam_to_lm_dist = np.linalg.norm(cam_to_lm_vec)
 
             #TODO: Check feature scale?
             # Compute normal
-            mean_normal = lm.mean_normal()
-            ray_cos = np.dot(cam_to_lm_vec, mean_normal)/cam_to_lm_vec
+            lm.update_normal_and_depth(p, self.graph)
+            mean_normal = lm.mean_normal
+            ray_cos = np.dot(cam_to_lm_vec, mean_normal)/cam_to_lm_dist
             if ray_cos < 0.5:
                 continue
             observations.append(point2D)
@@ -439,28 +462,50 @@ class SlamMapper(object):
     def add_fresh_landmark(self, lm: Landmark):
         self.fresh_landmarks.append(lm)
 
-    # optimize_current_frame_with_local_map
+    # OpenVSlam optimize_current_frame_with_local_map
     def track_with_local_map(self, frame: Frame, slam_tracker):
         print("track_with_local_map")
-        n_matches = self.search_local_landmarks()
+        matches = self.search_local_landmarks(frame)
+        matches = np.array(matches)
         # create observations
+        # print("matches: ", matches)
+        observations, _, _ = self.data.load_features(frame.im_name)
+        print("observations.shape: ", observations.shape, matches[:, 0].shape)
+        observations = observations[matches[:, 0], ::-1]
+        print("len(observations): ", len(observations), observations.shape, len(self.local_landmarks))
 
-        # slam_tracker.bundle_tracking(self.local_landmarks, )
+        points3D = np.zeros((len(observations), 3))
 
+        # generate 3D points
+        for (pt_id, lm) in enumerate(self.local_landmarks):
+            points3D[pt_id, :] = \
+                self.reconstruction.points[str(lm.lm_id)].coordinates
+
+        print("points3D.shape: ", points3D.shape)
+        print("observations.shape: ", observations.shape)
+
+        # slam_tracker.bundle_tracking(self.local_landmarks, observations,
+        pose = slam_tracker.bundle_tracking(points3D, observations,
+                                            frame.world_pose, self.camera,
+                                            self.data.config, self.data)
+        # exit()
         num_tracked_lms = 0
         #filter outliers and count tracked lms
-        for lm in frame:
-            lm.num_observable += 1
-            num_tracked_lms += 1
+        # for lm in frame:
+        #     lm.num_observable += 1
+        #     num_tracked_lms += 1
+        #filter outliers
+        # if num_tracked_lms < self.num_tracked_lms_thr:
+        #     print("Num tracked lms too low %d < %d".
+        #           format(num_tracked_lms, self.num_tracked_lms_thr))
+        #     return False
 
-        if num_tracked_lms < self.num_tracked_lms_thr:
-            return False
-        
-        return True
+        return pose
 
-    def new_kf_needed(self, num_tracked_lms, frame):
+    def new_kf_needed(self, num_tracked_lms, frame: Frame):
         """Return true if a new keyframe is needed based on the OpenVSLAM criteria
         """
+        print("self.n_keyframes: ", self.n_keyframes)
         # Count the number of 3D points observed from more than 3 viewpoints
         min_obs_thr = 3 if 3 <= self.n_keyframes else 2
 
@@ -471,20 +516,22 @@ class SlamMapper(object):
         # num_reliable_lms = get_tracked_landmarks(min_obs_thr)
         num_reliable_lms = self.curr_kf.\
             get_num_tracked_landmarks(min_obs_thr, self.graph)
-        
+        print("num_reliable_lms: ", num_reliable_lms)
         max_num_frms_ = 30  # the fps
         min_num_frms_ = 0
 
-        frm_id_of_last_keyfrm_ = self.curr_kf.id
+        frm_id_of_last_keyfrm_ = self.curr_kf.kf_id
+        print("curr_kf: ", self.curr_kf.kf_id, self.curr_kf.frame_id)
+        print("frame.frame_id: ", frame.frame_id)
         # frame.id
         # ## mapping: Whether is processing
         # #const bool mapper_is_idle = mapper_->get_keyframe_acceptability();
         # Condition A1: Add keyframes if max_num_frames_ or more have passed
         # since the last keyframe insertion
-        cond_a1 = (frm_id_of_last_keyfrm_ + max_num_frms_ <= frame.id)
+        cond_a1 = (frm_id_of_last_keyfrm_ + max_num_frms_ <= frame.frame_id)
         # Condition A2: Add keyframe if min_num_frames_ or more has passed
         # and mapping module is in standby state
-        cond_a2 = (frm_id_of_last_keyfrm_ + min_num_frms_ <= frame.id)
+        cond_a2 = (frm_id_of_last_keyfrm_ + min_num_frms_ <= frame.frame_id)
         # Condition A3: Add a key frame if the viewpoint has moved from the
         # previous key frame
         cond_a3 = num_tracked_lms < (num_reliable_lms * 0.25)
