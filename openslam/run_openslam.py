@@ -35,6 +35,7 @@ frame = None
 # initializer = slam_initializer()
 
 for im_name in sorted(data.image_list):
+    # Create frame with name and unique id
     frame = Frame(im_name, slam_system.slam_mapper.n_frames)
     print("frame: ", frame.im_name, frame.frame_id)
     ret = slam_system.track_next_frame(data, frame)
@@ -45,17 +46,17 @@ for im_name in sorted(data.image_list):
         print("slam trying to init")
 
 exit()
-frame = input_source.get_next_frame()
-n_frames = 1
-while frame is not None:
-    print("Number of processed frames: ", n_frames)
-    #features detected
-    # break
-    slam_system.track_next_frame(data, frame)
-    frame = input_source.get_next_frame()
-    # if frame is not None:
+# frame = input_source.get_next_frame()
+# n_frames = 1
+# while frame is not None:
+#     print("Number of processed frames: ", n_frames)
+#     #features detected
+#     # break
+#     slam_system.track_next_frame(data, frame)
+#     frame = input_source.get_next_frame()
+#     # if frame is not None:
         
-    n_frames += 1
-    # slam_system.track_next_frame(frame)
-    # print(data.load_features('01.jpg'))
+#     n_frames += 1
+#     # slam_system.track_next_frame(frame)
+#     # print(data.load_features('01.jpg'))
     

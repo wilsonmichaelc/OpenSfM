@@ -232,39 +232,43 @@ class SlamTracker(object):
 
     def track_motion(self, slam_mapper: SlamMapper, frame: Frame,
                      init_pose, camera, config, data):
-        print("slam_mapper.last_frame: ", slam_mapper.last_frame.im_name)
-        print("frame: ", frame)
-        print("frame: ", frame.im_name)
+        print("track_motion: ", slam_mapper.last_frame.im_name, "<->",
+              frame.im_name)
+        print("track_motion: ",
+              len(slam_mapper.last_frame.landmarks_), len(frame.landmarks_))
+        margin = 10
         matches = self.slam_matcher.\
-                match_current_and_last_frame(slam_mapper.last_frame, frame,
-                                             camera, data)
-        
+            match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
+                                     margin, data, slam_mapper.graph)
+
         if len(matches) < 100:
             return None
-        # for (m1, m2) in matches:
-            # landmarks[m2] = None
         matches = np.asarray(matches)
         # landmarks[:] = [lm for lm in landmarks if lm is not None]
         # print("matches: ", matches)
-        print("matches: ", matches.shape)
+        print("track_motion matches: ", matches.shape)
         # print("matches np: ", np.as)
         slam_mapper.last_frame.update_visible_landmarks(matches[:, 1])
         landmarks = slam_mapper.last_frame.landmarks_
         print("n_matches: ", len(matches))
         points3D = np.zeros((len(landmarks), 3))
         points = slam_mapper.reconstruction.points
-        for l_id, lm in enumerate(landmarks):
-            points3D[l_id, :] = points[str(lm.lm_id)].coordinates
-        # print("lengths: idx:", len(m1), len(idx1), len(idx2))
-        # print(points3D)
-        print(len(points3D))
-        # exit()
+        for idx, lm_id in enumerate(landmarks):
+            points3D[idx, :] = points[lm_id].coordinates
+            frame.landmarks_.append(lm_id)
+        print("len(last_frame.landmarks_): ",
+              len(slam_mapper.last_frame.landmarks_))
+        print("len(landmarks): ", len(frame.landmarks_))
+        print("len(points3D): ", len(points3D))
         points2D, _, _ = feature_loader.instance. \
             load_points_features_colors(data, frame.im_name, masked=True)
         points2D = points2D[matches[:, 0], :]
         # Set up bundle adjustment problem
         pose = self.bundle_tracking(points3D, points2D, init_pose,
                                     camera, config, data)
+
+        
+        # frame.landmarks_
         # # remove outliers?
         # reproject_landmarks(points3D, points2D, init_pose, frame.im_name,
         #                     camera[1], data)
@@ -287,6 +291,7 @@ class SlamTracker(object):
         init_pose = slam_mapper.estimate_pose()
         pose = self.track_motion(slam_mapper, frame,
                                  init_pose, camera, config, data)
+
         # # If that fails, match to last kf
         # if slam_mapper.last_frame.id != \
         #    slam_mapper.curr_kf.id and pose is None:
