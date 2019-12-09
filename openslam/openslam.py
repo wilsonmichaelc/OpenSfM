@@ -93,8 +93,10 @@ class SlamSystem(object):
             #TODO: Update last frames' pose!
             pose = self.slam_tracker.track(self.slam_mapper, frame,
                                            self.config, self.camera, data)
+            
             print("pose after track: ", pose)
             if pose is not None:
+                frame.world_pose = pose
                 self.slam_mapper.update_local_map(frame)
                 print("After update_local_map")
                 pose: types.Pose = self.slam_mapper.track_with_local_map(frame, self.slam_tracker)

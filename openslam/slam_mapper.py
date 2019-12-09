@@ -408,7 +408,7 @@ class SlamMapper(object):
             if e is not None:
                 # deactivate feature
                 p2[e['feature_id'], :] = np.NaN
-                print("p2[e['feature_id'], :]:", p2[e['feature_id'], :])
+                # print("p2[e['feature_id'], :]:", p2[e['feature_id'], :])
         print("p1: ", p1, " matches: ", matches)
         # N ow select the actual matches
         p1 = p1[matches[:, 0]]
@@ -452,7 +452,8 @@ class SlamMapper(object):
 
         cameras = data.load_camera_models()
         camera = next(iter(cameras.values()))
-
+        print("kf1.worldPose: ", kf1.world_pose.get_rotation_matrix())
+        print("kf2.worldPose: ", kf2.world_pose.get_rotation_matrix())
         rec_tri = types.Reconstruction()
         rec_tri.reference = data.load_reference()
         rec_tri.cameras = cameras
@@ -478,7 +479,8 @@ class SlamMapper(object):
                                                  rec_tri, frame1,
                                                  data.config)
         np_after = len(rec_tri.points)
-
+        print("kf1.worldPose: ", kf1.world_pose.get_rotation_matrix())
+        print("kf2.worldPose: ", kf2.world_pose.get_rotation_matrix())
         print("Points before: {} and {} ".format(np_before, np_after))
         exit()
         for (m1,m2) in matches:
