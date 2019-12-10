@@ -3,6 +3,7 @@ from opensfm import reconstruction
 from slam_types import Frame
 from slam_types import Keyframe
 from slam_types import Landmark
+import slam_debug
 import slam_utils
 # from slam_tracker import SlamTracker
 from slam_matcher import SlamMatcher
@@ -76,7 +77,11 @@ class SlamMapper(object):
         # Add to data and covisibility
         self.add_keyframe(self.init_frame)
         self.add_keyframe(curr_kf)
-        
+        print("init_frame: ", self.init_frame.world_pose.get_origin(),
+              self.init_frame.world_pose.get_rotation_matrix())
+        print("curr_kf: ", curr_kf.world_pose.get_origin(),
+              curr_kf.world_pose.get_rotation_matrix())
+
         self.n_frames = 2
 
         max_lm = 0  # find the highest lm id
@@ -117,11 +122,21 @@ class SlamMapper(object):
         self.graph.add_node(str(kf.im_name), bipartite=0, data=kf)
         self.covisibility.add_node(str(kf.im_name))
         self.n_keyframes += 1
+        shot1 = types.Shot()
+        shot1.id = kf.im_name
+        shot1.camera = self.camera[1]
+        print("kf.im_name: ", kf.im_name, "camera: ", self.camera)
+        shot1.pose = kf.world_pose
+        shot1.metadata = reconstruction.\
+            get_image_metadata(self.data, kf.im_name)
+        self.reconstruction.add_shot(shot1)
 
     def add_landmark(self, lm: Landmark):
         """Add landmark to graph"""
+        print("Add_landmark: ", str(lm.lm_id))
         self.graph.add_node(str(lm.lm_id), bipartite=1, data=lm)
-
+    # def add_lm_kf(self, lm: Landmark, kf: Keyframe)
+    #     self.graph.add_edge(str(lm.lm_id), str(lm_id)
     def erase_keyframe(self,  kf: Keyframe):
         self.graph.remove_node(kf.im_name)
         self.covisibility.remove_node(kf.im_name)
@@ -152,16 +167,20 @@ class SlamMapper(object):
             frame: of Frame
         """
         self.n_frames += 1
-        print("set_lats_frame 1: ", len(frame.landmarks_))
+        print("set_last_frame 1: ", len(frame.landmarks_))
         self.last_frame = frame
         print("set_last_frame: ", frame.im_name, self.last_frame.im_name,
               len(frame.landmarks_), len(self.last_frame.landmarks_))
+        print("set_last_frame: ", frame.frame_id, "/", self.n_frames)
         self.frames[frame.frame_id] = frame
         # self.frames.landmarks_ = frame.landmarks_
 
     def add_frame_to_reconstruction(self, frame, pose, camera, data):
         shot1 = types.Shot()
         shot1.id = frame
+        print("add_frame_to_reconstructioncamera: ", camera)
+        print("add_frame_to_reconstructioncamera: ", camera[1].id)
+        print("add_frame_to_reconstruction frame: ", frame)
         shot1.camera = camera[1]
         shot1.pose = types.Pose(pose.rotation, pose.translation)
         shot1.metadata = reconstruction.get_image_metadata(data, frame)
@@ -208,7 +227,7 @@ class SlamMapper(object):
             if weight > max_weight:
                 max_weight = weight
                 self.nearest_covisibility = kf
-        
+
         # max_local_keyframes = 60
         # add the second-order keyframes to the local landmarks
         # for local_kf in self.local_keyframes:
@@ -219,18 +238,23 @@ class SlamMapper(object):
         """Update local landmarks by adding
         all the landmarks of the local keyframes.
         """
+        # for lm in self.local_landmarks:
+            # print("lm bef clear: ", lm)
         self.local_landmarks.clear()
         print("update_local_landmarks")
         for kf_id in self.local_keyframes:
             print("kf_id: ", kf_id)
             for lm_id in self.graph[kf_id]:
-                # print("lm_node: ", lm_id)
-                lm = self.graph.node[lm_id]['data']
-                # Avoid duplication
-                if lm.local_map_update_identifier == frame.frame_id:
-                    continue
-                lm.local_map_update_identifier = frame.frame_id
-                self.local_landmarks.append(lm_id)
+                # print("upd lm_node: ", lm_id, self.graph.node[str(lm_id)])
+                if len(self.graph.nodes[str(lm_id)]) == 0:
+                    print("Problem: ", lm_id)
+                else:
+                    lm = self.graph.node[str(lm_id)]['data']
+                    # Avoid duplication
+                    if lm.local_map_update_identifier == frame.frame_id:
+                        continue
+                    lm.local_map_update_identifier = frame.frame_id
+                    self.local_landmarks.append(lm_id)
 
         # count the number of lmid
         lm_count = defaultdict(int)
@@ -306,7 +330,7 @@ class SlamMapper(object):
                 continue
             # check if observeable
             p = self.reconstruction.points[str(lm.lm_id)].coordinates
-            
+            # print("p: ", p)
             camera_point = pose_world_to_cam.transform(p)
             # print("camera_point", camera_point)
             if camera_point[2] <= 0.0:
@@ -385,7 +409,7 @@ class SlamMapper(object):
 
             #match the top 10 frames!
             matches = self.slam_matcher.\
-                match_for_triangulation(neighbor_kfm, self.curr_kf,
+                match_for_triangulation(self.curr_kf, neighbor_kfm,
                                         self.graph, self.data)
             n_kfm = self.graph.nodes[neighbor_kfm]['data']
             self.triangulate_with_two_kfs(n_kfm, self.curr_kf, matches, data)
@@ -393,23 +417,26 @@ class SlamMapper(object):
     
     def triangulate_with_two_kfs(self, kf1: Keyframe, kf2: Keyframe, matches, data):
 
+        """kf1 -> neighbor (old) kf, kf2 -> current kf
+        """
         #load the features to be triangulated
         #TODO: Think about frame1/2 and matches
         frame1, frame2 = kf1.im_name, kf2.im_name
-        p1, f1, c1 = data.load_features(frame2)
-        p2, f2, c2 = data.load_features(frame1)
+        p1, f1, c1 = data.load_features(frame1)
+        p2, f2, c2 = data.load_features(frame2)
         
         
         # Remove already existing landmarks?
         # Get all the landmarks seen in the current kf
-        seen_landmarks = self.graph[frame1]
+        seen_landmarks = self.graph[frame2]
         for lm_id in seen_landmarks:
-            e = self.graph.get_edge_data(frame2, lm_id)
+            e = self.graph.get_edge_data(frame1, lm_id)
             if e is not None:
                 # deactivate feature
-                p2[e['feature_id'], :] = np.NaN
+                p1[e['feature_id'], :] = np.NaN
                 # print("p2[e['feature_id'], :]:", p2[e['feature_id'], :])
-        print("p1: ", p1, " matches: ", matches)
+        # print("p1: ", p1, " matches: ", matches)
+        print("len(p1): {}, matches: {}: ".format( len(p1), len(matches)))
         # N ow select the actual matches
         p1 = p1[matches[:, 0]]
         p2 = p2[matches[:, 1]]
@@ -424,24 +451,11 @@ class SlamMapper(object):
         tracks_graph.add_node(str(frame2), bipartite=0)
 
         for (track_id, (f1_id, f2_id)) in enumerate(matches):
-            
-            x, y, s = p2[track_id, :-1]
-            if np.isnan(x):
-                # print("cont after nan")
-                continue
-            # else:
-                # print("not nan")
-            r, g, b = c2[track_id, :]
-            tracks_graph.add_edge(str(frame2),
-                                  str(track_id),
-                                  feature=(float(x), float(y)),
-                                  feature_scale=float(s),
-                                  feature_id=int(f2_id),
-                                  feature_color=(float(r), float(g), float(b)))
-
             x, y, s = p1[track_id, :-1]
-            # print("x,y,s",x,y,s)
+            if np.isnan(x):
+                continue
             r, g, b = c1[track_id, :]
+
             tracks_graph.add_node(str(track_id), bipartite=1)
             tracks_graph.add_edge(str(frame1),
                                   str(track_id),
@@ -449,17 +463,26 @@ class SlamMapper(object):
                                   feature_scale=float(s),
                                   feature_id=int(f1_id),
                                   feature_color=(float(r), float(g), float(b)))
+            x, y, s = p2[track_id, :-1]
+            r, g, b = c2[track_id, :]
+            tracks_graph.add_edge(str(frame2),
+                                  str(track_id),
+                                  feature=(float(x), float(y)),
+                                  feature_scale=float(s),
+                                  feature_id=int(f2_id),
+                                  feature_color=(float(r), float(g), float(b)))            
 
         cameras = data.load_camera_models()
         camera = next(iter(cameras.values()))
-        print("kf1.worldPose: ", kf1.world_pose.get_rotation_matrix())
-        print("kf2.worldPose: ", kf2.world_pose.get_rotation_matrix())
+        print("kf1.worldPose before: ", kf1.world_pose.get_rotation_matrix())
+        print("kf2.worldPose before: ", kf2.world_pose.get_rotation_matrix())
         rec_tri = types.Reconstruction()
         rec_tri.reference = data.load_reference()
         rec_tri.cameras = cameras
 
         shot1 = types.Shot()
         shot1.id = frame1
+        print("camera: ", camera)
         shot1.camera = camera
         shot1.pose = kf1.world_pose
         shot1.metadata = reconstruction.get_image_metadata(data, frame1)
@@ -479,20 +502,93 @@ class SlamMapper(object):
                                                  rec_tri, frame1,
                                                  data.config)
         np_after = len(rec_tri.points)
+        print("len(graph_inliers.nodes()): ", len(graph_inliers.nodes()))
         print("kf1.worldPose: ", kf1.world_pose.get_rotation_matrix())
         print("kf2.worldPose: ", kf2.world_pose.get_rotation_matrix())
         print("Points before: {} and {} ".format(np_before, np_after))
-        exit()
-        for (m1,m2) in matches:
-            #if triangulate
+        # visualize landmarks 2D points in KF <-> 2D points in new KF
+        # and also reprojections!
+        # draw triangulate features in im1
+        # get observations
+        edges1 = graph_inliers.edges(frame1)
+        edges2 = graph_inliers.edges(frame2)
+        print("edges1: ", edges1)
+        print("edges2: ", edges2)
+        logger.setLevel(logging.INFO)
+        obs1 = []
+        for u, v in edges1:
+            obs1.append(graph_inliers.get_edge_data(u, v)['feature'])
+        print("obs1: ", obs1)
+        slam_debug.draw_observations_in_image(np.asarray(obs1), frame1, data, False)
+        obs2 = []
+        for u, v in edges2:
+            obs2.append(graph_inliers.get_edge_data(u, v)['feature'])
+        print("obs2: ", obs2)
+        slam_debug.draw_observations_in_image(np.asarray(obs2), frame2, data, False)
+        logger.setLevel(logging.INFO)
+        # exit()
+        #draw triangulate features in im2
+        #reproject estimated features
+        points = rec_tri.points
+        points3D = np.zeros((len(points), 3))
+        for idx, pt3D in enumerate(points.values()):
+            points3D[idx, :] = pt3D.coordinates
 
-            lm = Landmark(self.n_landmarks)
-            lm.add_observations(frame1, m1)
-            lm.add_observations(frame2, m2)
+        # Due to some sorting issues, we have to go through
+        # graph_inliers by "frames" first
+        for _, gi_lm_id in graph_inliers.edges(frame1):
+            lm_id = str(self.current_lm_id)
+            # print(frame1, frame2, gi_lm_id, lm_id)
+            print("tri lm_id: ", lm_id)
+            lm = Landmark(lm_id)
+            self.n_landmarks += 1
+            self.current_lm_id += 1
+            # This is essentially the same as adding it to the graph
+            self.add_landmark(lm)
+            # print("Added lm: ", lm.lm_id, gi_lm_id)
+            # print("KF id: ", frame1, frame2)
+            # print("frame1: ", frame1, " gi_lm_id: ", gi_lm_id)
+            # print("frame2: ", frame2, " gi_lm_id: ", gi_lm_id)
+            # TODO: observations
+            self.graph.add_edges_from([(frame1, str(lm_id), graph_inliers.
+                                        get_edge_data(frame1, gi_lm_id))])
+            self.graph.add_edges_from([(frame2, str(lm_id), graph_inliers.
+                                        get_edge_data(frame2, gi_lm_id))])
+            lm.compute_descriptor(self.graph)
+            lm.update_normal_and_depth(pt3D.coordinates, self.graph)
+            # We also have to add the points to the reconstruction
+
+            point = types.Point()
+            point.id = str(lm_id)
+            point.coordinates = rec_tri.points[gi_lm_id].coordinates
+            print("Adding point {} to reconstruction".format(lm_id))
+            self.reconstruction.add_point(point)
+            self.local_landmarks.append(lm.lm_id)
+
+        # TODO: handle repetetive landmarks
+        # visualize
+        slam_debug.reproject_landmarks(points3D, np.asarray(obs2),
+                                       kf2.world_pose, kf2.im_name,
+                                       camera, data, True)
+
+
+    
+        # exit()
+        #visualize the new landmarks kf X -> newest kf
+        
+
+        
+        # Add the landmarks to the graph
+        # for (m1,m2) in matches:
+        #     #if triangulate
+
+        #     lm = Landmark(self.n_landmarks)
+        #     lm.add_observations(frame1, m1)
+        #     lm.add_observations(frame2, m2)
             
-            frame1.add_landmark(lm, m1)
-            frame2.add_landmark(lm, m2)
-        pass
+        #     frame1.add_landmark(lm, m1)
+        #     frame2.add_landmark(lm, m2)
+        # pass
 
     def remove_redundant_landmarks(self):
         observed_ratio_thr = 0.3
@@ -566,7 +662,7 @@ class SlamMapper(object):
             #     lm_node = self.graph.node[lm_id]
             lm: Landmark = self.graph.node[lm_id]['data']
             observations = self.graph[lm_id]
-            print("1", self.curr_kf.im_name in observations, self.curr_kf.im_name in observations.keys())
+            # print("1", self.curr_kf.im_name in observations, self.curr_kf.im_name in observations.keys())
             if self.curr_kf.im_name in observations:
                 # TODO: map_cleaner.add_fresh_landmark()
                 print("TODO: add_fresh_landmarks()")
@@ -576,41 +672,44 @@ class SlamMapper(object):
                                     lm.lm_id)
                 # lm.observations[self.curr_kf.kf_idid] = lm_id
                 pos_w = self.reconstruction.points[lm_id].coordinates
-                print("pos_w: ", pos_w)
+                # print("pos_w: ", pos_w)
                 lm.update_normal_and_depth(pos_w, self.graph)
                 lm.compute_descriptor(self.graph)
         
         #TODO: update graph connections
         #TODO: self.add_keyframe_to_map(self.curr_kf)
         # Is that necessary
-            
-    # def add_keyframe_to_map(self):
-    #     self.
 
     def add_fresh_landmark(self, lm: Landmark):
         self.fresh_landmarks.append(lm)
 
     # OpenVSlam optimize_current_frame_with_local_map
     def track_with_local_map(self, frame: Frame, slam_tracker):
+        """Refine the pose of the current frame with the "local" KFs"""
         print("track_with_local_map", len(frame.landmarks_))
+        # acquire more 2D-3D matches by reprojecting the local landmarks to the current frame
         matches = self.search_local_landmarks(frame)
         matches = np.array(matches)
         print("track_with_local_map: matches: ", len(matches))
-        # print("track_with_local_map: matches: ", matches)
-        # create observations
-        # print("matches: ", matches)
         observations, _, _ = self.data.load_features(frame.im_name)
         
-        # print("observations ", observations)
         print("observations.shape: ", np.shape(observations), matches[:, 0].shape)
         observations = observations[matches[:, 0], ::-1]
         print("len(observations): ", len(observations), observations.shape,
               len(self.local_landmarks))
 
         points3D = np.zeros((len(observations), 3))
+        # for pt in self.reconstruction.points:
+        #     print("pt: ", pt)
 
+        print("self.reconstruction: ", len(self.reconstruction.points),
+              len(points3D), len(frame.landmarks_), len(matches))
         # generate 3D points
-        for (pt_id, lm_id) in enumerate(frame.landmarks_):#enumerate(self.local_landmarks):
+        # for (pt_id, lm_id) in enumerate(frame.landmarks_):
+        for (pt_id, (m1, m2)) in enumerate(matches):
+            # print("m1 {}, m2 {}".format(m1, m2))
+            lm_id = self.local_landmarks[m2]  # frame.landmarks_[m2]
+            # print("track lm_id ", lm_id)
             points3D[pt_id, :] = \
                 self.reconstruction.points[str(lm_id)].coordinates
 
@@ -623,6 +722,11 @@ class SlamMapper(object):
                                             self.data.config, self.data)
         # exit()
         self.num_tracked_lms = len(observations)
+        # for m1, m2 in matches:
+        # frame.landmarks_ = self.local_landmarks[matches[:, 0]]
+        frame.landmarks_ = self.local_landmarks.copy()
+        frame.update_visible_landmarks(matches[:, 1])
+        frame.world_pose = pose
         #filter outliers and count tracked lms
         # for lm in frame:
         #     lm.num_observable += 1
@@ -653,7 +757,7 @@ class SlamMapper(object):
         print("num_reliable_lms: ", num_reliable_lms)
         max_num_frms_ = 30  # the fps
         min_num_frms_ = 0
-
+        
         frm_id_of_last_keyfrm_ = self.curr_kf.kf_id
         print("curr_kf: ", self.curr_kf.kf_id, self.curr_kf.frame_id)
         print("frame.frame_id: ", frame.frame_id)

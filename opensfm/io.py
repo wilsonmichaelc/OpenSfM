@@ -262,6 +262,9 @@ def shot_to_json(shot):
     """
     Write shot to a json object
     """
+    print("shot: ", shot.id)
+    print("shot.camera: ", shot.camera)
+    print("shot.camera.id: ", shot.camera.id)
     obj = {
         'rotation': list(shot.pose.rotation),
         'translation': list(shot.pose.translation),

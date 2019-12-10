@@ -94,7 +94,8 @@ class SlamSystem(object):
             pose = self.slam_tracker.track(self.slam_mapper, frame,
                                            self.config, self.camera, data)
             
-            print("pose after track: ", pose)
+            print("pose after track for ", frame.im_name, ": ",
+                  pose.get_rotation_matrix())
             if pose is not None:
                 frame.world_pose = pose
                 self.slam_mapper.update_local_map(frame)
@@ -103,7 +104,7 @@ class SlamSystem(object):
                 print("pose after track_with_local_map: ", pose.get_rotation_matrix())
                 if pose is not None:
                     self.tracked_frames += 1
-                    self.slam_mapper.n_frames += 1
+                    # self.slam_mapper.n_frames += 1
                     # Store the map
                     self.slam_mapper.\
                         add_frame_to_reconstruction(frame.im_name, pose, self.camera, data)

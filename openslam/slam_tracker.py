@@ -1,35 +1,17 @@
 import datetime
 import logging
-import matplotlib.pyplot as plt
 import numpy as np
 
 from opensfm import types
 from opensfm import csfm
 from opensfm.reconstruction import Chronometer
 from opensfm import reconstruction
-from opensfm import features
+
 from opensfm import feature_loader
 
 from slam_matcher import SlamMatcher
 from slam_mapper import SlamMapper
 from slam_types import Frame
-
-
-def reproject_landmarks(points3D, observations, pose_world_to_cam, 
-                        image, camera, data):
-    #load the image
-    camera_point = pose_world_to_cam.transform_many(points3D)
-    points2D = camera.project_many(camera_point)
-    fig, ax = plt.subplots(1)
-    im = data.load_image(image)
-    print("Show image ", image)
-    h1, w1, c = im.shape
-    pt = features.denormalized_image_coordinates(points2D, w1, h1)
-    obs = features.denormalized_image_coordinates(observations, w1, h1)
-    ax.imshow(im)
-    ax.scatter(pt[:, 0], pt[:, 1], c=[[1, 0, 0]])
-    ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
-    plt.show()
 
 
 class SlamTracker(object):
@@ -249,10 +231,9 @@ class SlamTracker(object):
                                      margin, data, slam_mapper.graph)
 
         if len(matches) < 100:
+            print("Not enough matches!", len(matches))
             return None
         matches = np.asarray(matches)
-        # landmarks[:] = [lm for lm in landmarks if lm is not None]
-        # print("matches: ", matches)
         print("track_motion matches: ", matches.shape)
         # print("matches np: ", np.as)
         slam_mapper.last_frame.update_visible_landmarks(matches[:, 1])
@@ -298,6 +279,8 @@ class SlamTracker(object):
         init_pose = slam_mapper.estimate_pose()
         pose = self.track_motion(slam_mapper, frame,
                                  init_pose, camera, config, data)
+
+        # frame.world_pose
 
         # # If that fails, match to last kf
         # if slam_mapper.last_frame.id != \

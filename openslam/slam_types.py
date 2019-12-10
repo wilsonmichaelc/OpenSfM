@@ -26,7 +26,7 @@ class Landmark(object):
         self.identifier_in_local_lm_search_ = -1
         self.n_observable = 0  # the number of frames and KFs it is seen in
         self.descriptor = None
-        self.pos_w = []  # 3D position as reconstructed
+        # self.pos_w = []  # 3D position as reconstructed
         self.num_observable = 0
         self.num_observed = 0
         # self.observations = {}  # keyframes, where the landmark is observed
@@ -47,10 +47,9 @@ class Landmark(object):
 
         for kf_name in observations.keys():
             kf = graph.nodes[kf_name]['data']
-            
-            # print("pos_w: ", pos_w, " kf.world_pose.get_origin(): ",
-                #   kf.world_pose.get_origin())
             normal = pos_w - kf.world_pose.get_origin()
+            # print("pos_w: ", pos_w, " kf.world_pose.get_origin(): ",
+                #   kf.world_pose.get_origin(), normal)
             # print(normal)
             self.mean_normal += (normal / np.linalg.norm(normal))
 
@@ -59,6 +58,7 @@ class Landmark(object):
         # dist = cam_to_lm_vec.norm()
         #TODO: scale level, scale factor, depth
         self.mean_normal /= len(observations)
+
     # def update_normal_and_depth(self, graph):
     #     if len(self.observations) == 0:
     #         return
@@ -97,6 +97,8 @@ class Landmark(object):
         """
 
         keyframes = graph[str(self.lm_id)]
+        # print("keyframes: ", keyframes)
+        # print("lm_id: ", self.lm_id)
         # descriptors = []
         for kf_name in keyframes:
             # print(kf_name)
@@ -168,17 +170,17 @@ class Keyframe(object):
     def __init__(self, frame: Frame, data, kf_id):
         # The landmarks store the id of the lms in the graph
         self.landmarks_ = frame.landmarks_.copy()
-        print("Creating KF: ", kf_id, len(self.landmarks_))
+        print("Creating KF: ", kf_id, len(self.landmarks_), frame.im_name)
         self.im_name = frame.im_name  # im_name should also be unique
         self.kf_id = kf_id  # unique_id
         self.frame_id = frame.frame_id
         self.keypts = []
         _, self.descriptors, _ = data.load_features(self.im_name)
-        self.world_pose = types.Pose()
+        self.world_pose = frame.world_pose  #types.Pose()
         self.local_map_update_identifier = -1
 
-    def add_landmark(self, lm: Landmark, idx):
-        self.landmarks_[idx] = lm
+    def add_landmark(self, lm: Landmark):
+        self.landmarks_[lm.lm_id] = lm
 
     def get_num_tracked_landmarks(self, min_obs_thr, graph):
         """Counts the number of reliable landmarks, i.e. all visible in
@@ -186,6 +188,7 @@ class Keyframe(object):
         """
         print("get_num_tracked_landmarks: ", self.kf_id, self.frame_id)
         print("min_obs_thr: ", min_obs_thr)
+        print("tracked: ", len(self.landmarks_))
         if min_obs_thr > 0:
             n_lms = 0
             for lm in graph[self.im_name]:

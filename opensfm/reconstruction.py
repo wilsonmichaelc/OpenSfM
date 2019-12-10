@@ -683,7 +683,6 @@ def bootstrap_reconstruction(data, graph, im1, im2, p1, p2):
     cameras = data.load_camera_models()
     camera1 = cameras[data.load_exif(im1)['camera']]
     camera2 = cameras[data.load_exif(im2)['camera']]
-
     threshold = data.config['five_point_algo_threshold']
     min_inliers = data.config['five_point_algo_min_inliers']
     R, t, inliers, report['two_view_reconstruction'] = \
@@ -704,12 +703,14 @@ def bootstrap_reconstruction(data, graph, im1, im2, p1, p2):
     shot1 = types.Shot()
     shot1.id = im1
     shot1.camera = camera1
+    print("camera1: ", camera1, " im1: ", im1)
     shot1.pose = types.Pose()
     shot1.metadata = get_image_metadata(data, im1)
     reconstruction.add_shot(shot1)
 
     shot2 = types.Shot()
     shot2.id = im2
+    print("camera2: ", camera2, " im2: ", im2)
     shot2.camera = camera2
     shot2.pose = types.Pose(R, t)
     shot2.metadata = get_image_metadata(data, im2)

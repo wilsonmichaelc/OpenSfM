@@ -82,6 +82,7 @@ class SlamMatcher(object):
             data, frame.im_name, masked=True)
         f2 = []
         for lm_id in landmarks:
+            # print("match frame to lm lm_id", lm_id)
             lm = graph.node[lm_id]['data']
             if lm.descriptor is not None:
                 f2.append(lm.descriptor)
@@ -101,16 +102,14 @@ class SlamMatcher(object):
         cameras = data.load_camera_models()
         camera_obj = next(iter(cameras.values()))
         print("Other frame: ", other_kf)
-        print("Curr frame: ", curr_kf)
-        print("match_for_triangulation", other_kf.im_name, curr_kf)  # .im_name)
-        success, matches = self.match(data, other_kf.im_name, curr_kf,  #  .im_name,
+        print("Curr frame: ", curr_kf.im_name)
+        print("match_for_triangulation", other_kf, curr_kf.im_name)
+        success, matches = self.match(data, other_kf, curr_kf.im_name,
                                       camera_obj)
         print("n_matches {} <-> {}: {}".format(
-              curr_kf, other_kf.im_name, len(matches)))
+              curr_kf.im_name, other_kf, len(matches)))
         print("matches", matches)
-        # return
-        
-        return matches[curr_kf]
+        return matches[curr_kf.im_name]
 
     def matchOpenVSlam(self):
         return True
