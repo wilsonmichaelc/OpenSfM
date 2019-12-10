@@ -45,7 +45,6 @@ class SlamMapper(object):
         self.covisibility = nx.Graph()
         self.fresh_landmarks = []
         self.current_lm_i = 0
-        
 
     def estimate_pose(self):
         if self.curr_kf is not None:
@@ -196,7 +195,6 @@ class SlamMapper(object):
 
     def clean_landmarks(self):
         return True
-
     
     def update_local_keyframes(self, frame: Frame):
         """Count number of lm shared between current frame and neighbour KFs
@@ -424,8 +422,6 @@ class SlamMapper(object):
         frame1, frame2 = kf1.im_name, kf2.im_name
         p1, f1, c1 = data.load_features(frame1)
         p2, f2, c2 = data.load_features(frame2)
-        
-        
         # Remove already existing landmarks?
         # Get all the landmarks seen in the current kf
         seen_landmarks = self.graph[frame2]
@@ -436,7 +432,7 @@ class SlamMapper(object):
                 p1[e['feature_id'], :] = np.NaN
                 # print("p2[e['feature_id'], :]:", p2[e['feature_id'], :])
         # print("p1: ", p1, " matches: ", matches)
-        print("len(p1): {}, matches: {}: ".format( len(p1), len(matches)))
+        print("len(p1): {}, matches: {}: ".format(len(p1), len(matches)))
         # N ow select the actual matches
         p1 = p1[matches[:, 0]]
         p2 = p2[matches[:, 1]]
@@ -470,7 +466,7 @@ class SlamMapper(object):
                                   feature=(float(x), float(y)),
                                   feature_scale=float(s),
                                   feature_id=int(f2_id),
-                                  feature_color=(float(r), float(g), float(b)))            
+                                  feature_color=(float(r), float(g), float(b)))
 
         cameras = data.load_camera_models()
         camera = next(iter(cameras.values()))
@@ -527,8 +523,8 @@ class SlamMapper(object):
         slam_debug.draw_observations_in_image(np.asarray(obs2), frame2, data, False)
         logger.setLevel(logging.INFO)
         # exit()
-        #draw triangulate features in im2
-        #reproject estimated features
+        # draw triangulate features in im2
+        # reproject estimated features
         points = rec_tri.points
         points3D = np.zeros((len(points), 3))
         for idx, pt3D in enumerate(points.values()):
@@ -571,8 +567,6 @@ class SlamMapper(object):
                                        kf2.world_pose, kf2.im_name,
                                        camera, data, True)
 
-
-    
         # exit()
         #visualize the new landmarks kf X -> newest kf
         
