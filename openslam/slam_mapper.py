@@ -12,7 +12,7 @@ import networkx as nx
 import logging
 import numpy as np
 logger = logging.getLogger(__name__)
-
+from itertools import compress
 
 class SlamMapper(object):
 
@@ -132,7 +132,7 @@ class SlamMapper(object):
 
     def add_landmark(self, lm: Landmark):
         """Add landmark to graph"""
-        print("Add_landmark: ", str(lm.lm_id))
+        # print("Add_landmark: ", str(lm.lm_id))
         self.graph.add_node(str(lm.lm_id), bipartite=1, data=lm)
     # def add_lm_kf(self, lm: Landmark, kf: Keyframe)
     #     self.graph.add_edge(str(lm.lm_id), str(lm_id)
@@ -296,9 +296,9 @@ class SlamMapper(object):
         # for lm in self.local_keyframes:
             # if lm.identifier_in_local_lm_search_ == frame.frame_id:
                 # continue
-        observations = self.observable_in_frame(frame)
+        # observations = self.observable_in_frame(frame)
 
-        print("Found {} observations".format(len(observations)))
+        # print("Found {} observations".format(len(observations)))
         
         # acquire more 2D-3D matches by projecting the local landmarks to the current frame
         # match::projection projection_matcher(0.8);
@@ -330,7 +330,7 @@ class SlamMapper(object):
             p = self.reconstruction.points[str(lm.lm_id)].coordinates
             # print("p: ", p)
             camera_point = pose_world_to_cam.transform(p)
-            # print("camera_point", camera_point)
+            print("camera_point", camera_point)
             if camera_point[2] <= 0.0:
                 continue
             point2D = self.camera[1].project(camera_point)
@@ -384,13 +384,13 @@ class SlamMapper(object):
         #TODO: get top n covisibilites
         curr_cam_center = self.curr_kf.world_pose.get_origin()
         covisibilites = []
-        print("self.keyframes: ", self.covisibility)
-        print("im_name: ", self.curr_kf.im_name)
+        print("create_new_landmarks self.keyframes: ", self.covisibility)
+        print("create_new_landmarks im_name: ", self.curr_kf.im_name)
         for neighbor_kfm in self.covisibility:
             print(neighbor_kfm)
             if neighbor_kfm == self.curr_kf.im_name:
                 continue
-            print("neighbor_kfm: ", neighbor_kfm)
+            print("create_new_landmarks neighbor_kfm: ", neighbor_kfm)
             n_kfm = self.graph.nodes[neighbor_kfm]['data']
             print(n_kfm)
             # neighbor_kfm = cv
@@ -436,7 +436,6 @@ class SlamMapper(object):
         # N ow select the actual matches
         p1 = p1[matches[:, 0]]
         p2 = p2[matches[:, 1]]
-
         # match
         print("len(p1): {}, len(p2): {} ".format(len(p1), len(p2)))
         # Now, build up the graph for the triangulation
@@ -470,15 +469,17 @@ class SlamMapper(object):
 
         cameras = data.load_camera_models()
         camera = next(iter(cameras.values()))
-        print("kf1.worldPose before: ", kf1.world_pose.get_rotation_matrix())
-        print("kf2.worldPose before: ", kf2.world_pose.get_rotation_matrix())
+        # print("tri: kf1.worldPose before ", frame1, ": ", kf1.world_pose.rotation,
+        #       kf1.world_pose.translation)
+        # print("tri: kf2.worldPose before ", frame2, ": ", kf2.world_pose.rotation,
+        #       kf2.world_pose.translation)
         rec_tri = types.Reconstruction()
         rec_tri.reference = data.load_reference()
         rec_tri.cameras = cameras
 
         shot1 = types.Shot()
         shot1.id = frame1
-        print("camera: ", camera)
+        # print("camera: ", camera)
         shot1.camera = camera
         shot1.pose = kf1.world_pose
         shot1.metadata = reconstruction.get_image_metadata(data, frame1)
@@ -493,14 +494,17 @@ class SlamMapper(object):
 
         graph_inliers = nx.Graph()
 
+        print("Running triangulate shot features")
         np_before = len(rec_tri.points)
         reconstruction.triangulate_shot_features(tracks_graph, graph_inliers,
                                                  rec_tri, frame1,
                                                  data.config)
         np_after = len(rec_tri.points)
         print("len(graph_inliers.nodes()): ", len(graph_inliers.nodes()))
-        print("kf1.worldPose: ", kf1.world_pose.get_rotation_matrix())
-        print("kf2.worldPose: ", kf2.world_pose.get_rotation_matrix())
+        # print("tri: kf1.worldPose after ", frame1, ": ",
+        #       kf1.world_pose.rotation, kf1.world_pose.translation)
+        # print("tri: kf2.worldPose after ", frame2, ": ",
+        #       kf2.world_pose.rotation, kf2.world_pose.translation)
         print("Points before: {} and {} ".format(np_before, np_after))
         # visualize landmarks 2D points in KF <-> 2D points in new KF
         # and also reprojections!
@@ -511,31 +515,40 @@ class SlamMapper(object):
         print("edges1: ", edges1)
         print("edges2: ", edges2)
         logger.setLevel(logging.INFO)
-        obs1 = []
-        for u, v in edges1:
-            obs1.append(graph_inliers.get_edge_data(u, v)['feature'])
-        print("obs1: ", obs1)
-        slam_debug.draw_observations_in_image(np.asarray(obs1), frame1, data, False)
-        obs2 = []
-        for u, v in edges2:
-            obs2.append(graph_inliers.get_edge_data(u, v)['feature'])
-        print("obs2: ", obs2)
-        slam_debug.draw_observations_in_image(np.asarray(obs2), frame2, data, False)
-        logger.setLevel(logging.INFO)
-        # exit()
-        # draw triangulate features in im2
-        # reproject estimated features
         points = rec_tri.points
         points3D = np.zeros((len(points), 3))
         for idx, pt3D in enumerate(points.values()):
             points3D[idx, :] = pt3D.coordinates
+        DO_VISUALIZE = False
+        if DO_VISUALIZE:
+            obs1 = []
+            for u, v in edges1:
+                obs1.append(graph_inliers.get_edge_data(u, v)['feature'])
+            print("obs1: ", obs1)
+            slam_debug.draw_observations_in_image(np.asarray(obs1), frame1, data, False)
+            obs2 = []
+            for u, v in edges2:
+                obs2.append(graph_inliers.get_edge_data(u, v)['feature'])
+            print("obs2: ", obs2)
+            slam_debug.draw_observations_in_image(np.asarray(obs2), frame2, data, False)
+            logger.setLevel(logging.INFO)
+            # exit()
+            # draw triangulate features in im2
+            # reproject estimated features
+            
+
+            # TODO: handle repetetive landmarks
+            # visualize
+            slam_debug.reproject_landmarks(points3D, np.asarray(obs2),
+                                        kf2.world_pose, kf2.im_name,
+                                        camera, data, True)
 
         # Due to some sorting issues, we have to go through
         # graph_inliers by "frames" first
         for _, gi_lm_id in graph_inliers.edges(frame1):
             lm_id = str(self.current_lm_id)
             # print(frame1, frame2, gi_lm_id, lm_id)
-            print("tri lm_id: ", lm_id)
+            # print("tri lm_id: ", lm_id)
             lm = Landmark(lm_id)
             self.n_landmarks += 1
             self.current_lm_id += 1
@@ -557,15 +570,11 @@ class SlamMapper(object):
             point = types.Point()
             point.id = str(lm_id)
             point.coordinates = rec_tri.points[gi_lm_id].coordinates
-            print("Adding point {} to reconstruction".format(lm_id))
+            # print("Adding point {} to reconstruction".format(lm_id))
             self.reconstruction.add_point(point)
             self.local_landmarks.append(lm.lm_id)
 
-        # TODO: handle repetetive landmarks
-        # visualize
-        slam_debug.reproject_landmarks(points3D, np.asarray(obs2),
-                                       kf2.world_pose, kf2.im_name,
-                                       camera, data, True)
+
 
         # exit()
         #visualize the new landmarks kf X -> newest kf
@@ -688,7 +697,10 @@ class SlamMapper(object):
         observations, _, _ = self.data.load_features(frame.im_name)
         
         print("observations.shape: ", np.shape(observations), matches[:, 0].shape)
-        observations = observations[matches[:, 0], ::-1]
+        print("observations: ", observations)
+        observations = observations[matches[:, 0], 0:3]
+        print("observations: ", observations)
+        # exit()
         print("len(observations): ", len(observations), observations.shape,
               len(self.local_landmarks))
 
@@ -703,24 +715,47 @@ class SlamMapper(object):
         for (pt_id, (m1, m2)) in enumerate(matches):
             # print("m1 {}, m2 {}".format(m1, m2))
             lm_id = self.local_landmarks[m2]  # frame.landmarks_[m2]
+            # lm_id = frame.landmarks_[m2]
             # print("track lm_id ", lm_id)
+            print("point3D: ", self.reconstruction.points[str(lm_id)].coordinates)
             points3D[pt_id, :] = \
                 self.reconstruction.points[str(lm_id)].coordinates
 
-        print("points3D.shape: ", points3D.shape)
-        print("observations.shape: ", observations.shape)
-
-        # slam_tracker.bundle_tracking(self.local_landmarks, observations,
-        pose = slam_tracker.bundle_tracking(points3D, observations,
-                                            frame.world_pose, self.camera,
-                                            self.data.config, self.data)
+        print("points3D.shape: ", points3D.shape,
+              "observations.shape: ", observations.shape)
+        print("frame.world_pose: ", frame.im_name,
+              frame.world_pose.rotation, frame.world_pose.translation)
+        slam_debug.reproject_landmarks(points3D, observations,
+                                       frame.world_pose,
+                                       frame.im_name, self.camera[1],
+                                       self.data, True)
+        # slam_debug.reproject_landmarks(points3D, observations,
+        #                                frame.world_pose.inverse(),
+        #                                frame.im_name, self.camera[1],
+        #                                self.data, True)
         # exit()
-        self.num_tracked_lms = len(observations)
+        pose, valid_pts = slam_tracker.\
+            bundle_tracking(points3D, observations,
+                            frame.world_pose, self.camera,
+                            self.data.config, self.data)
+        
+        print("pose after! ", pose.rotation, pose.translation)
+        print("valid_pts: ", len(valid_pts))
+
+        # exit()
+        
         # for m1, m2 in matches:
-        # frame.landmarks_ = self.local_landmarks[matches[:, 0]]
+        # frame.landmarks_ = self.local_landmarks[matches[:, 1]]
         frame.landmarks_ = self.local_landmarks.copy()
+        print("f1: ", len(frame.landmarks_))
         frame.update_visible_landmarks(matches[:, 1])
+        print("f2: ", len(frame.landmarks_))
+        # frame.update_visible_landmarks_bool(valid_pts)
+        frame.landmarks_ = list(compress(frame.landmarks_, valid_pts))
+        print("f3: ", len(frame.landmarks_))
+        self.num_tracked_lms = len(frame.landmarks_)
         frame.world_pose = pose
+        
         #filter outliers and count tracked lms
         # for lm in frame:
         #     lm.num_observable += 1
@@ -754,11 +789,12 @@ class SlamMapper(object):
         
         frm_id_of_last_keyfrm_ = self.curr_kf.kf_id
         print("curr_kf: ", self.curr_kf.kf_id, self.curr_kf.frame_id)
-        print("frame.frame_id: ", frame.frame_id)
+        print("frame.frame_id: ", frame.frame_id, frm_id_of_last_keyfrm_)
         # frame.id
         # ## mapping: Whether is processing
         # #const bool mapper_is_idle = mapper_->get_keyframe_acceptability();
         # Condition A1: Add keyframes if max_num_frames_ or more have passed
+
         # since the last keyframe insertion
         cond_a1 = (frm_id_of_last_keyfrm_ + max_num_frms_ <= frame.frame_id)
         # Condition A2: Add keyframe if min_num_frames_ or more has passed
@@ -768,6 +804,10 @@ class SlamMapper(object):
         # previous key frame
         cond_a3 = self.num_tracked_lms < (num_reliable_lms * 0.25)
 
+        print("self.num_tracked_lms_thr {} self.num_tracked_lms {}\n \
+               num_reliable_lms {} * self.lms_ratio_th={}".
+               format(self.num_tracked_lms_thr, self.num_tracked_lms,
+                      num_reliable_lms, num_reliable_lms * self.lms_ratio_thr))
         # Condition B: (Requirement for adding keyframes)
         # Add a keyframe if 3D points are observed above the threshold and
         # the percentage of 3D points is below a certain percentage

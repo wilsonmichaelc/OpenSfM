@@ -19,9 +19,12 @@ def reproject_landmarks(points3D, observations, pose_world_to_cam,
     h1, w1, c = im.shape
     pt = features.denormalized_image_coordinates(points2D, w1, h1)
     obs = features.denormalized_image_coordinates(observations, w1, h1)
+    print("obs:", obs)
+    print("points2D: ", points2D)
     ax.imshow(im)
     ax.scatter(pt[:, 0], pt[:, 1], c=[[1, 0, 0]])
     ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
+    ax.set_title(image)
     if do_show:
         plt.show()
 
@@ -38,5 +41,6 @@ def draw_observations_in_image(observations, image, data, do_show=True):
     obs = features.denormalized_image_coordinates(observations, w1, h1)
     ax.imshow(im)
     ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
+    ax.set_title(image)
     if do_show:
         plt.show()

@@ -27,7 +27,7 @@ class SlamMatcher(object):
         # print("num_matches ", num_matches)
         logger.info('Image {} matches: {} out of 2'.
                     format(ref_frame, num_matches))
-        if len(im1_matches[curr_frame]) < 100:
+        if len(im1_matches[curr_frame]) < 30:
             return False, {}
         return True, im1_matches
 
@@ -78,7 +78,7 @@ class SlamMatcher(object):
         """
         print("match_frame_to_landmarks frame obj: ", frame)
         print("match_frame_to_landmarks frame: ", frame.im_name)
-        p1, f1, _ = feature_loader.instance.load_points_features_colors(
+        _, f1, _ = feature_loader.instance.load_points_features_colors(
             data, frame.im_name, masked=True)
         f2 = []
         for lm_id in landmarks:

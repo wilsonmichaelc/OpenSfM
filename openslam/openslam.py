@@ -95,13 +95,14 @@ class SlamSystem(object):
                                            self.config, self.camera, data)
             
             print("pose after track for ", frame.im_name, ": ",
-                  pose.get_rotation_matrix())
+                  pose.rotation, pose.translation)
             if pose is not None:
                 frame.world_pose = pose
                 self.slam_mapper.update_local_map(frame)
                 print("After update_local_map")
                 pose: types.Pose = self.slam_mapper.track_with_local_map(frame, self.slam_tracker)
-                print("pose after track_with_local_map: ", pose.get_rotation_matrix())
+                print("pose after track_with_local_map: ",
+                      pose.rotation, pose.translation)
                 if pose is not None:
                     self.tracked_frames += 1
                     # self.slam_mapper.n_frames += 1

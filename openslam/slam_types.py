@@ -138,6 +138,16 @@ class Frame(object):
             return
         self.visible_landmarks = self.visible_landmarks[idx, :]
 
+    # def update_visible_landmarks_bool(self, idx):
+    #     print("before landmarks: ", len(self.landmarks_))
+    #     # self.landmarks_new = []
+    #     # for m1 in idx:
+    #         # self.landmarks_new.append(self.landmarks_[m1]) #= None
+        
+    #     # self.landmarks_[:] = [lm for lm in self.landmarks_ if lm is not None]
+    #     self.landmarks_[:] = [self.landmarks_[m1] for m1 in idx]
+    #     print("after landmarks: ", len(self.landmarks_))
+
     def update_visible_landmarks(self, idx):
         print("before landmarks: ", len(self.landmarks_))
         # self.landmarks_new = []
@@ -193,6 +203,7 @@ class Keyframe(object):
             n_lms = 0
             for lm in graph[self.im_name]:
                 # len(graph[lm]) -> count observations
+                print("len(graph[lm]): ", graph[lm], lm, len(graph[lm]))
                 if len(graph[lm]) >= min_obs_thr:
                     n_lms += 1
             print("n_lms: ", n_lms)

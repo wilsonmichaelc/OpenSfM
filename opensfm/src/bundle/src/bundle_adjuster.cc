@@ -460,9 +460,10 @@ struct BAStdDeviationConstraint {
 };
 
 void BundleAdjuster::Run() {
-  std::cout << "Added run" << std::endl;
+  constexpr bool debug_output{false};
+  if (debug_output) std::cout << "Added run" << std::endl;
   ceres::Problem problem;
-  std::cout << "Added problem" << std::endl;
+  if (debug_output) std::cout << "Added problem" << std::endl;
 
   // Init paramater blocks.
   for (auto &i : shots_) {
@@ -473,25 +474,31 @@ void BundleAdjuster::Run() {
       problem.AddParameterBlock(i.second.parameters.data(), BA_SHOT_NUM_PARAMS);
     }
   }
-  std::cout << "Added shots_" << std::endl;
+  if (debug_output) 
+  {
+    std::cout << "Added shots_" << std::endl;
 
-  std::cout << "cameras_: " << cameras_.size() << std::endl;
-  for (auto &i : cameras_) {
-    std::cout << "i.first: " << i.first << std::endl;
+    std::cout << "cameras_: " << cameras_.size() << std::endl;
+    for (auto &i : cameras_) {
+      std::cout << "i.first: " << i.first << std::endl;
+    }
   }
   for (auto &i : cameras_) {
-    std::cout << "i.first: " << i.first << std::endl;
-    std::cout << "i.second: " << i.second->constant << std::endl;
+    if (debug_output) 
+    {
+      std::cout << "i.first: " << i.first << std::endl;
+      std::cout << "i.second: " << i.second->constant << std::endl;
+    }
     if (i.second->constant) {
       switch (i.second->type()) {
         case BA_PERSPECTIVE_CAMERA: {
           BAPerspectiveCamera &c =
               static_cast<BAPerspectiveCamera &>(*i.second);
-          std::cout << "AddParameterBlock c.parameters: " << c.parameters[0] << ", " << c.parameters[1] << ", " << c.parameters[2] << std::endl;
+          if (debug_output) std::cout << "AddParameterBlock c.parameters: " << c.parameters[0] << ", " << c.parameters[1] << ", " << c.parameters[2] << std::endl;
           problem.AddParameterBlock(c.parameters, BA_CAMERA_NUM_PARAMS);
-          std::cout << "SetParameterBlockConstant c.parameters: " << c.parameters[0] << ", " << c.parameters[1] << ", " << c.parameters[2] << std::endl;
+          if (debug_output) std::cout << "SetParameterBlockConstant c.parameters: " << c.parameters[0] << ", " << c.parameters[1] << ", " << c.parameters[2] << std::endl;
           problem.SetParameterBlockConstant(c.parameters);
-          std::cout << "SetParameterBlockConstant end c.parameters: " << c.parameters[0] << ", " << c.parameters[1] << ", " << c.parameters[2] << std::endl;
+          if (debug_output) std::cout << "SetParameterBlockConstant end c.parameters: " << c.parameters[0] << ", " << c.parameters[1] << ", " << c.parameters[2] << std::endl;
           break;
         }
         case BA_BROWN_PERSPECTIVE_CAMERA: {
@@ -513,7 +520,7 @@ void BundleAdjuster::Run() {
       }
     }
   }
-    std::cout << "Added cameras_" << std::endl;
+  if (debug_output) std::cout << "Added cameras_" << std::endl;
 
   for (auto &i : reconstructions_) {
     for (auto &s : i.second.scales) {
@@ -528,7 +535,7 @@ void BundleAdjuster::Run() {
       }
     }
   }
-  std::cout << "Added reconstructions_" << std::endl;
+  if (debug_output) std::cout << "Added reconstructions_" << std::endl;
 
   for (auto &i : points_) {
     if (i.second.constant) {
@@ -536,14 +543,14 @@ void BundleAdjuster::Run() {
       problem.SetParameterBlockConstant(i.second.parameters.data());
     }
   }
-  std::cout << "Added points" << std::endl;
+  if (debug_output) std::cout << "Added points" << std::endl;
   // Add reprojection error blocks
   ceres::LossFunction *projection_loss = CreateLossFunction(
       point_projection_loss_name_, point_projection_loss_threshold_);
   for (auto &observation : point_projection_observations_) {
     AddObservationResidualBlock(observation, projection_loss, &problem);
   }
-  std::cout << "Added observations points" << std::endl;
+  if (debug_output) std::cout << "Added observations points" << std::endl;
   // Add rotation priors
   for (auto &rp : rotation_priors_) {
     ceres::CostFunction* cost_function =
@@ -554,7 +561,7 @@ void BundleAdjuster::Run() {
                              NULL,
                              rp.shot->parameters.data());
   }
-  std::cout << "Added rotation_priors_" << std::endl;
+  if (debug_output) std::cout << "Added rotation_priors_" << std::endl;
 
   // Add translation priors
   for (auto &tp : translation_priors_) {
@@ -566,7 +573,7 @@ void BundleAdjuster::Run() {
                              NULL,
                              tp.shot->parameters.data());
   }
-  std::cout << "Added translation_priors_" << std::endl;
+  if (debug_output) std::cout << "Added translation_priors_" << std::endl;
   // Add position priors
   for (auto &pp : position_priors_) {
     ceres::CostFunction* cost_function =
@@ -577,7 +584,7 @@ void BundleAdjuster::Run() {
                              NULL,
                              pp.shot->parameters.data());
   }
-  std::cout << "Added position_priors_" << std::endl;
+  if (debug_output) std::cout << "Added position_priors_" << std::endl;
 
   // Add point position priors
   for (auto &pp : point_position_priors_) {
@@ -589,7 +596,7 @@ void BundleAdjuster::Run() {
                              NULL,
                              pp.point->parameters.data());
   }
-  std::cout << "Added point_position_priors_" << std::endl;
+  if (debug_output) std::cout << "Added point_position_priors_" << std::endl;
 
   // Add internal parameter priors blocks
   for (auto &i : cameras_) {
@@ -649,7 +656,7 @@ void BundleAdjuster::Run() {
         break;
     }
   }
-  std::cout << "Added cameras" << std::endl;
+  if (debug_output) std::cout << "Added cameras" << std::endl;
 
 
   // Add unit translation block
@@ -662,7 +669,7 @@ void BundleAdjuster::Run() {
                              NULL,
                              unit_translation_shot_->parameters.data());
   }
-  std::cout << "Added unit_translation_shot_" << std::endl;
+  if (debug_output) std::cout << "Added unit_translation_shot_" << std::endl;
 
   // Add relative motion errors
   ceres::LossFunction *loss = CreateLossFunction(
@@ -678,7 +685,7 @@ void BundleAdjuster::Run() {
                              shots_[rp.shot_id_i].parameters.data(), scale,
                              shots_[rp.shot_id_j].parameters.data());
   }
-  std::cout << "Added relative_motions_" << std::endl;
+  if (debug_output) std::cout << "Added relative_motions_" << std::endl;
 
   // Add relative similarity errors
   for (auto &rp : relative_similarity_) {
@@ -694,7 +701,7 @@ void BundleAdjuster::Run() {
                              shots_[rp.shot_id_i].parameters.data(), scale_i,
                              shots_[rp.shot_id_j].parameters.data(), scale_j);
   }
-  std::cout << "Added relative_similarity_" << std::endl;
+  if (debug_output) std::cout << "Added relative_similarity_" << std::endl;
 
   // Add relative rotation errors
   for (auto &rr : relative_rotations_) {
@@ -706,7 +713,7 @@ void BundleAdjuster::Run() {
                              shots_[rr.shot_id_i].parameters.data(),
                              shots_[rr.shot_id_j].parameters.data());
   }
-  std::cout << "Added relative_rotations_" << std::endl;
+  if (debug_output) std::cout << "Added relative_rotations_" << std::endl;
 
   // Add common position errors
   for (auto &c : common_positions_) {
@@ -717,7 +724,7 @@ void BundleAdjuster::Run() {
     problem.AddResidualBlock(cost_function, NULL, c.shot1->parameters.data(),
                              c.shot2->parameters.data());
   }
-  std::cout << "Added common_positions_" << std::endl;
+  if (debug_output) std::cout << "Added common_positions_" << std::endl;
 
   // Add absolute position errors
   std::map<std::string,int> std_dev_group_remap;
@@ -728,13 +735,13 @@ void BundleAdjuster::Run() {
     const int index = std_dev_group_remap.size();
     std_dev_group_remap[a.std_deviation_group] = index;
   }
-  std::cout << "Added absolute_positions_" << std::endl;
+  if (debug_output) std::cout << "Added absolute_positions_" << std::endl;
 
   std::vector<double> std_deviations(std_dev_group_remap.size());
   for (const auto& a : absolute_positions_){
     std_deviations[std_dev_group_remap[a.std_deviation_group]] = a.std_deviation;
   }
-  std::cout << "Added absolute_positions_2" << std::endl;
+  if (debug_output) std::cout << "Added absolute_positions_2" << std::endl;
 
   for (auto &a : absolute_positions_) {
 
@@ -760,7 +767,7 @@ void BundleAdjuster::Run() {
     problem.AddResidualBlock(cost_function, NULL, a.shot->parameters.data(),
                              &std_deviations[std_dev_group_remap[a.std_deviation_group]]);
   }
-  std::cout << "Added absolute_positions_3" << std::endl;
+  if (debug_output) std::cout << "Added absolute_positions_3" << std::endl;
 
   // Add regularizer term if we're adjusting for standart deviation, or lock them up.
   if(adjust_absolute_position_std_){
@@ -776,7 +783,7 @@ void BundleAdjuster::Run() {
       problem.SetParameterBlockConstant(&std_deviations[i]);
     }
   }
-  std::cout << "Added adjust_absolute_position_std_" << std::endl;
+  if (debug_output) std::cout << "Added adjust_absolute_position_std_" << std::endl;
 
   // Add absolute up vector errors
   ceres::LossFunction *up_vector_loss = new ceres::CauchyLoss(1);
@@ -790,7 +797,7 @@ void BundleAdjuster::Run() {
                                a.shot->parameters.data());
     }
   }
-  std::cout << "Added absolute_up_vectors_" << std::endl;
+  if (debug_output) std::cout << "Added absolute_up_vectors_" << std::endl;
 
   // Add absolute pan (compass) errors
   ceres::LossFunction *pan_loss = new ceres::CauchyLoss(1);
@@ -803,7 +810,7 @@ void BundleAdjuster::Run() {
                                a.shot->parameters.data());
     }
   }
-  std::cout << "Added absolute_pans_" << std::endl;
+  if (debug_output) std::cout << "Added absolute_pans_" << std::endl;
 
   // Add absolute tilt errors
   ceres::LossFunction *tilt_loss = new ceres::CauchyLoss(1);
@@ -816,7 +823,7 @@ void BundleAdjuster::Run() {
                                a.shot->parameters.data());
     }
   }
-  std::cout << "Added absolute_tilts_" << std::endl;
+  if (debug_output) std::cout << "Added absolute_tilts_" << std::endl;
 
   // Add absolute roll errors
   ceres::LossFunction *roll_loss = new ceres::CauchyLoss(1);
@@ -829,7 +836,7 @@ void BundleAdjuster::Run() {
                                a.shot->parameters.data());
     }
   }
-  std::cout << "Added absolute_rolls_" << std::endl;
+  if (debug_output) std::cout << "Added absolute_rolls_" << std::endl;
 
   // Add linear motion priors
   ceres::LossFunction *linear_motion_prior_loss_ = new ceres::CauchyLoss(1);
@@ -844,7 +851,7 @@ void BundleAdjuster::Run() {
                              a.shot1->parameters.data(),
                              a.shot2->parameters.data());
   }
-  std::cout << "Added linear_motion_prior_" << std::endl;
+  if (debug_output) std::cout << "Added linear_motion_prior_" << std::endl;
 
   // Add point positions with shot position priors
   for (auto &p : point_positions_shot_) {
@@ -864,7 +871,7 @@ void BundleAdjuster::Run() {
                              reconstructions_[p.reconstruction_id].GetScalePtr(p.shot_id), 
                              points_[p.point_id].parameters.data());
   }
-  std::cout << "Added point_positions_shot_" << std::endl;
+  if (debug_output) std::cout << "Added point_positions_shot_" << std::endl;
 
     // Add point with shot projection
   for (auto &p : point_bearing_shot_) {
@@ -883,7 +890,7 @@ void BundleAdjuster::Run() {
                              reconstructions_[p.reconstruction_id].GetScalePtr(p.shot_id), 
                              points_[p.point_id].parameters.data());
   }
-  std::cout << "Added point_bearing_shot_" << std::endl;
+  if (debug_output) std::cout << "Added point_bearing_shot_" << std::endl;
 
   // Add point positions with world position priors
   for (auto &p : point_positions_world_) {
@@ -898,7 +905,7 @@ void BundleAdjuster::Run() {
     problem.AddResidualBlock(cost_function, NULL, 
                              points_[p.point_id].parameters.data());
   }
-  std::cout << "Added point_positions_world_" << linear_solver_type_ << std::endl;
+  if (debug_output) std::cout << "Added point_positions_world_" << linear_solver_type_ << std::endl;
 
   // Solve
   ceres::Solver::Options options;
@@ -906,20 +913,20 @@ void BundleAdjuster::Run() {
   options.linear_solver_type = LinearSolverTypeFromNamae(linear_solver_type_);
   options.num_threads = num_threads_;
   options.max_num_iterations = max_num_iterations_;
-  std::cout << "Added max_num_iterations" << std::endl;
+  if (debug_output) std::cout << "Added max_num_iterations" << std::endl;
 
   ceres::Solve(options, &problem, &last_run_summary_);
-  std::cout << "Added Solve" << std::endl;
+  if (debug_output) std::cout << "Added Solve" << std::endl;
 
   if (compute_covariances_) {
     ComputeCovariances(&problem);
   }
-    std::cout << "Added ComputeCovariances" << std::endl;
+  if (debug_output) std::cout << "Added ComputeCovariances" << std::endl;
 
   if (compute_reprojection_errors_) {
     ComputeReprojectionErrors();
   }
-    std::cout << "Added ComputeReprojectionErrors" << std::endl;
+  if (debug_output) std::cout << "Added ComputeReprojectionErrors" << std::endl;
 
 }
 
