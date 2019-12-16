@@ -28,8 +28,6 @@ class SlamSystem(object):
         print("Init slam system", args)
         self.data = dataset.DataSet(args.dataset)
         cameras = self.data.load_camera_models()
-        print("cameras.items()", cameras.items())
-        print("cameras.values()", cameras.values())
         self.config = self.data.config
         self.camera = next(iter(cameras.items()))
         self.camera_object = next(iter(cameras.values()))
@@ -48,15 +46,6 @@ class SlamSystem(object):
     def add_arguments(self, parser):
         parser.add_argument('dataset', help='dataset to process')
 
-    # def run(self,args)
-    #     print("Init slam system")
-    #     data = dataset.DataSet(args.dataset)
-    #     camera = data.load_camera_models[0]
-    #     print("camera")
-    #     self.camera = camera
-    #     self.system_initialized = False
-    #     self.system_lost = True
-
     def init_slam_system(self, data, frame: Frame):
         """Find the initial depth estimates for the slam map"""
         print("init_slam_system: ", frame)
@@ -64,13 +53,10 @@ class SlamSystem(object):
             self.initializer.set_initial_frame(data, frame)
             self.system_initialized = False
         else:
-            print("Trying initialize")
             rec_init, graph, matches = \
                 self.initializer.initialize(data, frame)
-            print("Tried to initialize ", rec_init)
             self.system_initialized = (rec_init is not None)
             if self.system_initialized:
-                print("System initialized!", len(matches))
                 self.slam_mapper.create_init_map(graph, rec_init,
                                                  self.initializer.init_frame,
                                                  frame)
@@ -80,15 +66,14 @@ class SlamSystem(object):
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
             self.system_initialized = self.init_slam_system(data, frame)
-            # if self.system_initialized:
-            #     self.tracked_frames += 1
-            #     self.slam_mapper.update_local_map(frame)
-            print("Init: ", self.system_initialized)
+            if self.system_initialized:
+                print("Initialized system with ", frame.im_name)
+            else:
+                print("Failed to initialize with ", frame.im_name)
             return self.system_initialized
         else:
             print("Tracking: ", frame.frame_id, frame.im_name)
-            # Maybe remove most of the slam_mapper stuff
-            # to tracking
+            # Maybe move most of the slam_mapper stuff to tracking
             self.slam_mapper.apply_landmark_replace()
             #TODO: Update last frames' pose!
             pose = self.slam_tracker.track(self.slam_mapper, frame,
@@ -124,6 +109,7 @@ class SlamSystem(object):
                         self.slam_mapper.add_keyframe(new_kf)
                         # self.slam_mapper.curr_kf = new_kf
                         self.slam_mapper.mapping_with_new_keyframe(new_kf)
+                        self.slam_mapper.local_bundle_adjustment()
                         print("New kf needed: ", new_kf)
                     else:
                         print("No kf needed")
@@ -154,27 +140,27 @@ class SlamSystem(object):
         """Saves the trajectory file of all frames or only of KFs"""
         return True
 
-    def detect(self, data, frame):
-        image = self.image_list[self.tracked_frames]
-        p_sorted, f_sorted, c_sorted = self.feature_loader.load_points_features_colors(data,image)
-        if p_sorted is None or f_sorted is None or c_sorted is None:
-            p_unmasked, f_unmasked, c_unmasked = features.extract_features(
-                data.load_image(image), data.config)
+    # def detect(self, data, frame):
+    #     image = self.image_list[self.tracked_frames]
+    #     p_sorted, f_sorted, c_sorted = self.feature_loader.load_points_features_colors(data,image)
+    #     if p_sorted is None or f_sorted is None or c_sorted is None:
+    #         p_unmasked, f_unmasked, c_unmasked = features.extract_features(
+    #             data.load_image(image), data.config)
 
-            fmask = self.data.load_features_mask(image, p_unmasked)
+    #         fmask = self.data.load_features_mask(image, p_unmasked)
 
-            p_unsorted = p_unmasked[fmask]
-            f_unsorted = f_unmasked[fmask]
-            c_unsorted = c_unmasked[fmask]
+    #         p_unsorted = p_unmasked[fmask]
+    #         f_unsorted = f_unmasked[fmask]
+    #         c_unsorted = c_unmasked[fmask]
 
-            if len(p_unsorted) == 0:
-                logger.warning('No features found in image {}'.format(image))
-                return
+    #         if len(p_unsorted) == 0:
+    #             logger.warning('No features found in image {}'.format(image))
+    #             return
 
-            size = p_unsorted[:, 2]
-            order = np.argsort(size)
-            p_sorted = p_unsorted[order, :]
-            f_sorted = f_unsorted[order, :]
-            c_sorted = c_unsorted[order, :]
-            data.save_features(image, p_sorted, f_sorted, c_sorted)
+    #         size = p_unsorted[:, 2]
+    #         order = np.argsort(size)
+    #         p_sorted = p_unsorted[order, :]
+    #         f_sorted = f_unsorted[order, :]
+    #         c_sorted = c_unsorted[order, :]
+    #         data.save_features(image, p_sorted, f_sorted, c_sorted)
 

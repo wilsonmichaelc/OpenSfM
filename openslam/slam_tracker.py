@@ -105,7 +105,8 @@ class SlamTracker(object):
         ba.set_max_num_iterations(50)
         ba.set_linear_solver_type("SPARSE_SCHUR")
         print("set_linear_solver_type")
-        
+
+
         chrono.lap('setup')
         ba.run()
         chrono.lap('run')
@@ -127,10 +128,11 @@ class SlamTracker(object):
             p = ba.get_point(str(pt_id)).reprojection_errors['0']
             if np.linalg.norm(p) > th:
                 pts_outside += 1
+                # print("out p.reprojection_errors: ", p, np.linalg.norm(p))
             else:
                 pts_inside += 1
                 valid_pts[pt_id] = True
-            print("p.reprojection_errors: ", p, np.linalg.norm(p))
+                # print("in p.reprojection_errors: ", p, np.linalg.norm(p))
 
         print("pts inside {} and outside {}".format(pts_inside, pts_outside))
 
@@ -242,13 +244,11 @@ class SlamTracker(object):
         matches = self.slam_matcher.\
             match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
                                      margin, data, slam_mapper.graph)
-
         if len(matches) < 30:
             print("Not enough matches!", len(matches))
             return None
         matches = np.asarray(matches)
         print("track_motion matches: ", matches.shape)
-        # print("matches np: ", np.as)
         slam_mapper.last_frame.update_visible_landmarks(matches[:, 1])
         landmarks = slam_mapper.last_frame.landmarks_
         print("n_matches: ", len(matches))
@@ -264,32 +264,13 @@ class SlamTracker(object):
         points2D, _, _ = feature_loader.instance. \
             load_points_features_colors(data, frame.im_name, masked=True)
         print("points2D.shape: ", points2D.shape)
-        p2,_,_, = data.load_features(frame.im_name)
-        print("p2.shape: ", p2.shape)
-        print("first 10: ", points2D[0:5,:])
-        print("first 10: ", p2[0:5,:])
         points2D = points2D[matches[:, 0], :]
         # Set up bundle adjustment problem
         pose, valid_pts = self.bundle_tracking(points3D, points2D, init_pose,
-                                    camera, config, data)
-
-        # frame.landmarks_ = self.local_landmarks.copy()
-        # print("f1: ", len(frame.landmarks_))
-        # frame.update_visible_landmarks(matches[:, 1])
-        print("tracker f2: ", len(frame.landmarks_))
-        # frame.update_visible_landmarks_bool(valid_pts)
+                                               camera, config, data)
+        print("tracker f2: ", frame.im_name, len(frame.landmarks_))
         frame.landmarks_ = list(compress(frame.landmarks_, valid_pts))
-        print("tracker f3: ", len(frame.landmarks_))
-        # self.num_tracked_lms = len(frame.landmarks_)
-        # frame.world_pose = pose
-
-
-        # frame.landmarks_
-        # # remove outliers?
-        slam_debug.reproject_landmarks(points3D, points2D, init_pose,
-                                       frame.im_name, camera[1], data, False)
-        slam_debug.reproject_landmarks(points3D, points2D, pose, frame.im_name,
-                                       camera[1], data, True)
+        print("tracker f3: ", frame.im_name, len(frame.landmarks_))
         return pose
 
     def track(self, slam_mapper: SlamMapper, frame: Frame, config, camera,

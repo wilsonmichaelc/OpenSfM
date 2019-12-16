@@ -86,9 +86,14 @@ class SlamMatcher(object):
             lm = graph.node[lm_id]['data']
             if lm.descriptor is not None:
                 f2.append(lm.descriptor)
+            print("frame: ", frame.im_name, "slm_id: ", lm_id)
         f2 = np.asarray(f2)
         print("f1, f2: ", len(f1), len(f2), f1.shape, f2.shape)
+
         matches = matching.match_brute_force_symmetric(f1, f2, data.config)
+
+        for m1, m2 in matches:
+            print("frame: ", frame.im_name, "m1: ", m1, " m2: ", m2)
         # TODO: Do some additional checks
         # indexes = [2, 3, 5]
         # for index in sorted(matches[:, 1], reverse=True):
@@ -104,12 +109,16 @@ class SlamMatcher(object):
         print("Other frame: ", other_kf)
         print("Curr frame: ", curr_kf.im_name)
         print("match_for_triangulation", other_kf, curr_kf.im_name)
-        success, matches = self.match(data, other_kf, curr_kf.im_name,
+        # success, matches = self.match(data, other_kf, curr_kf.im_name,
+                                    #   camera_obj)
+        success, matches = self.match(data, curr_kf.im_name, other_kf, 
                                       camera_obj)
         print("n_matches {} <-> {}: {}".format(
               curr_kf.im_name, other_kf, len(matches)))
         print("matches", matches)
-        return matches[curr_kf.im_name]
+        # return matches[curr_kf.im_name]
+        return matches[other_kf]
+        
 
     def matchOpenVSlam(self):
         return True

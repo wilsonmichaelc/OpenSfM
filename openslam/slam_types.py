@@ -1,16 +1,9 @@
-# from opensfm import feature_loader
-# from opensfm import features
 from opensfm import types
 import logging
 import numpy as np
-# from enum import Enum
+from opensfm import feature_loader
 logger = logging.getLogger(__name__)
 
-
-# class LandmarkStatus(Enum):
-#     Valid = 1
-#     Invalid = 2
-#     NotClear = 3
 
 class Landmark(object):
 
@@ -100,16 +93,19 @@ class Landmark(object):
         # print("keyframes: ", keyframes)
         # print("lm_id: ", self.lm_id)
         # descriptors = []
+        # if self.descriptor is None:
+            # print("None: ", self.lm_id)
+        # else:
+            
         for kf_name in keyframes:
             # print(kf_name)
             # print("graph.node[kf_name]: ", graph.nodes[kf_name])
-            kf = graph.nodes[kf_name]['data']
+            kf: Keyframe = graph.nodes[kf_name]['data']
             track = graph.get_edge_data(kf_name, str(self.lm_id))
+            # print("track: ", track, "kf.im_name: ", kf.im_name)
+            # print("len(descriptors): ", len(kf.descriptors))
             self.descriptor = kf.descriptors[track['feature_id']]
             return
-    #     if len(graph[self.lm_id]) == 0:
-    #         self.descriptor = None
-    #         return
 
     #     #Compute the descriptor
     #     for kf in graph[self.lm_id]:
@@ -168,14 +164,6 @@ class Frame(object):
         """Reduces the object to just the header"""
         self.visible_landmarks = []
 
-    def make_keyframe(self, data, world_pose, rel_pose, kf_id):
-        self.kf_id = kf_id
-        self.rel_pose_to_kf = rel_pose
-        self.world_pose = world_pose
-        self.is_keyframe = True
-        _, self.descriptors, _ = data.load_features(self.im_name)
-
-
 class Keyframe(object):
     def __init__(self, frame: Frame, data, kf_id):
         # The landmarks store the id of the lms in the graph
@@ -185,7 +173,11 @@ class Keyframe(object):
         self.kf_id = kf_id  # unique_id
         self.frame_id = frame.frame_id
         self.keypts = []
-        _, self.descriptors, _ = data.load_features(self.im_name)
+        _, self.descriptors, _ = \
+            feature_loader.instance.load_points_features_colors(
+                data, self.im_name, masked=True)
+        self.matched_lms = np.ones(len(self.descriptors), dtype=int)*-1
+        # data.load_features(self.im_name)
         self.world_pose = frame.world_pose  #types.Pose()
         self.local_map_update_identifier = -1
 
@@ -201,23 +193,21 @@ class Keyframe(object):
         print("tracked: ", len(self.landmarks_))
         if min_obs_thr > 0:
             n_lms = 0
-            for lm in graph[self.im_name]:
+            for lm_id in graph[self.im_name]:
                 # len(graph[lm]) -> count observations
-                print("len(graph[lm]): ", graph[lm], lm, len(graph[lm]))
-                if len(graph[lm]) >= min_obs_thr:
+                # print("len(graph[lm_id]): ", graph[lm_id], lm_id, len(graph[lm_id]))
+                if len(graph[lm_id]) >= min_obs_thr:
                     n_lms += 1
             print("n_lms: ", n_lms)
             return n_lms
         return len(self.visible_landmarks)
 
     def compute_median_depth(self, absval, graph, reconstruction):
-
         Rt = self.world_pose.get_Rt()
         rot_cw_z_row = Rt[2, 0:3]
         trans_cw_z = Rt[2, 3]
         depths = []
         for lm_id in self.landmarks_:
-            # lm = graph.node[lm_id]['data']
             pos_w = reconstruction.points[lm_id].coordinates
             pos_c_z = np.dot(rot_cw_z_row, pos_w) + trans_cw_z
             depths.append(pos_c_z)
