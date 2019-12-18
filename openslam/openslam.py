@@ -90,26 +90,22 @@ class SlamSystem(object):
                       pose.rotation, pose.translation)
                 if pose is not None:
                     self.tracked_frames += 1
-                    # self.slam_mapper.n_frames += 1
                     # Store the map
-                    self.slam_mapper.\
-                        add_frame_to_reconstruction(frame.im_name, pose, self.camera, data)
-                    self.slam_mapper.paint_reconstruction(data)
-                    self.slam_mapper.save_reconstruction(data, frame.im_name)
-                    # n_lms = len(self.slam_mapper.local_landmarks)
+                    # self.slam_mapper.\
+                        # add_frame_to_reconstruction(frame.im_name, pose, self.camera, data)
                     
                     # TODO: Check that
                     self.slam_mapper.set_last_frame(frame)
-                    # self.last_frame.landmarks_ = self.slam_mapper.local_landmarks
-                    # self.last_frame.im_name = frame.im_name
-                    # self.last_frame.frame_id = frame.frame_id
-
                     if self.slam_mapper.new_kf_needed(frame):
                         new_kf = Keyframe(frame, data, self.slam_mapper.n_keyframes)
                         self.slam_mapper.add_keyframe(new_kf)
                         # self.slam_mapper.curr_kf = new_kf
                         self.slam_mapper.mapping_with_new_keyframe(new_kf)
+                        self.slam_mapper.paint_reconstruction(data)
+                        self.slam_mapper.save_reconstruction(data, frame.im_name)
                         self.slam_mapper.local_bundle_adjustment()
+                        self.slam_mapper.paint_reconstruction(data)
+                        self.slam_mapper.save_reconstruction(data, frame.im_name+"aft")
                         print("New kf needed: ", new_kf)
                     else:
                         print("No kf needed")

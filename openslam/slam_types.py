@@ -20,14 +20,16 @@ class Landmark(object):
         self.n_observable = 0  # the number of frames and KFs it is seen in
         self.descriptor = None
         # self.pos_w = []  # 3D position as reconstructed
-        self.num_observable = 0
-        self.num_observed = 0
+        self.num_observable = 1
+        self.num_observed = 1
         # self.observations = {}  # keyframes, where the landmark is observed
         self.first_kf_id = -1
         self.ref_kf = None
         self.mean_normal = []
-        # self.num_observations_
-    
+
+    def get_observed_ratio(self):
+        return self.num_observed/self.num_observable
+
     def update_normal_and_depth(self, pos_w, graph):
         # print("self.lm_id: ", self.lm_id)
         observations = graph[str(self.lm_id)]
@@ -41,9 +43,9 @@ class Landmark(object):
         for kf_name in observations.keys():
             kf = graph.nodes[kf_name]['data']
             normal = pos_w - kf.world_pose.get_origin()
-            # print("pos_w: ", pos_w, " kf.world_pose.get_origin(): ",
-                #   kf.world_pose.get_origin(), normal)
-            # print(normal)
+            print("pos_w: ", pos_w, " kf.world_pose.get_origin(): ",
+                  kf.world_pose.get_origin(), normal)
+            print(normal)
             self.mean_normal += (normal / np.linalg.norm(normal))
 
         # n_observations = len(self.observations)
@@ -129,6 +131,7 @@ class Frame(object):
         #stores where the frame was last updated
         self.local_map_update_identifier = -1
         
+        
     def update_visible_landmarks_old(self, idx):
         if self.visible_landmarks is None:
             return
@@ -207,10 +210,14 @@ class Keyframe(object):
         rot_cw_z_row = Rt[2, 0:3]
         trans_cw_z = Rt[2, 3]
         depths = []
+        print("kf_id: ", self.kf_id)
         for lm_id in self.landmarks_:
-            pos_w = reconstruction.points[lm_id].coordinates
-            pos_c_z = np.dot(rot_cw_z_row, pos_w) + trans_cw_z
-            depths.append(pos_c_z)
+            print("cmp med: ", lm_id)
+            print("graph.has_node(lm_id): ", graph.has_node(str(lm_id)))
+            if graph.has_node(lm_id):
+                pos_w = reconstruction.points[lm_id].coordinates
+                pos_c_z = np.dot(rot_cw_z_row, pos_w) + trans_cw_z
+                depths.append(pos_c_z)
 
         if len(depths) == 0:
             return -1
