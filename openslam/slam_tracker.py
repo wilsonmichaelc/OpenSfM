@@ -371,6 +371,11 @@ class SlamTracker(object):
         print("tracker f2: ", frame.im_name, len(frame.landmarks_))
         frame.landmarks_ = list(compress(frame.landmarks_, valid_pts))
         print("tracker f3: ", frame.im_name, len(frame.landmarks_))
+
+        print("valid_pts: ", valid_pts)
+        print("points: ", points2D)
+        slam_debug.\
+            visualize_tracked_lms(points2D[np.array(valid_pts, dtype=bool), :], frame, data)
         return pose
 
 

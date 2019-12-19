@@ -624,14 +624,14 @@ class SlamMapper(object):
                       "lm_id: ", lm_id)
                 exit()
             in_graph[e['feature_id']] = lm_id
-        
 
+        print("before: ", self.graph.nodes())
         # // remove redundant landmarks
         # local_map_cleaner_->remove_redundant_landmarks(cur_keyfrm_->id_);
         self.remove_redundant_landmarks()
-
-        TODO: Prevent create new observations from inserting 
-        deleted lms!
+        print("after: ", self.graph.nodes())
+        # TODO: Prevent create new observations from inserting 
+        # deleted lms!
         self.create_new_observations_for_lm(self.data)
         self.create_new_landmarks(self.data)
         # if (self.init_frame.im_name != self.curr_kf.im_name):
@@ -664,18 +664,19 @@ class SlamMapper(object):
 
             print("Already in graph? create",
                   self.graph.get_edge_data(self.curr_kf.im_name, lm_id))
-
-            # add observations
-            self.graph.add_edge(self.curr_kf.im_name, lm_id,
-                                feature=(float(x), float(y)),
-                                feature_scale=float(s),
-                                feature_id=int(f1_id),
-                                feature_color=(float(r), float(g), float(b)))
-            pos_w = self.reconstruction.points[lm_id].coordinates
-            lm.update_normal_and_depth(pos_w, self.graph)
-            lm.compute_descriptor(self.graph)
-            self.curr_kf.matched_lms[f1_id] = lm_id
-            n_added += 1
+            if self.graph.has_node(lm_id):
+                # add observations
+                self.graph.add_edge(self.curr_kf.im_name, lm_id,
+                                    feature=(float(x), float(y)),
+                                    feature_scale=float(s),
+                                    feature_id=int(f1_id),
+                                    feature_color=(float(r), float(g), float(b)))
+                pos_w = self.reconstruction.points[lm_id].coordinates
+                lm.update_normal_and_depth(pos_w, self.graph)
+                lm.compute_descriptor(self.graph)
+                self.curr_kf.matched_lms[f1_id] = lm_id
+                n_added += 1
+                print("Add observation for ", lm_id)
         print("added {} new observations to graph for {} ".
               format(n_added, self.curr_kf.im_name))
 
@@ -846,21 +847,22 @@ class SlamMapper(object):
             if kf1.matched_lms[f1_id] == -1:
                 old_lm_id = kf2.matched_lms[f2_id]
                 if old_lm_id != -1:
-                    # also add the new track
-                    print("Not matched in current frame but matched to other frame!", old_lm_id,
-                            kf1.matched_lms[f1_id])
-                    # if old_lm_id != -1:
-                    print("new! triang: track_id  {}, frames: {}<->{} f1_id {}, f2_id {}".
-                        format(old_lm_id, frame1, frame2, f1_id, f2_id))
-                    x, y, s = p1[f1_id, 0:3]
-                    r, g, b = c1[f1_id, :]
-                    self.graph.add_edge(str(frame1),
-                                        str(old_lm_id),
-                                        feature=(float(x), float(y)),
-                                        feature_scale=float(s),
-                                        feature_id=int(f1_id),
-                                        feature_color=(float(r), float(g), float(b)))
-                    kf1.matched_lms[f1_id] = old_lm_id
+                    if self.graph.has_node(old_lm_id):
+                        # also add the new track
+                        print("Not matched in current frame but matched to other frame!", old_lm_id,
+                                kf1.matched_lms[f1_id])
+                        # if old_lm_id != -1:
+                        print("new! triang: track_id  {}, frames: {}<->{} f1_id {}, f2_id {}".
+                            format(old_lm_id, frame1, frame2, f1_id, f2_id))
+                        x, y, s = p1[f1_id, 0:3]
+                        r, g, b = c1[f1_id, :]
+                        self.graph.add_edge(str(frame1),
+                                            str(old_lm_id),
+                                            feature=(float(x), float(y)),
+                                            feature_scale=float(s),
+                                            feature_id=int(f1_id),
+                                            feature_color=(float(r), float(g), float(b)))
+                        kf1.matched_lms[f1_id] = old_lm_id
                 else:
             # if kf1.matched_lms[f1_id] == -1:
                     # else:
@@ -963,6 +965,7 @@ class SlamMapper(object):
             # Now, relate the gi_lm_id to the actual feature_id
             e1 = graph_inliers.get_edge_data(frame1, gi_lm_id)
             e2 = graph_inliers.get_edge_data(frame2, gi_lm_id)
+            
             self.graph.add_edges_from([(frame1, str(lm_id), e1)])
             self.graph.add_edges_from([(frame2, str(lm_id), e2)])
 
@@ -1280,7 +1283,7 @@ class SlamMapper(object):
         lm_not_clear = 0
         lm_valid = 1
         lm_invalid = 2
-        lm_state = lm_not_clear
+        # lm_state = lm_not_clear
         # fresh_landmarks = []
         fresh_landmarks = self.fresh_landmarks
         num_removed = 0
@@ -1289,8 +1292,18 @@ class SlamMapper(object):
         # for lm in fresh_landmarks:
         print("len(fresh_landmarks): ", len(fresh_landmarks))
         for lm_id in fresh_landmarks:
+            lm_state = lm_not_clear
+            if not self.graph.has_node(lm_id):
+                removed_landmarks.append(lm_id)
+                continue
+                # num_removed
+
             lm = self.graph.node[lm_id]['data']
             num_observations = len(self.graph[lm_id])
+            if num_observations >= 3:
+                print("num_observation ", num_observations, " lm_id: ", lm_id)
+                # exit()
+
             # if lm.will_be_erased():
             # else:
             print("lm_id: ", lm_id, lm.get_observed_ratio())
@@ -1298,19 +1311,28 @@ class SlamMapper(object):
                 # if `lm` is not reliable
                 # remove `lm` from the buffer and the database
                 lm_state = lm_invalid
+                print("lm {} invalid due to obs_ratio {} < {}".
+                      format(lm_id, lm.get_observed_ratio(), observed_ratio_thr))
             elif num_reliable_keyfrms + lm.first_kf_id <= self.curr_kf.kf_id \
                     and num_observations <= num_obs_thr:
                 # if the number of the observers of `lm` is small after some
                 # keyframes were inserted
                 # remove `lm` from the buffer and the database
                 lm_state = lm_invalid
+                print("lm {} invalid due rel. kfs {} + {} <= {} and {} <= {}".
+                      format(lm_id, num_reliable_keyfrms, lm.first_kf_id,
+                       self.curr_kf.kf_id, num_observations, num_obs_thr))
+
             elif num_reliable_keyfrms + 1 + lm.first_kf_id <= self.curr_kf.kf_id:
                 # if the number of the observers of `lm` is small after some
                 # keyframes were inserted
                 # remove `lm` from the buffer and the database
                 lm_state = lm_valid
-                
-
+                print("lm {} valid due rel. kfs {} + 1 + {} <= {}".
+                      format(lm_id, num_reliable_keyfrms, lm.first_kf_id, self.curr_kf.kf_id))
+            # print("lm {} invalid by default".format(lm_id))
+            print("lm {} default invalid due rel. kfs {} + 1 + {} <= {}".
+                      format(lm_id, num_reliable_keyfrms, lm.first_kf_id, self.curr_kf.kf_id))
 
             if lm_state == lm_invalid:
                 # lm.prepare_for_erasing()
@@ -1337,7 +1359,7 @@ class SlamMapper(object):
                 del self.reconstruction.points[lm_id]
                 
 
-        print("remove_landmark: ", len(removed_landmarks))
+        print("remove_landmark: ", len(removed_landmarks), " cleaned_landmarks: ", len(cleaned_landmarks))
 
         # somehow also remove from frame.landmarks_
         # clean-up frame.landmarks_
@@ -1346,7 +1368,7 @@ class SlamMapper(object):
             if self.graph.has_node(lm_id):
                keep_idx[idx] = True
                print("keep: ", idx, " lm_id: ", lm_id)
-        
+            
         self.curr_kf.landmarks_[:] = compress(self.curr_kf.landmarks_, keep_idx)
 
         keep_idx = np.zeros(len(self.local_landmarks), dtype=bool)
@@ -1356,7 +1378,18 @@ class SlamMapper(object):
         
         self.local_landmarks[:] = compress(self.local_landmarks, keep_idx)
 
+        keep_idx = np.zeros(len(self.last_frame.landmarks_), dtype=bool)
+        for idx, lm_id in enumerate(self.last_frame.landmarks_):
+            if self.graph.has_node(lm_id):
+               keep_idx[idx] = True
         
+        self.last_frame.landmarks_[:] = compress(self.last_frame.landmarks_, keep_idx)
+
+        print("len: curr_kf: {}, local_lms: {}, landmarks: {}".
+              format(len(self.curr_kf.landmarks_),
+                     len(self.local_landmarks),
+                     len(self.last_frame.landmarks_)))
+
     # def determine(self, lm):
     #     """
     #     part of remove_redundant_landmarks
@@ -1406,7 +1439,7 @@ class SlamMapper(object):
                 if self.curr_kf.matched_lms[f1_id] != -1 or self.graph.get_edge_data(self.curr_kf.im_name, lm_id) is not None:
                     print("Adding an already matched edge!", f1_id, self.curr_kf.im_name, lm_id)
                     exit()
-                print("Adding edge: ", self.curr_kf.im_name, lm_id, "f1_id: ", f1_id)
+                print(self.curr_kf.im_name, "Adding edge: ", " lm_id: ", lm_id, "f1_id: ", f1_id)
                 self.curr_kf.matched_lms[f1_id] = lm_id
                 x, y, s = p[f1_id, 0:3]
                 r, g, b = c[f1_id, :]
@@ -1414,11 +1447,12 @@ class SlamMapper(object):
 
                 # print("self.graph[lm_id]: ", self.graph[lm_id])
                 #TODO: add feature id
-                self.graph.add_edge(self.curr_kf.im_name, lm_id,
-                                    feature=(float(x), float(y)),
-                                    feature_scale=float(s),
-                                    feature_id=int(f1_id),
-                                    feature_color=(float(r), float(g), float(b)))
+                if self.graph.has_node(lm_id):
+                    self.graph.add_edge(self.curr_kf.im_name, lm_id,
+                                        feature=(float(x), float(y)),
+                                        feature_scale=float(s),
+                                        feature_id=int(f1_id),
+                                        feature_color=(float(r), float(g), float(b)))
 
                 
                 pos_w = self.reconstruction.points[lm_id].coordinates
