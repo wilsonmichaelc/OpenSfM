@@ -101,11 +101,12 @@ class SlamSystem(object):
                         self.slam_mapper.add_keyframe(new_kf)
                         # self.slam_mapper.curr_kf = new_kf
                         self.slam_mapper.mapping_with_new_keyframe(new_kf)
-                        self.slam_mapper.paint_reconstruction(data)
-                        self.slam_mapper.save_reconstruction(data, frame.im_name)
+                        # self.slam_mapper.paint_reconstruction(data)
+                        # self.slam_mapper.save_reconstruction(data, frame.im_name)
                         self.slam_mapper.local_bundle_adjustment()
-                        self.slam_mapper.paint_reconstruction(data)
-                        self.slam_mapper.save_reconstruction(data, frame.im_name+"aft")
+                        if new_kf.kf_id % 5 == 0:
+                            self.slam_mapper.paint_reconstruction(data)
+                            self.slam_mapper.save_reconstruction(data, frame.im_name+"aft")
                         print("New kf needed: ", new_kf)
                     else:
                         print("No kf needed")

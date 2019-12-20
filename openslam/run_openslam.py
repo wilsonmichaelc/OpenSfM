@@ -33,5 +33,6 @@ for im_name in sorted(data.image_list):
         print(im_name)
     else:
         print("slam trying to init")
-# exit()
-    
+
+slam_system.slam_mapper.paint_reconstruction(data)
+slam_system.slam_mapper.save_reconstruction(data, frame.im_name+"aft")

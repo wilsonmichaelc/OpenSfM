@@ -656,14 +656,14 @@ class SlamMapper(object):
                 continue
             
             lm: Landmark = self.graph.node[lm_id]['data']
-            print("self.graph.get_edge_data(self.curr_kf.im_name, lm_id)): ",
-                  self.graph.get_edge_data(self.curr_kf.im_name, lm_id))
-            print("Adding edge new obs: ", self.curr_kf.im_name, " clm_id: ", lm_id, "f1_id: ", f1_id)
+            # print("self.graph.get_edge_data(self.curr_kf.im_name, lm_id)): ",
+            #       self.graph.get_edge_data(self.curr_kf.im_name, lm_id))
+            # print("Adding edge new obs: ", self.curr_kf.im_name, " clm_id: ", lm_id, "f1_id: ", f1_id)
             x, y, s = p1[f1_id, 0:3]
             r, g, b = c1[f1_id, :]
 
-            print("Already in graph? create",
-                  self.graph.get_edge_data(self.curr_kf.im_name, lm_id))
+            # print("Already in graph? create",
+                #   self.graph.get_edge_data(self.curr_kf.im_name, lm_id))
             if self.graph.has_node(lm_id):
                 # add observations
                 self.graph.add_edge(self.curr_kf.im_name, lm_id,
@@ -1571,7 +1571,7 @@ class SlamMapper(object):
             get_num_tracked_landmarks(min_obs_thr, self.graph)
         print("num_reliable_lms: ", num_reliable_lms)
         max_num_frms_ = 30  # the fps
-        min_num_frms_ = 5
+        min_num_frms_ = 2
         
         frm_id_of_last_keyfrm_ = self.curr_kf.kf_id
         print("curr_kf: ", self.curr_kf.kf_id, self.curr_kf.frame_id)
