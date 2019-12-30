@@ -6,12 +6,12 @@ from slam_mapper import SlamMapper
 from slam_tracker import SlamTracker
 from slam_types import Frame
 from slam_types import Keyframe
+import slam_debug
 from opensfm import dataset
 from opensfm import features
 from opensfm import reconstruction
 from opensfm import feature_loader
 from opensfm import types
-# from initializer import slam_initializer
 import numpy as np
 from opensfm import feature_loading
 import networkx as nx
@@ -30,19 +30,16 @@ class SlamSystem(object):
         cameras = self.data.load_camera_models()
         self.config = self.data.config
         self.camera = next(iter(cameras.items()))
-        self.camera_object = next(iter(cameras.values()))
         self.system_initialized = False
         self.system_lost = True
+        self.reconstruction_init = None
+        self.image_list = sorted(self.data.image_list)
+
+        self.slam_mapper = SlamMapper(self.data, self.config, self.camera)
+        self.slam_tracker = SlamTracker(self.data, self.config)
         self.slam_matcher = SlamMatcher(self.config)
         self.initializer = SlamInitializer(self.config, self.slam_matcher)
         self.initializer.matcher = self.slam_matcher
-        self.tracked_frames = 0
-        self.reconstruction_init = None
-        self.image_list = sorted(self.data.image_list)
-        self.slam_mapper = SlamMapper(self.data, self.config, self.camera)
-        self.slam_tracker = SlamTracker(self.data, self.config)
-        self.n_tracked_lms = 0
-
     def add_arguments(self, parser):
         parser.add_argument('dataset', help='dataset to process')
 
@@ -63,55 +60,65 @@ class SlamSystem(object):
         return self.system_initialized
 
     def track_next_frame(self, data, frame: Frame):
+        chrono = reconstruction.Chronometer()
         """Estimates the pose for the next frame"""
         if not self.system_initialized:
             self.system_initialized = self.init_slam_system(data, frame)
             if self.system_initialized:
-                print("Initialized system with ", frame.im_name)
+                chrono.lap('init')
+                slam_debug.avg_timings.addTimes(chrono.laps_dict)
+                logger.debug("Initialized system with {}".format(frame.im_name))
             else:
-                print("Failed to initialize with ", frame.im_name)
+                logger.debug("Failed to initialize with {}".format(frame.im_name))
             return self.system_initialized
         else:
-            print("Tracking: ", frame.frame_id, frame.im_name)
+            logger.debug("Tracking: {}, {}".format(frame.frame_id, frame.im_name))
             # Maybe move most of the slam_mapper stuff to tracking
             self.slam_mapper.apply_landmark_replace()
             #TODO: Update last frames' pose!
             pose = self.slam_tracker.track(self.slam_mapper, frame,
                                            self.config, self.camera, data)
-            
+            chrono.lap('track')
+            slam_debug.avg_timings.addTimes(chrono.laps_dict)
+
             print("pose after track for ", frame.im_name, ": ",
                   pose.rotation, pose.translation)
             if pose is not None:
                 frame.world_pose = pose
                 self.slam_mapper.update_local_map(frame)
                 print("After update_local_map")
-                pose: types.Pose = self.slam_mapper.track_with_local_map(frame, self.slam_tracker)
+                chrono.start()
+                pose: types.Pose = self.slam_mapper.\
+                    track_with_local_map(frame, self.slam_tracker)
+                chrono.lap('track_local_map')
                 print("pose after track_with_local_map: ",
                       pose.rotation, pose.translation)
                 if pose is not None:
-                    self.tracked_frames += 1
-                    # Store the map
-                    # self.slam_mapper.\
-                        # add_frame_to_reconstruction(frame.im_name, pose, self.camera, data)
-                    
-                    # TODO: Check that
                     self.slam_mapper.set_last_frame(frame)
                     if self.slam_mapper.new_kf_needed(frame):
-                        new_kf = Keyframe(frame, data, self.slam_mapper.n_keyframes)
+                        new_kf = Keyframe(frame, data,
+                                          self.slam_mapper.n_keyframes)
                         self.slam_mapper.add_keyframe(new_kf)
-                        # self.slam_mapper.curr_kf = new_kf
                         self.slam_mapper.mapping_with_new_keyframe(new_kf)
-                        # self.slam_mapper.paint_reconstruction(data)
-                        # self.slam_mapper.save_reconstruction(data, frame.im_name)
+                        print("mapping with kf")
+                        print("landmarks {} and kfs {} before".
+                              format(len(self.slam_mapper.local_keyframes),
+                                     len(self.slam_mapper.local_landmarks)))
+                        # self.slam_mapper.update_local_map(frame)
+                        print("landmarks {} and kfs {} after".
+                              format(len(self.slam_mapper.local_keyframes),
+                                     len(self.slam_mapper.local_landmarks)))
                         self.slam_mapper.local_bundle_adjustment()
+                        print("local ba") 
                         if new_kf.kf_id % 5 == 0:
                             self.slam_mapper.paint_reconstruction(data)
-                            self.slam_mapper.save_reconstruction(data, frame.im_name+"aft")
-                        print("New kf needed: ", new_kf)
+                            self.slam_mapper.\
+                                save_reconstruction(data, frame.im_name+"aft")
+                        logger.debug("Inserting new KF: ".format(new_kf.im_name))
                     else:
                         print("No kf needed")
+            slam_debug.avg_timings.addTimes(chrono.laps_dict)
             return True
-        # return False
 
     def local_optimization(self):
         return True
@@ -136,28 +143,3 @@ class SlamSystem(object):
     def save_slam_trajectory(self, kf_only=False):
         """Saves the trajectory file of all frames or only of KFs"""
         return True
-
-    # def detect(self, data, frame):
-    #     image = self.image_list[self.tracked_frames]
-    #     p_sorted, f_sorted, c_sorted = self.feature_loader.load_points_features_colors(data,image)
-    #     if p_sorted is None or f_sorted is None or c_sorted is None:
-    #         p_unmasked, f_unmasked, c_unmasked = features.extract_features(
-    #             data.load_image(image), data.config)
-
-    #         fmask = self.data.load_features_mask(image, p_unmasked)
-
-    #         p_unsorted = p_unmasked[fmask]
-    #         f_unsorted = f_unmasked[fmask]
-    #         c_unsorted = c_unmasked[fmask]
-
-    #         if len(p_unsorted) == 0:
-    #             logger.warning('No features found in image {}'.format(image))
-    #             return
-
-    #         size = p_unsorted[:, 2]
-    #         order = np.argsort(size)
-    #         p_sorted = p_unsorted[order, :]
-    #         f_sorted = f_unsorted[order, :]
-    #         c_sorted = c_unsorted[order, :]
-    #         data.save_features(image, p_sorted, f_sorted, c_sorted)
-

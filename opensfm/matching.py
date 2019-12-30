@@ -12,7 +12,9 @@ from opensfm import log
 from opensfm import multiview
 from opensfm import pairs_selection
 from opensfm import feature_loader
-
+from opensfm import reconstruction
+import slam_debug
+# from openslam import slam_debug
 
 logger = logging.getLogger(__name__)
 
@@ -162,10 +164,12 @@ def match(im1, im2, camera1, camera2, data):
     """Perform matching for a pair of images."""
     # Apply mask to features if any
     time_start = timer()
+    chrono = reconstruction.Chronometer()
     p1, f1, _ = feature_loader.instance.load_points_features_colors(
         data, im1, masked=True)
     p2, f2, _ = feature_loader.instance.load_points_features_colors(
         data, im2, masked=True)
+    chrono.lap('load_features')
     if p1 is None or p2 is None:
         return []
 
@@ -187,7 +191,10 @@ def match(im1, im2, camera1, camera2, data):
         i1 = feature_loader.instance.load_features_index(data, im1, masked=True)
         if symmetric_matching:
             i2 = feature_loader.instance.load_features_index(data, im2, masked=True)
+            print("Matching flann symmetric")
+            chrono.lap("load_index")
             matches = match_flann_symmetric(f1, i1, f2, i2, config)
+            chrono.lap("match_flann_symm")
         else:
             matches = match_flann(i1, f2, config)
     elif matcher_type == 'BRUTEFORCE':
@@ -207,7 +214,6 @@ def match(im1, im2, camera1, camera2, data):
     matches = np.array(matches, dtype=int)
     time_2d_matching = timer() - time_start
     t = timer()
-
     symmetric = 'symmetric' if config['symmetric_matching'] \
         else 'one-way'
     robust_matching_min_match = config['robust_matching_min_match']
@@ -221,10 +227,13 @@ def match(im1, im2, camera1, camera2, data):
         return []
 
     # robust matching
+    chrono.lap("before robust match")
     rmatches = robust_match(p1, p2, camera1, camera2, matches, config)
     rmatches = np.array([[a, b] for a, b in rmatches])
+    chrono.lap("after robust match")
     time_robust_matching = timer() - t
     time_total = timer() - time_start
+    # print("Matching times: ", chrono.lap_times())
 
     # From indexes in filtered sets, to indexes in original sets of features
     m1 = feature_loader.instance.load_mask(data, im1)
@@ -242,7 +251,7 @@ def match(im1, im2, camera1, camera2, data):
             time_2d_matching, time_robust_matching, time_total,
             len(matches), len(rmatches),
             len(rmatches) >= robust_matching_min_match))
-
+    slam_debug.avg_timings.addTimes(chrono.laps_dict)
     if len(rmatches) < robust_matching_min_match:
         return []
     return np.array(rmatches, dtype=int)

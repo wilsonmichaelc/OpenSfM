@@ -65,7 +65,6 @@ class SlamTracker(object):
         # last frame could be reference frame
         # somehow match world points/landmarks seen in last frame
         # to feature matches
-        # fix_cameras = not config['optimize_camera_parameters']
         fix_cameras = True
         chrono = Chronometer()
         ba = csfm.BundleAdjuster()
@@ -109,7 +108,7 @@ class SlamTracker(object):
 
         chrono.lap('setup')
         ba.run()
-        chrono.lap('run')
+        chrono.lap('run_track')
 
         print("BA finished")
         s = ba.get_shot(shot_id)
@@ -120,26 +119,6 @@ class SlamTracker(object):
         print("Estimated pose: ", pose.rotation, pose.translation)
 
         valid_pts = self.discard_outliers(ba, len(points3D), pose, camera[1])
-        # pts_outside = 0
-        # pts_inside = 0
-        # th = 0.006
-        
-        # valid_pts = np.zeros(len(points3D), dtype=bool)
-        # # Print the reprojection errors
-        # for (pt_id, _) in enumerate(points3D):
-        #     p = ba.get_point(str(pt_id)).reprojection_errors['0']
-        #     if np.linalg.norm(p) > th:
-        #         pts_outside += 1
-        #         # print("out p.reprojection_errors: ", p, np.linalg.norm(p))
-        #     else:
-        #         # check if OOB
-                
-        #         pts_inside += 1
-        #         valid_pts[pt_id] = True
-        #         # print("in p.reprojection_errors: ", p, np.linalg.norm(p))
-
-        # print("pts inside {} and outside {}".format(pts_inside, pts_outside))
-
         return pose, valid_pts
 
     def discard_outliers(self, ba, n_pts, pose, camera):
@@ -181,7 +160,142 @@ class SlamTracker(object):
               format(pts_inside, pts_outside, pts_outside_new))
         return valid_pts
 
-    # check if observeable
+    
+
+    def track_motion(self, slam_mapper: SlamMapper, frame: Frame,
+                     init_pose, camera, config, data):
+        """Estimate 6 DOF world pose of frame 
+        
+        Reproject the landmarks seen in the last frame
+        to frame and estimate the relative 6 DOF motion between
+        the two by minimizing the reprojection error.
+        """
+        print("track_motion: ", slam_mapper.last_frame.im_name, "<->",
+              frame.im_name, len(slam_mapper.last_frame.landmarks_),
+              len(frame.landmarks_))
+        chrono = Chronometer()
+        margin = 10
+        matches = self.slam_matcher.\
+            match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
+                                     margin, data, slam_mapper.graph)
+        chrono.lap('matching')
+        if len(matches) < 30:
+            print("Not enough matches!", len(matches))
+            return None
+        matches = np.asarray(matches)
+        print("track_motion matches: ", matches.shape)
+        landmarks = [slam_mapper.last_frame.landmarks_[m1] for m1 in matches[:, 1]]
+        print("n_matches: ", len(matches))
+        points3D = np.zeros((len(landmarks), 3))
+        points = slam_mapper.reconstruction.points
+        for idx, lm_id in enumerate(landmarks):
+            points3D[idx, :] = points[lm_id].coordinates
+            frame.landmarks_.append(lm_id)
+        print("len(last_frame.landmarks_): ",
+              len(slam_mapper.last_frame.landmarks_),
+              "len(landmarks): ", len(frame.landmarks_),
+              "len(points3D): ", len(points3D))
+        points2D, _, _ = feature_loader.instance. \
+            load_points_features_colors(data, frame.im_name, masked=True)
+        print("points2D.shape: ", points2D.shape)
+        points2D = points2D[matches[:, 0], :]
+        chrono.lap("dummy")
+        # Set up bundle adjustment problem
+        pose, valid_pts = self.bundle_tracking(points3D, points2D, init_pose,
+                                               camera, config, data)
+        chrono.lap("tracking")
+        print("tracker f2: ", frame.im_name, len(frame.landmarks_))
+        frame.landmarks_ = list(compress(frame.landmarks_, valid_pts))
+        print("tracker f3: ", frame.im_name, len(frame.landmarks_))
+        print("Tracking times: ", chrono.lap_times())
+        slam_debug.\
+            visualize_tracked_lms(points2D[np.array(valid_pts, dtype=bool), :], frame, data)
+        return pose
+
+    def track(self, slam_mapper: SlamMapper, frame: Frame, config, camera,
+              data):
+        """Tracks the current frame with respect to the reconstruction
+        """
+
+        """ last_frame, frame, camera, init_pose, config, data):
+        Align the current frame to the already estimated landmarks
+            (visible in the last frame)
+            landmarks visible in last frame
+        """
+
+        # Try to match to last frame first
+        # init_pose = slam_mapper.estimate_pose()
+        init_pose = slam_mapper.last_frame.world_pose
+        pose = self.track_motion(slam_mapper, frame,
+                                 init_pose, camera, config, data)
+        return pose
+
+
+    # def track2(self, slam_mapper: SlamMapper, frame: Frame, config, camera, data):
+    #     """Tracks the current frame with respect to the reconstruction
+    #     """
+
+    #     """ last_frame, frame, camera, init_pose, config, data):
+    #     Align the current frame to the already estimated landmarks
+    #         (visible in the last frame)
+    #         landmarks visible in last frame
+    #     """
+
+    #     # Try to match to last frame first
+    #     init_pose = slam_mapper.estimate_pose()
+    #     pose = self._track_internal(
+    #                             slam_mapper.last_frame, frame,
+    #                             init_pose, camera, config, data)
+    #     # If that fails, match to last kf
+    #     if slam_mapper.last_frame.id != \
+    #        slam_mapper.curr_kf.id and pose is None:
+
+    #         init_pose = types.Pose()
+    #         pose = self._track_internal(
+    #                     slam_mapper.curr_kf.visible_landmarks,
+    #                     slam_mapper.curr_kf.im_name,
+    #                     frame, init_pose)
+
+    #     return pose
+
+        # if pose is None:
+        #     return False
+
+        # slam_mapper.add_frame_to_reconstruction(frame, pose, camera, data)
+        # slam_mapper.paint_reconstruction(data)
+        # slam_mapper.save_reconstruction(data, frame)
+
+        # return True
+        
+        #prepare the bundle
+        
+
+        # tracks are the matched landmarks
+        # match landmarks to current frame
+        # last frame is typically != last keyframe
+        # landmarks contain feature id in last frame
+        
+        #load feature so both frames
+        # p1, f1, _ = 
+        #landmarks = LandmarkStorage()
+
+        # for landmark in landmarks:
+            # feature_id = landmark.fid
+            
+        
+
+        # if n_matches < 100: # kind of random number
+            # return False
+
+        # velocity = T_(N-1)_(N-2) pre last to last
+        # init_pose = T_(N_1)_w * T_(N-1)_W * inv(T_(N_2)_W)
+        # match "last frame" to "current frame"
+        # last frame could be reference frame
+        # somehow match world points/landmarks seen in last frame
+        # to feature matches
+        # fix_cameras = not config['optimize_camera_parameters']
+
+# check if observeable
     # p = self.reconstruction.points[str(lm.lm_id)].coordinates
     # print("p: ", p)
     # camera_point = pose_world_to_cam.transform(p)
@@ -282,195 +396,47 @@ class SlamTracker(object):
         
     #     return pose
 
-    def track_motion_old(self, slam_mapper: SlamMapper, frame: Frame,
-                     init_pose, camera, config, data):
-        """Estimate 6 DOF world pose of frame 
+    # def track_motion_old(self, slam_mapper: SlamMapper, frame: Frame,
+    #                  init_pose, camera, config, data):
+    #     """Estimate 6 DOF world pose of frame 
         
-        Reproject the landmarks seen in the last frame
-        to frame and estimate the relative 6 DOF motion between
-        the two by minimizing the reprojection error.
-        """
-        print("track_motion: ", slam_mapper.last_frame.im_name, "<->",
-              frame.im_name)
-        print("track_motion: ",
-              len(slam_mapper.last_frame.landmarks_), len(frame.landmarks_))
-        margin = 10
-        matches = self.slam_matcher.\
-            match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
-                                     margin, data, slam_mapper.graph)
-        if len(matches) < 30:
-            print("Not enough matches!", len(matches))
-            return None
-        matches = np.asarray(matches)
-        print("track_motion matches: ", matches.shape)
-        slam_mapper.last_frame.update_visible_landmarks(matches[:, 1])
-        landmarks = slam_mapper.last_frame.landmarks_
-        print("n_matches: ", len(matches))
-        points3D = np.zeros((len(landmarks), 3))
-        points = slam_mapper.reconstruction.points
-        for idx, lm_id in enumerate(landmarks):
-            points3D[idx, :] = points[lm_id].coordinates
-            frame.landmarks_.append(lm_id)
-        print("len(last_frame.landmarks_): ",
-              len(slam_mapper.last_frame.landmarks_),
-              "len(landmarks): ", len(frame.landmarks_),
-              "len(points3D): ", len(points3D))
-        points2D, _, _ = feature_loader.instance. \
-            load_points_features_colors(data, frame.im_name, masked=True)
-        print("points2D.shape: ", points2D.shape)
-        points2D = points2D[matches[:, 0], :]
-        # Set up bundle adjustment problem
-        pose, valid_pts = self.bundle_tracking(points3D, points2D, init_pose,
-                                               camera, config, data)
-        print("tracker f2: ", frame.im_name, len(frame.landmarks_))
-        frame.landmarks_ = list(compress(frame.landmarks_, valid_pts))
-        print("tracker f3: ", frame.im_name, len(frame.landmarks_))
-        return pose
-
-    def track_motion(self, slam_mapper: SlamMapper, frame: Frame,
-                     init_pose, camera, config, data):
-        """Estimate 6 DOF world pose of frame 
-        
-        Reproject the landmarks seen in the last frame
-        to frame and estimate the relative 6 DOF motion between
-        the two by minimizing the reprojection error.
-        """
-        print("track_motion: ", slam_mapper.last_frame.im_name, "<->",
-              frame.im_name, len(slam_mapper.last_frame.landmarks_),
-              len(frame.landmarks_))
-        margin = 10
-        matches = self.slam_matcher.\
-            match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
-                                     margin, data, slam_mapper.graph)
-        if len(matches) < 30:
-            print("Not enough matches!", len(matches))
-            return None
-        matches = np.asarray(matches)
-        print("track_motion matches: ", matches.shape)
-        # slam_mapper.last_frame.update_visible_landmarks(matches[:, 1])
-        # matches[:, 1]
-        landmarks = [slam_mapper.last_frame.landmarks_[m1] for m1 in matches[:, 1]]
-        # landmarks = slam_mapper.last_frame.landmarks_
-        print("n_matches: ", len(matches))
-        points3D = np.zeros((len(landmarks), 3))
-        points = slam_mapper.reconstruction.points
-        for idx, lm_id in enumerate(landmarks):
-            points3D[idx, :] = points[lm_id].coordinates
-            frame.landmarks_.append(lm_id)
-        print("len(last_frame.landmarks_): ",
-              len(slam_mapper.last_frame.landmarks_),
-              "len(landmarks): ", len(frame.landmarks_),
-              "len(points3D): ", len(points3D))
-        points2D, _, _ = feature_loader.instance. \
-            load_points_features_colors(data, frame.im_name, masked=True)
-        print("points2D.shape: ", points2D.shape)
-        points2D = points2D[matches[:, 0], :]
-        # Set up bundle adjustment problem
-        pose, valid_pts = self.bundle_tracking(points3D, points2D, init_pose,
-                                               camera, config, data)
-        print("tracker f2: ", frame.im_name, len(frame.landmarks_))
-        frame.landmarks_ = list(compress(frame.landmarks_, valid_pts))
-        print("tracker f3: ", frame.im_name, len(frame.landmarks_))
-
-        # print("valid_pts: ", valid_pts)
-        # print("points: ", points2D)
-        slam_debug.\
-            visualize_tracked_lms(points2D[np.array(valid_pts, dtype=bool), :], frame, data)
-        return pose
-
-
-    def track(self, slam_mapper: SlamMapper, frame: Frame, config, camera,
-              data):
-        """Tracks the current frame with respect to the reconstruction
-        """
-
-        """ last_frame, frame, camera, init_pose, config, data):
-        Align the current frame to the already estimated landmarks
-            (visible in the last frame)
-            landmarks visible in last frame
-        """
-
-        # Try to match to last frame first
-        # init_pose = slam_mapper.estimate_pose()
-        init_pose = slam_mapper.last_frame.world_pose
-        pose = self.track_motion(slam_mapper, frame,
-                                 init_pose, camera, config, data)
-
-        # frame.world_pose
-
-        # # If that fails, match to last kf
-        # if slam_mapper.last_frame.id != \
-        #    slam_mapper.curr_kf.id and pose is None:
-
-        #     init_pose = types.Pose()
-        #     pose = self._track_internal(
-        #                 slam_mapper.curr_kf.visible_landmarks,
-        #                 slam_mapper.curr_kf.im_name,
-        #                 frame, init_pose)
-
-        return pose
-
-
-    # def track2(self, slam_mapper: SlamMapper, frame: Frame, config, camera, data):
-    #     """Tracks the current frame with respect to the reconstruction
+    #     Reproject the landmarks seen in the last frame
+    #     to frame and estimate the relative 6 DOF motion between
+    #     the two by minimizing the reprojection error.
     #     """
-
-    #     """ last_frame, frame, camera, init_pose, config, data):
-    #     Align the current frame to the already estimated landmarks
-    #         (visible in the last frame)
-    #         landmarks visible in last frame
-    #     """
-
-    #     # Try to match to last frame first
-    #     init_pose = slam_mapper.estimate_pose()
-    #     pose = self._track_internal(
-    #                             slam_mapper.last_frame, frame,
-    #                             init_pose, camera, config, data)
-    #     # If that fails, match to last kf
-    #     if slam_mapper.last_frame.id != \
-    #        slam_mapper.curr_kf.id and pose is None:
-
-    #         init_pose = types.Pose()
-    #         pose = self._track_internal(
-    #                     slam_mapper.curr_kf.visible_landmarks,
-    #                     slam_mapper.curr_kf.im_name,
-    #                     frame, init_pose)
-
+    #     print("track_motion: ", slam_mapper.last_frame.im_name, "<->",
+    #           frame.im_name)
+    #     print("track_motion: ",
+    #           len(slam_mapper.last_frame.landmarks_), len(frame.landmarks_))
+    #     margin = 10
+    #     matches = self.slam_matcher.\
+    #         match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
+    #                                  margin, data, slam_mapper.graph)
+    #     if len(matches) < 30:
+    #         print("Not enough matches!", len(matches))
+    #         return None
+    #     matches = np.asarray(matches)
+    #     print("track_motion matches: ", matches.shape)
+    #     slam_mapper.last_frame.update_visible_landmarks(matches[:, 1])
+    #     landmarks = slam_mapper.last_frame.landmarks_
+    #     print("n_matches: ", len(matches))
+    #     points3D = np.zeros((len(landmarks), 3))
+    #     points = slam_mapper.reconstruction.points
+    #     for idx, lm_id in enumerate(landmarks):
+    #         points3D[idx, :] = points[lm_id].coordinates
+    #         frame.landmarks_.append(lm_id)
+    #     print("len(last_frame.landmarks_): ",
+    #           len(slam_mapper.last_frame.landmarks_),
+    #           "len(landmarks): ", len(frame.landmarks_),
+    #           "len(points3D): ", len(points3D))
+    #     points2D, _, _ = feature_loader.instance. \
+    #         load_points_features_colors(data, frame.im_name, masked=True)
+    #     print("points2D.shape: ", points2D.shape)
+    #     points2D = points2D[matches[:, 0], :]
+    #     # Set up bundle adjustment problem
+    #     pose, valid_pts = self.bundle_tracking(points3D, points2D, init_pose,
+    #                                            camera, config, data)
+    #     print("tracker f2: ", frame.im_name, len(frame.landmarks_))
+    #     frame.landmarks_ = list(compress(frame.landmarks_, valid_pts))
+    #     print("tracker f3: ", frame.im_name, len(frame.landmarks_))
     #     return pose
-
-        # if pose is None:
-        #     return False
-
-        # slam_mapper.add_frame_to_reconstruction(frame, pose, camera, data)
-        # slam_mapper.paint_reconstruction(data)
-        # slam_mapper.save_reconstruction(data, frame)
-
-        # return True
-        
-        #prepare the bundle
-        
-
-        # tracks are the matched landmarks
-        # match landmarks to current frame
-        # last frame is typically != last keyframe
-        # landmarks contain feature id in last frame
-        
-        #load feature so both frames
-        # p1, f1, _ = 
-        #landmarks = LandmarkStorage()
-
-        # for landmark in landmarks:
-            # feature_id = landmark.fid
-            
-        
-
-        # if n_matches < 100: # kind of random number
-            # return False
-
-        # velocity = T_(N-1)_(N-2) pre last to last
-        # init_pose = T_(N_1)_w * T_(N-1)_W * inv(T_(N_2)_W)
-        # match "last frame" to "current frame"
-        # last frame could be reference frame
-        # somehow match world points/landmarks seen in last frame
-        # to feature matches
-        # fix_cameras = not config['optimize_camera_parameters']

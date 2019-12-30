@@ -22,25 +22,24 @@ class SlamInitializer(object):
         self.init_frame = frame
 
     def initialize_opensfm(self, data, frame):
-        # im1, im2 = self.init_frame.im_name, frame.im_name
+        chrono = reconstruction.Chronometer()
         im2, im1 = self.init_frame.im_name, frame.im_name
         print(im1, im2)
         p1, f1, c1 = feature_loader.instance.\
             load_points_features_colors(data, im1, masked=True)
         p2, f2, c2 = feature_loader.instance.\
             load_points_features_colors(data, im2, masked=True)
+        chrono.lap("loading p,f,c")
         threshold = data.config['five_point_algo_threshold']
         cameras = data.load_camera_models()
         camera = next(iter(cameras.values()))
         success, matches = self.slam_matcher.match(data, im1, im2, camera)
+        chrono.lap("matching")
         print("cameras", cameras)
         print("camera", camera, camera.k1, camera.k2,
               camera.focal)
         if not success:
             return None, None, None
-        matches = matches[im2]
-        print("len(p1): ", len(p1), " len(p2): ", len(p2))
-        print("p1: ", p1.shape, " p2: ", p2.shape)
         p1 = p1[matches[:, 0], :]
         p2 = p2[matches[:, 1], :]
         f1, f2 = f1[matches[:, 0], :], f2[matches[:, 1], :]
@@ -50,10 +49,11 @@ class SlamInitializer(object):
         args = []
         args.append((im1, im2, p1[:, 0:2], p2[:, 0:2],
                      camera, camera, threshold))
+        chrono.lap("others")
         i1, i2, r = reconstruction._compute_pair_reconstructability(args[0])
+        chrono.lap("pair rec")
         if r == 0:
             return None, None, None
-
         # create the graph
         tracks_graph = nx.Graph()
         tracks_graph.add_node(str(im1), bipartite=0)
@@ -76,12 +76,13 @@ class SlamInitializer(object):
                                   feature_scale=float(s),
                                   feature_id=int(f2_id),
                                   feature_color=(float(r), float(g), float(b)))
+        chrono.lap("track graph")
         rec_report = {}
-        print("p1 ", p1.shape, " p2 ", p2.shape)
         reconstruction_init, graph_inliers, rec_report['bootstrap'] = \
             reconstruction.bootstrap_reconstruction(data, tracks_graph,
                                                     im1, im2, p1[:, 0:2], p2[:, 0:2])
-                                                
+        chrono.lap("boot rec")
+        print("Init timings: ", chrono.lap_times())
         print("Created init rec from {}<->{} with {} points from {} matches"
               .format(im1, im2, len(reconstruction_init.points), len(matches)))
         # seen_landmarks = graph_inliers[im1]

@@ -212,7 +212,7 @@ def bundle(graph, reconstruction, gcp, config):
 
     chrono.lap('setup')
     ba.run()
-    chrono.lap('run')
+    chrono.lap('run_bundle')
 
     for camera in reconstruction.cameras.values():
         _get_camera_from_bundle(ba, camera)
@@ -357,7 +357,7 @@ def bundle_local(graph, reconstruction, gcp, central_shot_id, config):
 
     chrono.lap('setup')
     ba.run()
-    chrono.lap('run')
+    chrono.lap('run_bundle_local')
 
     for shot_id in interior:
         shot = reconstruction.shots[shot_id]

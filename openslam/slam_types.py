@@ -31,21 +31,13 @@ class Landmark(object):
         return self.num_observed/self.num_observable
 
     def update_normal_and_depth(self, pos_w, graph):
-        # print("self.lm_id: ", self.lm_id)
         observations = graph[str(self.lm_id)]
-        # print("observations.values(): ", observations.keys())
         if len(observations) == 0:
             return
         self.mean_normal = np.array([0., 0., 0.])
-        # for k in observations.keys():
-        #     print("k: ", k)
-
         for kf_name in observations.keys():
             kf = graph.nodes[kf_name]['data']
             normal = pos_w - kf.world_pose.get_origin()
-            # print("pos_w: ", pos_w, " kf.world_pose.get_origin(): ",
-                #   kf.world_pose.get_origin(), normal)
-            # print(normal)
             self.mean_normal += (normal / np.linalg.norm(normal))
 
         # n_observations = len(self.observations)
@@ -53,23 +45,6 @@ class Landmark(object):
         # dist = cam_to_lm_vec.norm()
         #TODO: scale level, scale factor, depth
         self.mean_normal /= len(observations)
-
-    # def update_normal_and_depth(self, graph):
-    #     if len(self.observations) == 0:
-    #         return
-    #     self.mean_normal = []
-    #     for kf, idx in self.observations.values():
-    #         normal = self.pos_w - kf.pose.world_pose()
-    #         self.mean_normal += normal / normal.norm()
-
-    #     # n_observations = len(self.observations)
-    #     # cam_to_lm_vec = self.pos_w - self.ref_kf.pose.world_pose()
-    #     # dist = cam_to_lm_vec.norm()
-    #     #TODO: scale level, scale factor, depth
-    #     self.mean_normal /= len(self.observations)
-
-    def prepare_for_erasing(self):
-        pass
 
     def add_observation(self, kf, idx):
         """ Adds an observation
@@ -92,27 +67,11 @@ class Landmark(object):
         """
 
         keyframes = graph[str(self.lm_id)]
-        # print("keyframes: ", keyframes)
-        # print("lm_id: ", self.lm_id)
-        # descriptors = []
-        # if self.descriptor is None:
-            # print("None: ", self.lm_id)
-        # else:
-            
         for kf_name in keyframes:
-            # print(kf_name)
-            # print("graph.node[kf_name]: ", graph.nodes[kf_name])
             kf: Keyframe = graph.nodes[kf_name]['data']
             track = graph.get_edge_data(kf_name, str(self.lm_id))
-            # print("track: ", track, "kf.im_name: ", kf.im_name)
-            # print("len(descriptors): ", len(kf.descriptors))
             self.descriptor = kf.descriptors[track['feature_id']]
             return
-
-    #     #Compute the descriptor
-    #     for kf in graph[self.lm_id]:
-    #         print("kf: ", kf)
-    # # def add_observation(self, graph, keyframe):
 
 class Frame(object):
 
@@ -131,29 +90,13 @@ class Frame(object):
         #stores where the frame was last updated
         self.local_map_update_identifier = -1
         
-        
     def update_visible_landmarks_old(self, idx):
         if self.visible_landmarks is None:
             return
         self.visible_landmarks = self.visible_landmarks[idx, :]
 
-    # def update_visible_landmarks_bool(self, idx):
-    #     print("before landmarks: ", len(self.landmarks_))
-    #     # self.landmarks_new = []
-    #     # for m1 in idx:
-    #         # self.landmarks_new.append(self.landmarks_[m1]) #= None
-        
-    #     # self.landmarks_[:] = [lm for lm in self.landmarks_ if lm is not None]
-    #     self.landmarks_[:] = [self.landmarks_[m1] for m1 in idx]
-    #     print("after landmarks: ", len(self.landmarks_))
-
     def update_visible_landmarks(self, idx):
         print("before landmarks: ", len(self.landmarks_))
-        # self.landmarks_new = []
-        # for m1 in idx:
-            # self.landmarks_new.append(self.landmarks_[m1]) #= None
-        
-        # self.landmarks_[:] = [lm for lm in self.landmarks_ if lm is not None]
         self.landmarks_[:] = [self.landmarks_[m1] for m1 in idx]
         print("after landmarks: ", len(self.landmarks_))
 
@@ -175,14 +118,18 @@ class Keyframe(object):
         self.im_name = frame.im_name  # im_name should also be unique
         self.kf_id = kf_id  # unique_id
         self.frame_id = frame.frame_id
-        self.keypts = []
         _, self.descriptors, _ = \
             feature_loader.instance.load_points_features_colors(
                 data, self.im_name, masked=True)
+        # self.points, self.descriptors, self.colors = \
+            # feature_loader.instance.load_points_features_colors(
+                # data, self.im_name, masked=True)
+        # self.index = feature_loader.instance.load_features_index(
+                # data, self.im_name, masked=True)
         self.matched_lms = np.ones(len(self.descriptors), dtype=int)*-1
-        # data.load_features(self.im_name)
-        self.world_pose = frame.world_pose  #types.Pose()
+        self.world_pose = frame.world_pose
         self.local_map_update_identifier = -1
+        
 
     def add_landmark(self, lm: Landmark):
         self.landmarks_[lm.lm_id] = lm
@@ -197,8 +144,6 @@ class Keyframe(object):
         if min_obs_thr > 0:
             n_lms = 0
             for lm_id in graph[self.im_name]:
-                # len(graph[lm]) -> count observations
-                # print("len(graph[lm_id]): ", graph[lm_id], lm_id, len(graph[lm_id]))
                 if len(graph[lm_id]) >= min_obs_thr:
                     n_lms += 1
             print("n_lms: ", n_lms)
@@ -212,10 +157,7 @@ class Keyframe(object):
         depths = []
         print("kf_id: ", self.kf_id)
         for lm_id in self.landmarks_:
-            print("cmp med: ", lm_id)
-            print("graph.has_node({}): {} ".format(lm_id, graph.has_node(str(lm_id))))
             if graph.has_node(str(lm_id)):
-                print("graph: ", graph.node[str(lm_id)])
                 pos_w = reconstruction.points[lm_id].coordinates
                 pos_c_z = np.dot(rot_cw_z_row, pos_w) + trans_cw_z
                 depths.append(pos_c_z)

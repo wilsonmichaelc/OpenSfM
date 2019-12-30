@@ -4,9 +4,30 @@ from slam_types import Frame
 import cv2
 import numpy as np
 import logging
+from collections import defaultdict
+
 logger = logging.getLogger(__name__)
 
 disable_debug = True
+
+
+class AvgTimings(object):
+    def __init__(self):
+        self.times = defaultdict(float)
+        self.n_mean = defaultdict(int)
+
+    def addTimes(self, timings):
+        for (_, (k, v, _)) in timings.items():
+            self.times[k] += v
+            self.n_mean[k] += 1
+
+    def printAvgTimings(self):
+        for (k, v) in self.n_mean.items():
+            print("{} with {} runs: {}s".format(k, v, self.times[k]/v))
+
+
+avg_timings = AvgTimings()
+
 
 def reproject_landmarks(points3D, observations, pose_world_to_cam,
                         image, camera, data, title="", do_show=True):
@@ -54,6 +75,23 @@ def draw_observations_in_image(observations, image, data, do_show=True):
     if do_show:
         plt.show()
 
+
+def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True):
+    h1, w1, c = im1.shape
+    fig, ax = plt.subplots(1)
+    im = np.hstack((im1, im2))
+    obs_d1 = features.\
+        denormalized_image_coordinates(np.asarray(pts1[matches[:, 0]]), w1, h1)
+    obs_d2 = features.\
+        denormalized_image_coordinates(np.asarray(pts2[matches[:, 1]]), w1, h1)
+    ax.imshow(im)
+    skip = 25
+    ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])
+    ax.scatter(w1+obs_d2[:, 0], obs_d2[:, 1], c=[[0, 1, 0]])
+    for a, b in zip(obs_d1[::skip, :], obs_d2[::skip, :]):
+        ax.plot([a[0], b[0] + w1], [a[1], b[1]])
+    if do_show:
+        plt.show()
 
 def visualize_matches(matches, frame1: str, frame2: str, data, do_show=True):
     if disable_debug:

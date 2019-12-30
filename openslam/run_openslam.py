@@ -12,7 +12,7 @@ import logging
 import cv2
 from opensfm import dataset
 from opensfm import features
-# as input
+import slam_debug
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,8 @@ for im_name in sorted(data.image_list):
     frame = Frame(im_name, slam_system.slam_mapper.n_frames)
     print("frame: ", frame.im_name, frame.frame_id)
     ret = slam_system.track_next_frame(data, frame)
+    print("Average timings: ")
+    slam_debug.avg_timings.printAvgTimings()
     if ret:
         print("slam tracking")
         print(im_name)
