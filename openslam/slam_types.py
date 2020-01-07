@@ -79,6 +79,8 @@ class Frame(object):
         print("Creating frame: ", name)
         self.im_name = name
         self.landmarks_ = []
+        self.lk_landmarks_ = []
+        self.lk_pos2D_ = []
         self.idx_valid = None
         self.frame_id = id
         self.kf_id = -1  # if non-KF, id of "parent" KF
@@ -86,10 +88,10 @@ class Frame(object):
         self.world_pose = types.Pose()
         self.rel_pose_to_kf = types.Pose()
         self.descriptors = None
-
         #stores where the frame was last updated
         self.local_map_update_identifier = -1
-        
+        self.lk_pyramid = None
+
     def update_visible_landmarks_old(self, idx):
         if self.visible_landmarks is None:
             return

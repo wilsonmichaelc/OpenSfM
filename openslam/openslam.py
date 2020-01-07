@@ -79,6 +79,13 @@ class SlamSystem(object):
             pose = self.slam_tracker.track(self.slam_mapper, frame,
                                            self.config, self.camera, data)
             chrono.lap('track')
+            pose_lk = self.slam_tracker.track_LK(self.slam_mapper, frame,
+                                                 self.config, self.camera, data)
+            chrono.lap('track_lk')
+            print("pose: ", pose.rotation, pose.translation,
+                  "pose_lk: ", pose_lk.rotation, pose.translation)
+            # pose = pose_lk
+
             slam_debug.avg_timings.addTimes(chrono.laps_dict)
 
             print("pose after track for ", frame.im_name, ": ",

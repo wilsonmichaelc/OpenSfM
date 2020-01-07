@@ -15,7 +15,7 @@ im1g = cv2.cvtColor(im1, cv2.COLOR_RGB2GRAY)
 im2g = cv2.cvtColor(im2, cv2.COLOR_RGB2GRAY)
 
 chrono = reconstruction.Chronometer()
-
+n_test = 1
 # test feature detectors
 # Harris
 # Detector parameters
@@ -23,20 +23,39 @@ blockSize = 2
 apertureSize = 3
 k = 0.04
 # Detecting corners
-corners_harris = cv2.cornerHarris(im1g, blockSize, apertureSize, k)
+for i in range(0,n_test):
+      corners_harris = cv2.cornerHarris(im1g, blockSize, apertureSize, k)
 chrono.lap("harris detect")
 # ORB
 orb = cv2.ORB_create(nfeatures=int(4000))
 chrono.lap("orb create")
-points = orb.detect(im1g)
+for i in range(0,n_test):
+      points = orb.detect(im1g)
 chrono.lap("orb detect")
+for i in range(0,n_test):
+      kpts, points = orb.detectAndCompute(im1g, None)
+chrono.lap("orb detect+comp")
+print(chrono.lap_times())
+exit(0)
+for i in range(0,n_test):
+      points = features.extract_features_orb(im1g, data.config)
+chrono.lap("orb detect opensfm")
 # Fast
 fast = cv2.FastFeatureDetector_create()
 # fast.setNonmaxSuppression(0)
 chrono.lap("fast create")
-kp = fast.detect(im1g, None)
+for i in range(0,n_test):
+      kp = fast.detect(im1g, None)
 chrono.lap("fast detect")
 
+
+chrono.lap("det ahog")
+for i in range(0,n_test):
+      features.extract_features_hahog(im1g, data.config)
+chrono.lap("det ahog fin")
+# print(chrono.laps_dict['fast detect'][1]/n_test)
+# print(chrono.lap_times())
+# exit(0)
 #godd features to track
 # params for ShiTomasi corner detection
 feature_params = dict( maxCorners = 200,
@@ -75,6 +94,13 @@ chrono = reconstruction.Chronometer()
 p1_lk = np.asarray(p1_lk.reshape([-1, 1, 2]), dtype=np.float32)
 # calculate optical flow
 p2_lk, st, err = cv2.calcOpticalFlowPyrLK(im1g, im2g, p1_lk, None, **lk_params)
+# pyr1 = None
+# nLvl, pyr1 = cv2.buildOpticalFlowPyramid(im1g, lk_params['winSize'], lk_params['maxLevel'], withDerivatives=False)
+# print(nLvl, pyr1)
+# for p in pyr1:
+      # print(np.shape(p))
+# _, _, _ = cv2.calcOpticalFlowPyrLK(pyr1, im2g, p1_lk, None, **lk_params)
+# print(pyr1)
 # p2_lk, st, err = cv2.calcOpticalFlowPyrLK(im1g, im2g, np.reshape(p1_lk,[-1,1,2]), None, **lk_params)
 chrono.lap('lk_match')
 st = st == 1
