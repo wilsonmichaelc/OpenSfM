@@ -74,7 +74,6 @@ class Landmark(object):
             return
 
 class Frame(object):
-
     def __init__(self, name, id):
         print("Creating frame: ", name)
         self.im_name = name
@@ -87,10 +86,13 @@ class Frame(object):
         self.is_keyframe = False
         self.world_pose = types.Pose()
         self.rel_pose_to_kf = types.Pose()
-        self.descriptors = None
         #stores where the frame was last updated
         self.local_map_update_identifier = -1
         self.lk_pyramid = None
+
+        # self.descriptors = None
+        # self.points = None
+        # self.colors = None
 
     def update_visible_landmarks_old(self, idx):
         if self.visible_landmarks is None:
@@ -113,26 +115,27 @@ class Frame(object):
         self.visible_landmarks = []
 
 class Keyframe(object):
-    def __init__(self, frame: Frame, data, kf_id):
+    def __init__(self, frame: Frame, data, kf_id, pdc = None):
+        """pdc is points, descriptors and colors as "triple"
+        """
         # The landmarks store the id of the lms in the graph
         self.landmarks_ = frame.landmarks_.copy()
         print("Creating KF: ", kf_id, len(self.landmarks_), frame.im_name)
         self.im_name = frame.im_name  # im_name should also be unique
         self.kf_id = kf_id  # unique_id
         self.frame_id = frame.frame_id
-        _, self.descriptors, _ = \
-            feature_loader.instance.load_points_features_colors(
-                data, self.im_name, masked=True)
-        # self.points, self.descriptors, self.colors = \
-            # feature_loader.instance.load_points_features_colors(
-                # data, self.im_name, masked=True)
-        # self.index = feature_loader.instance.load_features_index(
-                # data, self.im_name, masked=True)
+        if pdc is not None:
+            self.points, self.descriptors, self.colors = pdc
+        else:
+            self.points, self.descriptors, self.colors = \
+                feature_loader.instance.load_points_features_colors(
+                    data, self.im_name, masked=True)
         self.matched_lms = np.ones(len(self.descriptors), dtype=int)*-1
         self.world_pose = frame.world_pose
         self.local_map_update_identifier = -1
         
-
+    def load_feat_points_colors(self):
+        return (self.points, self.descriptors, self.colors)
     def add_landmark(self, lm: Landmark):
         self.landmarks_[lm.lm_id] = lm
 

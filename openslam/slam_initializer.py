@@ -2,7 +2,10 @@ from opensfm import reconstruction
 from opensfm import matching
 from opensfm import types
 from opensfm import feature_loader
+from opensfm import features
+import slam_utils
 import slam_debug
+import slam_matcher
 import numpy as np
 import logging
 import networkx as nx
@@ -11,37 +14,45 @@ logger = logging.getLogger(__name__)
 
 class SlamInitializer(object):
 
-    def __init__(self, config, slam_matcher):
+    def __init__(self, config): #, slam_matcher):
         print("initializer")
         self.init_type = "OpenSfM"
         self.init_frame = None
-        self.slam_matcher = slam_matcher
+        self.init_pdc = None # points, descriptors and colors of init frame
 
     def set_initial_frame(self, data, frame):
         """Sets the first frame"""
         self.init_frame = frame
 
-    def initialize_opensfm(self, data, frame):
+    def initialize_opensfm(self, data, config_slam, frame):
         chrono = reconstruction.Chronometer()
-        im2, im1 = self.init_frame.im_name, frame.im_name
-        print(im1, im2)
-        p1, f1, c1 = feature_loader.instance.\
-            load_points_features_colors(data, im1, masked=True)
-        p2, f2, c2 = feature_loader.instance.\
-            load_points_features_colors(data, im2, masked=True)
+        # im2, im1 = self.init_frame.im_name, frame.im_name
+        im1, im2 = self.init_frame.im_name, frame.im_name
+
+        if config_slam['extract_features']:
+            # check if init frame has features
+            if self.init_pdc is None:
+                self.init_pdc = slam_utils.extract_features(im1, data)
+            self.other_pdc = slam_utils.extract_features(im2, data)
+            # features.extract_features(data.load_image(im2), data.config)
+            p1, f1, c1 = self.other_pdc
+            p2, f2, c2 = self.init_pdc
+        else:
+            p1, f1, c1 = feature_loader.instance.\
+                load_points_features_colors(data, im1, masked=True)
+            p2, f2, c2 = feature_loader.instance.\
+                load_points_features_colors(data, im2, masked=True)
         chrono.lap("loading p,f,c")
         threshold = data.config['five_point_algo_threshold']
         cameras = data.load_camera_models()
         camera = next(iter(cameras.values()))
-        success, matches = self.slam_matcher.match(data, im1, im2, camera)
+        # success, matches = slam_matcher.match(data, im1, im2, camera)
+        success, matches = slam_matcher.\
+            match_desc_and_points(data, f1, f2, p1, p2, camera)
         chrono.lap("matching")
-        print("cameras", cameras)
-        print("camera", camera, camera.k1, camera.k2,
-              camera.focal)
         if not success:
             return None, None, None
-        p1 = p1[matches[:, 0], :]
-        p2 = p2[matches[:, 1], :]
+        p1, p2 = p1[matches[:, 0], :], p2[matches[:, 1], :]
         f1, f2 = f1[matches[:, 0], :], f2[matches[:, 1], :]
         c1, c2 = c1[matches[:, 0], :], c2[matches[:, 1], :]
 
@@ -85,19 +96,6 @@ class SlamInitializer(object):
         print("Init timings: ", chrono.lap_times())
         print("Created init rec from {}<->{} with {} points from {} matches"
               .format(im1, im2, len(reconstruction_init.points), len(matches)))
-        # seen_landmarks = graph_inliers[im1]
-        # print("im1: ", im1, " im2 ", im2)
-        # in_graph = {}
-        # for lm_id in seen_landmarks:
-        #     e = graph_inliers.get_edge_data(im1, lm_id)
-        #     print("init opensfm: e(", im1, ",", lm_id, "): ", e)
-        #     e2 = graph_inliers.get_edge_data(im2, lm_id)
-        #     print("init opensfm: e2(", im2, ",", lm_id, "): ", e2)
-        #     if e['feature_id'] in in_graph:
-        #         print("Already in there! init", e['feature_id'], "lm_id: ", lm_id)
-        #         exit()
-        #     in_graph[e['feature_id']] = lm_id
-        
         return reconstruction_init, graph_inliers, matches
 
     def initialize_openvslam(self, data, frame):
@@ -110,9 +108,9 @@ class SlamInitializer(object):
         """
         print("initialize_openvslam")
 
-    def initialize(self, data, frame):
+    def initialize(self, data, config_slam, frame):
         if self.init_type == "ICCV":
             return self.initialize_iccv(data, frame)
         if self.init_type == "OpenSfM":
-            return self.initialize_opensfm(data, frame)
+            return self.initialize_opensfm(data, config_slam, frame)
         return self.initialize_openvslam(data, frame)

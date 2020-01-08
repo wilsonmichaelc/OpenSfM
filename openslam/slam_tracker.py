@@ -9,7 +9,8 @@ from opensfm import reconstruction
 from opensfm import feature_loader
 from opensfm import features
 
-from slam_matcher import SlamMatcher
+# from slam_matcher import SlamMatcher
+import slam_matcher
 from slam_mapper import SlamMapper
 from slam_types import Frame
 import slam_utils
@@ -20,7 +21,7 @@ from itertools import compress
 class SlamTracker(object):
 
     def __init__(self,  data, config):
-        self.slam_matcher = SlamMatcher(config)
+        # self.slam_matcher = SlamMatcher(config)
         print("init slam tracker")
 
     def bundle_tracking(self, points3D, observations, init_pose, camera,
@@ -134,8 +135,6 @@ class SlamTracker(object):
               format(pts_inside, pts_outside, pts_outside_new))
         return valid_pts
 
-    
-
     def track_motion(self, slam_mapper: SlamMapper, frame: Frame,
                      init_pose, camera, config, data):
         """Estimate 6 DOF world pose of frame 
@@ -149,7 +148,7 @@ class SlamTracker(object):
               len(frame.landmarks_))
         chrono = Chronometer()
         margin = 10
-        matches = self.slam_matcher.\
+        matches = slam_matcher.\
             match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
                                      margin, data, slam_mapper.graph)
         chrono.lap('matching')
@@ -261,11 +260,6 @@ class SlamTracker(object):
         print(type(p0_lk), type(p1_init))
         p0_lk = np.asarray(p0_lk.reshape([-1, 1, 2]), dtype=np.float32)
         p1_init = np.asarray(p1_init.reshape([-1, 1, 2]), dtype=np.float32)
-        # print(last_frame.lk_pyramid)
-        # print(frame.lk_pyramid)
-        # denormalize
-        # p1_lk, st, err = cv2.calcOpticalFlowPyrLK(last_frame.lk_pyramid, frame.lk_pyramid,
-                                                #   p0_lk, p1_init, **lk_params)
         chrono = Chronometer()                                                
         p1_lk, st, err = cv2.calcOpticalFlowPyrLK(im1_g, im2_g,
                                                   p0_lk, p1_init, **lk_params,

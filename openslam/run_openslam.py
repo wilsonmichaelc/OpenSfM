@@ -23,7 +23,9 @@ args = parser.parse_args()
 slam_system = SlamSystem(args)
 data = dataset.DataSet(args.dataset)
 input_source = image_source(data)
+# EXTRACT_FEATURES = True
 for im_name in sorted(data.image_list):
+    # if EXTRACT_FEATURES:
     # Create frame with name and unique id
     frame = Frame(im_name, slam_system.slam_mapper.n_frames)
     print("frame: ", frame.im_name, frame.frame_id)
@@ -35,6 +37,19 @@ for im_name in sorted(data.image_list):
         print(im_name)
     else:
         print("slam trying to init")
+    # else:
+    #     # Create frame with name and unique id
+    #     frame = Frame(im_name, slam_system.slam_mapper.n_frames)
+    #     print("frame: ", frame.im_name, frame.frame_id)
+    #     ret = slam_system.track_next_frame(data, frame)
+    #     print("Average timings: ")
+    #     slam_debug.avg_timings.printAvgTimings()
+    #     if ret:
+    #         print("slam tracking")
+    #         print(im_name)
+    #     else:
+    #         print("slam trying to init")
+
 
 slam_system.slam_mapper.paint_reconstruction(data)
 slam_system.slam_mapper.save_reconstruction(data, frame.im_name+"aft")

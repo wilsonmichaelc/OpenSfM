@@ -1,7 +1,7 @@
 import os.path, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from slam_initializer import SlamInitializer
-from slam_matcher import SlamMatcher
+import slam_matcher
 from slam_mapper import SlamMapper
 from slam_tracker import SlamTracker
 from slam_types import Frame
@@ -17,7 +17,7 @@ from opensfm import feature_loading
 import networkx as nx
 from opensfm import log
 import logging
-
+import slam_config
 log.setup()
 logger = logging.getLogger(__name__)
 
@@ -34,12 +34,13 @@ class SlamSystem(object):
         self.system_lost = True
         self.reconstruction_init = None
         self.image_list = sorted(self.data.image_list)
-
-        self.slam_mapper = SlamMapper(self.data, self.config, self.camera)
+        self.config_slam = slam_config.default_config()
+        self.slam_mapper = SlamMapper(self.data, self.config,
+                                      self.config_slam, self.camera)
         self.slam_tracker = SlamTracker(self.data, self.config)
-        self.slam_matcher = SlamMatcher(self.config)
-        self.initializer = SlamInitializer(self.config, self.slam_matcher)
-        self.initializer.matcher = self.slam_matcher
+        # self.slam_matcher = SlamMatcher(self.config)
+        self.initializer = SlamInitializer(self.config) #, self.slam_matcher)
+        # self.initializer.matcher = self.slam_matcher
     def add_arguments(self, parser):
         parser.add_argument('dataset', help='dataset to process')
 
@@ -51,12 +52,14 @@ class SlamSystem(object):
             self.system_initialized = False
         else:
             rec_init, graph, matches = \
-                self.initializer.initialize(data, frame)
+                self.initializer.initialize(data, self.config_slam, frame)
             self.system_initialized = (rec_init is not None)
             if self.system_initialized:
                 self.slam_mapper.create_init_map(graph, rec_init,
                                                  self.initializer.init_frame,
-                                                 frame)
+                                                 frame,
+                                                 self.initializer.init_pdc,
+                                                 self.initializer.other_pdc)
         return self.system_initialized
 
     def track_next_frame(self, data, frame: Frame):
@@ -76,14 +79,17 @@ class SlamSystem(object):
             # Maybe move most of the slam_mapper stuff to tracking
             self.slam_mapper.apply_landmark_replace()
             #TODO: Update last frames' pose!
-            pose = self.slam_tracker.track(self.slam_mapper, frame,
-                                           self.config, self.camera, data)
-            chrono.lap('track')
-            pose_lk = self.slam_tracker.track_LK(self.slam_mapper, frame,
+
+            if self.config_slam['tracker_lk']:
+                pose = self.slam_tracker.track_LK(self.slam_mapper, frame,
                                                  self.config, self.camera, data)
-            chrono.lap('track_lk')
-            print("pose: ", pose.rotation, pose.translation,
-                  "pose_lk: ", pose_lk.rotation, pose.translation)
+                chrono.lap('track_lk')
+            else:
+                pose = self.slam_tracker.track(self.slam_mapper, frame,
+                                           self.config, self.camera, data)
+                chrono.lap('track')
+            # print("pose: ", pose.rotation, pose.translation,
+                #   "pose_lk: ", pose_lk.rotation, pose.translation)
             # pose = pose_lk
 
             slam_debug.avg_timings.addTimes(chrono.laps_dict)
@@ -95,11 +101,12 @@ class SlamSystem(object):
                 self.slam_mapper.update_local_map(frame)
                 print("After update_local_map")
                 chrono.start()
-                pose: types.Pose = self.slam_mapper.\
-                    track_with_local_map(frame, self.slam_tracker)
-                chrono.lap('track_local_map')
-                print("pose after track_with_local_map: ",
-                      pose.rotation, pose.translation)
+                if self.config_slam["refine_with_local_map"]:
+                    pose: types.Pose = self.slam_mapper.\
+                        track_with_local_map(frame, self.slam_tracker)
+                    chrono.lap('track_local_map')
+                    print("pose after track_with_local_map: ",
+                        pose.rotation, pose.translation)
                 if pose is not None:
                     self.slam_mapper.set_last_frame(frame)
                     if self.slam_mapper.new_kf_needed(frame):
