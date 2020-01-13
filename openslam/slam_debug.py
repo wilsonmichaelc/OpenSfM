@@ -35,9 +35,9 @@ def reproject_landmarks(points3D, observations, pose_world_to_cam,
     if disable_debug:
         return
 
-    if points3D is None or observations is None:
+    if points3D is None: #or observations is None:
         return
-    if len(points3D) == 0 or len(observations) == 0:
+    if len(points3D) == 0: #or len(observations) == 0:
         return
     camera_point = pose_world_to_cam.transform_many(points3D)
     points2D = camera.project_many(camera_point)
@@ -46,12 +46,13 @@ def reproject_landmarks(points3D, observations, pose_world_to_cam,
     print("Show image ", image)
     h1, w1, c = im.shape
     pt = features.denormalized_image_coordinates(points2D, w1, h1)
-    obs = features.denormalized_image_coordinates(observations, w1, h1)
     # print("obs:", obs)
     # print("points2D: ", points2D)
     ax.imshow(im)
     ax.scatter(pt[:, 0], pt[:, 1], c=[[1, 0, 0]])
-    ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
+    if observations is not None:
+        obs = features.denormalized_image_coordinates(observations, w1, h1)
+        ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
     ax.set_title(title)
     if do_show:
         plt.show()
@@ -76,7 +77,9 @@ def draw_observations_in_image(observations, image, data, do_show=True):
         plt.show()
 
 
-def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True):
+def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True, title = ""):
+    if disable_debug:
+        return
     h1, w1, c = im1.shape
     fig, ax = plt.subplots(1)
     im = np.hstack((im1, im2))
@@ -85,11 +88,12 @@ def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True):
     obs_d2 = features.\
         denormalized_image_coordinates(np.asarray(pts2[matches[:, 1]]), w1, h1)
     ax.imshow(im)
-    skip = 25
+    skip = 5
     ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])
     ax.scatter(w1+obs_d2[:, 0], obs_d2[:, 1], c=[[0, 1, 0]])
     for a, b in zip(obs_d1[::skip, :], obs_d2[::skip, :]):
         ax.plot([a[0], b[0] + w1], [a[1], b[1]])
+    ax.set_title(title)
     if do_show:
         plt.show()
 

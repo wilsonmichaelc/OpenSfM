@@ -20,8 +20,8 @@ class Landmark(object):
         self.n_observable = 0  # the number of frames and KFs it is seen in
         self.descriptor = None
         # self.pos_w = []  # 3D position as reconstructed
-        self.num_observable = 1
-        self.num_observed = 1
+        self.num_observable = 1 # landmarks visible in current frame (maybe without match)
+        self.num_observed = 1 # landmarks matched in current frame
         # self.observations = {}  # keyframes, where the landmark is observed
         self.first_kf_id = -1
         self.ref_kf = None
@@ -46,15 +46,15 @@ class Landmark(object):
         #TODO: scale level, scale factor, depth
         self.mean_normal /= len(observations)
 
-    def add_observation(self, kf, idx):
-        """ Adds an observation
+    # def add_observation(self, kf, idx):
+    #     """ Adds an observation
 
-        An observation is defined by the kf and the id of the feature in this kf
-        """
-        if kf in self.observations:
-            return
-        self.observations[kf] = idx
-        self.num_observations += 1
+    #     An observation is defined by the kf and the id of the feature in this kf
+    #     """
+    #     if kf in self.observations:
+    #         return
+    #     self.observations[kf] = idx
+    #     self.num_observations += 1
 
     def compute_descriptor(self, graph):
         """ Computes the descriptor from the observations
@@ -78,8 +78,8 @@ class Frame(object):
         print("Creating frame: ", name)
         self.im_name = name
         self.landmarks_ = []
-        self.lk_landmarks_ = []
-        self.lk_pos2D_ = []
+        # self.lk_landmarks_ = []
+        # self.lk_pos2D_ = []
         self.idx_valid = None
         self.frame_id = id
         self.kf_id = -1  # if non-KF, id of "parent" KF
@@ -136,6 +136,7 @@ class Keyframe(object):
         
     def load_feat_points_colors(self):
         return (self.points, self.descriptors, self.colors)
+
     def add_landmark(self, lm: Landmark):
         self.landmarks_[lm.lm_id] = lm
 

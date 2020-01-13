@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', help='dataset to process')
 args = parser.parse_args()
+args.dataset = "/home/fschenk/data/ae_sequences/single_images/blackvue20190821_003501_NF"
 slam_system = SlamSystem(args)
 data = dataset.DataSet(args.dataset)
 input_source = image_source(data)
@@ -29,7 +30,10 @@ for im_name in sorted(data.image_list):
     # Create frame with name and unique id
     frame = Frame(im_name, slam_system.slam_mapper.n_frames)
     print("frame: ", frame.im_name, frame.frame_id)
-    ret = slam_system.track_next_frame(data, frame)
+    if slam_system.config_slam['tracker_lk']:
+        ret = slam_system.track_next_frame_lk(data , frame)
+    else:
+        ret = slam_system.track_next_frame(data, frame)
     print("Average timings: ")
     slam_debug.avg_timings.printAvgTimings()
     if ret:
@@ -37,6 +41,11 @@ for im_name in sorted(data.image_list):
         print(im_name)
     else:
         print("slam trying to init")
+
+
+
+
+        
     # else:
     #     # Create frame with name and unique id
     #     frame = Frame(im_name, slam_system.slam_mapper.n_frames)

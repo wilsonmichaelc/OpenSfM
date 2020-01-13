@@ -63,22 +63,19 @@ def match_frame_to_landmarks(f1, landmarks,
                              margin, data, graph):
     """Matches features f1 to landmarks
     """
-    # print("match_frame_to_landmarks frame: ", frame.im_name)
-    # _, f1, _ = feature_loader.instance.load_points_features_colors(
-    #     data, frame.im_name, masked=True)
     # print("match_frame_to_lms: ", f1)
     f2 = []
     for lm_id in landmarks:
         lm = graph.node[lm_id]['data']
         if lm.descriptor is not None:
             f2.append(lm.descriptor)
-    # print("match_frame_to_lms: ", f2)
     f2 = np.asarray(f2)
     chrono = reconstruction.Chronometer()
     matches = matching.match_brute_force_symmetric(f1, f2, data.config)
     chrono.lap('frame_to_lm')
     slam_debug.avg_timings.addTimes(chrono.laps_dict)
-    return np.asarray(matches)  # len(matches), matches
+    return np.asarray(matches, dtype=int)  # len(matches), matches
+
 
 def match_for_triangulation(curr_kf: Keyframe,
                             other_kf: Keyframe, graph, data):

@@ -35,8 +35,8 @@ class SlamInitializer(object):
                 self.init_pdc = slam_utils.extract_features(im1, data)
             self.other_pdc = slam_utils.extract_features(im2, data)
             # features.extract_features(data.load_image(im2), data.config)
-            p1, f1, c1 = self.other_pdc
-            p2, f2, c2 = self.init_pdc
+            p1, f1, c1 = self.init_pdc
+            p2, f2, c2 = self.other_pdc
         else:
             p1, f1, c1 = feature_loader.instance.\
                 load_points_features_colors(data, im1, masked=True)
