@@ -15,8 +15,9 @@ from slam_mapper import SlamMapper
 from slam_types import Frame
 import slam_utils
 import slam_debug
-
 from itertools import compress
+logger = logging.getLogger(__name__)
+
 
 class SlamTracker(object):
 
@@ -204,21 +205,14 @@ class SlamTracker(object):
 
     def track_LK(self, slam_mapper: SlamMapper, frame: Frame, config, camera, data):
         last_frame = slam_mapper.last_frame
+        logger.debug("Tracking {} <-> {}".format(frame.im_name, last_frame.frame_id))
         print("LK Tracking: ", frame.frame_id, frame.im_name, "<->", last_frame.frame_id, last_frame.im_name)
-        # if len(last_frame.lk_landmarks_) == 0:
         lk_landmarks = slam_mapper.last_lk
         if len(lk_landmarks) == 0:
             print("No landmarks, return I")
             return types.Pose()
         init_pose = slam_mapper.velocity.compose(slam_mapper.last_frame.world_pose)
 
-        #compare T with init pose
-        T_init = np.vstack((init_pose.get_Rt(),np.array([[0,0,0,1]])))
-        T_vel = np.vstack((slam_mapper.velocity.get_Rt(),np.array([[0,0,0,1]])))
-        # np.vstack((self.velocity.get_Rt(),np.array([[0,0,0,1]])))
-        T_lw = np.vstack((slam_mapper.last_frame.world_pose.get_Rt(),np.array([[0,0,0,1]])))
-
-        # print("T_init: ", T_init, "T_lw: ", T_vel.dot(T_lw))
         # Parameters for lucas kanade optical flow
         lk_params = dict(winSize=(15, 15), maxLevel=2,
                          criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
@@ -244,7 +238,9 @@ class SlamTracker(object):
         # valid_pts = np.ones(len(last_frame.landmarks_), dtype=np.bool)
         valid_pts = np.ones(len(lk_landmarks), dtype=np.bool)
         print("lens: ",len(last_frame.landmarks_), len(lk_landmarks))
-        lms = []
+        # lms = []
+        lms = np.ones(len(lk_landmarks), dtype=np.int) * -1
+
         for (idx, (lm_id, p2D)) in enumerate(lk_landmarks):
             # print("idx: {}, lm_id: {}, p2D:  {}, len: {}: ".format(idx, lm_id, p2D, len(last_frame.lk_landmarks_)))
             p = points.get(lm_id)
@@ -253,7 +249,8 @@ class SlamTracker(object):
                 continue
             p0[idx, :] = p2D
             p0_3D[idx, :] = p.coordinates
-            lms.append(lm_id)
+            lms[idx] = int(lm_id)
+            # lms.append(lm_id)
         
         cam = camera[1]
         # slam_debug.reproject_landmarks(p0_3D,None,init_pose,frame.im_name,cam,data,title="init_pose",do_show=False)
@@ -263,11 +260,8 @@ class SlamTracker(object):
         print("p0: ", p0.shape)
         p0 = p0[valid_pts, :]
         print("p0 after: ", p0.shape)
-        print("init_pose: ", init_pose.rotation, init_pose.translation)
-        # print("init_pose: ", init_pose2.rotation, init_pose2.translation)
-        print("last_pose: ", slam_mapper.last_frame.world_pose.rotation, slam_mapper.last_frame.world_pose.translation)
         p0_3D = p0_3D[valid_pts, :]
-        
+        lms = lms[valid_pts]
         print(cam, camera)
         # transform landmarks to new frame
         # TODO: Remove debug stuff
@@ -280,23 +274,21 @@ class SlamTracker(object):
         a = np.asarray(np.arange(0,len(p0)), dtype=int)
         slam_debug.visualize_matches_pts(p0, p1, np.column_stack((a,a)),im1, im2,False, title=last_frame.im_name+"<->"+frame.im_name+"points and reproj vel")
 
-        camera_point2 = slam_mapper.last_frame.world_pose.transform_many(p0_3D)
-        p12 = cam.project_many(camera_point2)
-        a = np.asarray(np.arange(0,len(p0)), dtype=int)
-        slam_debug.visualize_matches_pts(p0, p12, np.column_stack((a,a)),im1, im2,False, title=last_frame.im_name+"<->"+frame.im_name+"reproj last")
+        # camera_point2 = slam_mapper.last_frame.world_pose.transform_many(p0_3D)
+        # p12 = cam.project_many(camera_point2)
+        # a = np.asarray(np.arange(0,len(p0)), dtype=int)
+        # slam_debug.visualize_matches_pts(p0, p12, np.column_stack((a,a)),im1, im2,False, title=last_frame.im_name+"<->"+frame.im_name+"reproj last")
 
-        camera_point3 =slam_mapper.velocity.inverse().compose(slam_mapper.last_frame.world_pose).transform_many(p0_3D)
-        p13 = cam.project_many(camera_point3)
-        a = np.asarray(np.arange(0,len(p0)), dtype=int)
-        slam_debug.visualize_matches_pts(p0, p13, np.column_stack((a,a)),im1, im2,False, title=last_frame.im_name+"<->"+frame.im_name+"reproj last inv init")
+        # camera_point3 =slam_mapper.velocity.inverse().compose(slam_mapper.last_frame.world_pose).transform_many(p0_3D)
+        # p13 = cam.project_many(camera_point3)
+        # a = np.asarray(np.arange(0,len(p0)), dtype=int)
+        # slam_debug.visualize_matches_pts(p0, p13, np.column_stack((a,a)),im1, im2,False, title=last_frame.im_name+"<->"+frame.im_name+"reproj last inv init")
         p1_init = features.\
             denormalized_image_coordinates(p1, cam.width, cam.height)
         print(p0_lk.shape, p1_init.shape)
         print(type(p0_lk), type(p1_init))
         p0_lk = np.asarray(p0_lk.reshape([-1, 1, 2]), dtype=np.float32)
         p1_init = np.asarray(p1_init.reshape([-1, 1, 2]), dtype=np.float32)
-        # print("p0_lk", p0_lk)
-        # print("p1_init:", p1_init)
         chrono = Chronometer()                                                
         p1_lk, st, err = cv2.calcOpticalFlowPyrLK(im1_g, im2_g,
                                                   p0_lk, p1_init, **lk_params,
@@ -306,7 +298,6 @@ class SlamTracker(object):
         # Now, the points are matched
         p0_3D = p0_3D.reshape([-1, 1, 3])[st == 1]
         p1_lk = p1_init[st==1]
-        # p1 = p1.reshape([-1, 1, 2])[st == 1]
         p1_lk = features.normalized_image_coordinates(p1_lk, cam.width, cam.height)
         # take std of old features
         p1_lk = np.column_stack((p1_lk, p0.reshape([-1,1,3])[st==1][:, 2]))
@@ -325,32 +316,15 @@ class SlamTracker(object):
 
         slam_debug.visualize_matches_pts(p0.reshape([-1, 1, 3])[st == 1][valid_pts, :], p1_lk[valid_pts, :], np.column_stack((a,a)),im1, im2,True, title=last_frame.im_name+"<->"+frame.im_name+"lk matches!")
 
-        print("visualize end!")
-        # frame.lk_landmarks_.clear()
         print("frame.landmarks_: ", len(frame.landmarks_))
+        lms = lms[st.flatten()==1]
+        lk_landmarks.clear()
         for idx, v in enumerate(valid_pts):
             if v:
-                # frame.lk_landmarks_.append((lms[idx], p1_lk[idx, :]))
-                lk_landmarks.append((lms[idx], p1_lk[idx, :]))
+                lk_landmarks.append((str(lms[idx]), p1_lk[idx, :]))
         
-        # frame.lk_landmarks_ = list(compress(last_frame.lk_landmarks_, valid_pts))
-
-        
-        # for idx, v in enumerate(valid_pts):
-            # if v:
-                # frame.lk_landmarks_.append((last_frame.landmarks_[idx], p1_lk[idx, :]))
-
-        # frame.landmarks_[:] = list(compress(last_frame.landmarks_, valid_pts))
         print("len(landmarks) after: ", len(frame.landmarks_), " len(lk_landmarks): ", len(lk_landmarks))
-
-
-        # for lm_id in frame.landmarks_:
-            
-        # frame.lk_landmarks_ = landmarks_
-        # exit()
-        print("T_init: ", T_init, " new pose for ", frame.im_name, ": ", pose.get_Rt())
+        # print("T_init: ", T_init, " new pose for ", frame.im_name, ": ", pose.get_Rt())
         slam_debug.\
             visualize_tracked_lms(p1_lk[valid_pts, :], frame, data)
-        # self.feature_ids_last_frame = {}
-        # self.feature_ids_last_frame[]
         return pose

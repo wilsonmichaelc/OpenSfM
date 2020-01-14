@@ -152,7 +152,9 @@ class Keyframe(object):
             for lm_id in graph[self.im_name]:
                 if len(graph[lm_id]) >= min_obs_thr:
                     n_lms += 1
-            print("n_lms: ", n_lms)
+                else:
+                    print("lm_id: ", graph[lm_id])                
+            print("n_lms: ", n_lms, ", ", len(graph[self.im_name]))
             return n_lms
         return len(self.visible_landmarks)
 

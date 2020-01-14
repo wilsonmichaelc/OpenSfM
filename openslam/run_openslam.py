@@ -31,7 +31,7 @@ for im_name in sorted(data.image_list):
     frame = Frame(im_name, slam_system.slam_mapper.n_frames)
     print("frame: ", frame.im_name, frame.frame_id)
     if slam_system.config_slam['tracker_lk']:
-        ret = slam_system.track_next_frame_lk(data , frame)
+        ret = slam_system.track_next_frame_lk(data, frame)
     else:
         ret = slam_system.track_next_frame(data, frame)
     print("Average timings: ")

@@ -1,15 +1,12 @@
 import os.path, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from slam_initializer import SlamInitializer
-import slam_matcher
-import slam_utils
 from slam_mapper import SlamMapper
 from slam_tracker import SlamTracker
 from slam_types import Frame
 from slam_types import Keyframe
 import slam_debug
 from opensfm import dataset
-from opensfm import features
 from opensfm import reconstruction
 from opensfm import feature_loader
 from opensfm import types
@@ -77,35 +74,16 @@ class SlamSystem(object):
         else:
             pose = self.slam_tracker.track_LK(self.slam_mapper, frame,
                                     self.config, self.camera, data)
-            if pose is None: return False
+            if pose is None:
+                return False
+            if frame.frame_id == 10:
+                exit()
             frame.world_pose = pose
-            
             self.slam_mapper.update_with_last_frame(frame)
-
-            # if len(self.slam_mapper.keyframes) == 2: # just initialized
-                # self.slam_mapper.create_new_keyframe(frame)
-                # immediately create a new KF
-                # with the pose of the last frame (equal to last KF)
-                # frame.world_pose = self.slam_mapper.last_frame.world_pose
-                # self.slam_mapper.update_local_map_lk(frame)
-                # pdc = slam_utils.extract_features(frame.im_name, data)
-                # new_kf = Keyframe(frame, data, self.slam_mapper.n_keyframes, pdc)
-                # self.slam_mapper.add_keyframe(new_kf)
-                # self.slam_mapper.assign_features_to_lms(new_kf)
-                # # We don't know anything about the kf
-                # # match the landmarks to the kf
-                # self.slam_mapper.mapping_with_new_keyframe_lk(new_kf)
-                # print("new kf pose: ", new_kf.world_pose.get_Rt())
-                # self.slam_mapper.local_bundle_adjustment2()
-                # print("new kf ba pose: ", new_kf.world_pose.get_Rt())
-                # self.slam_mapper.update_lk_landmarks()
-
-                # self.slam_mapper.update_with_last_frame(frame)
-            # else:
             chrono.lap('track_lk')
-            if self.slam_mapper.new_kf_needed(frame): #and False:
+            if self.slam_mapper.new_kf_needed(frame):  # and False:
                 self.slam_mapper.create_new_keyframe(frame)
-                if self.slam_mapper.n_keyframes ==4:
+                if self.slam_mapper.n_keyframes == 5:
                     exit()
                 if self.slam_mapper.n_keyframes % 5 == 0:
                     self.slam_mapper.paint_reconstruction(data)
@@ -116,7 +94,7 @@ class SlamSystem(object):
                 print("No kf needed")
             return True
         return False
-                
+
     def track_next_frame(self, data, frame: Frame):
         """Estimates the pose for the next frame"""
         chrono = reconstruction.Chronometer()
