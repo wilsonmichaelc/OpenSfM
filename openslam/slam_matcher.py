@@ -55,10 +55,21 @@ def match_desc_and_points(data, f1, f2, p1, p2, camera):
     rmatches = np.array([[a, b] for a, b in rmatches])
     if len(rmatches) < 30:
         return False, []
-    return True, rmatches #np.asarray(matches)
+    return True, rmatches
 
-# def match_frame_to_landmarks(frame: Frame, landmarks,
-#                              margin, data, graph):
+
+def match_desc_desc(f1, f2, data, graph):
+    if f1 is None or f2 is None:
+        return np.array([])
+    if len(f1) == 0 or len(f2) == 0:
+        return np.array([])
+    chrono = reconstruction.Chronometer()
+    matches = matching.match_brute_force_symmetric(f1, f2, data.config)
+    chrono.lap('frame_to_lm')
+    slam_debug.avg_timings.addTimes(chrono.laps_dict)
+    return np.asarray(matches, dtype=int)  # len(matches), matches
+
+
 def match_frame_to_landmarks(f1, landmarks,
                              margin, data, graph):
     """Matches features f1 to landmarks
@@ -70,11 +81,12 @@ def match_frame_to_landmarks(f1, landmarks,
         if lm.descriptor is not None:
             f2.append(lm.descriptor)
     f2 = np.asarray(f2)
-    chrono = reconstruction.Chronometer()
-    matches = matching.match_brute_force_symmetric(f1, f2, data.config)
-    chrono.lap('frame_to_lm')
-    slam_debug.avg_timings.addTimes(chrono.laps_dict)
-    return np.asarray(matches, dtype=int)  # len(matches), matches
+    return match_desc_desc(f1, f2, data, graph)
+    # chrono = reconstruction.Chronometer()
+    # matches = matching.match_brute_force_symmetric(f1, f2, data.config)
+    # chrono.lap('frame_to_lm')
+    # slam_debug.avg_timings.addTimes(chrono.laps_dict)
+    # return np.asarray(matches, dtype=int)  # len(matches), matches
 
 
 def match_for_triangulation(curr_kf: Keyframe,
@@ -85,8 +97,8 @@ def match_for_triangulation(curr_kf: Keyframe,
     print("match_for_triangulation", other_kf, curr_kf.im_name)
     # success, matches = match(data, curr_kf.im_name, other_kf,
     #                          camera_obj)
-    p1, f1, _ = curr_kf.load_feat_points_colors()
-    p2, f2, _ = other_kf.load_feat_points_colors()
+    p1, f1, _ = curr_kf.load_points_desc_colors()
+    p2, f2, _ = other_kf.load_points_desc_colors()
     success, matches = match_desc_and_points(data, f1, f2, p1, p2, camera_obj)
     # (data, curr_kf.im_name, other_kf,
                             # camera_obj)

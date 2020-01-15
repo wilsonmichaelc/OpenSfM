@@ -76,15 +76,15 @@ class SlamSystem(object):
                                     self.config, self.camera, data)
             if pose is None:
                 return False
-            if frame.frame_id == 10:
-                exit()
+            # if frame.frame_id == 10:
+            #     exit()
             frame.world_pose = pose
             self.slam_mapper.update_with_last_frame(frame)
             chrono.lap('track_lk')
             if self.slam_mapper.new_kf_needed(frame):  # and False:
                 self.slam_mapper.create_new_keyframe(frame)
-                if self.slam_mapper.n_keyframes == 5:
-                    exit()
+                # if self.slam_mapper.n_keyframes == 5:
+                    # exit()
                 if self.slam_mapper.n_keyframes % 5 == 0:
                     self.slam_mapper.paint_reconstruction(data)
                     self.slam_mapper.\

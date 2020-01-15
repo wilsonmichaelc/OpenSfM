@@ -114,8 +114,9 @@ class Frame(object):
         """Reduces the object to just the header"""
         self.visible_landmarks = []
 
+
 class Keyframe(object):
-    def __init__(self, frame: Frame, data, kf_id, pdc = None):
+    def __init__(self, frame: Frame, data, kf_id, pdc=None):
         """pdc is points, descriptors and colors as "triple"
         """
         # The landmarks store the id of the lms in the graph
@@ -134,7 +135,7 @@ class Keyframe(object):
         self.world_pose = frame.world_pose
         self.local_map_update_identifier = -1
         
-    def load_feat_points_colors(self):
+    def load_points_desc_colors(self):
         return (self.points, self.descriptors, self.colors)
 
     def add_landmark(self, lm: Landmark):
