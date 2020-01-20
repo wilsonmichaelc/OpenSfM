@@ -1,6 +1,7 @@
 from opensfm import types
 import logging
 import numpy as np
+import slam_utils
 from opensfm import feature_loader
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,8 @@ class Landmark(object):
         self.identifier_in_local_lm_search_ = -1
         self.n_observable = 0  # the number of frames and KFs it is seen in
         self.descriptor = None
-        # self.pos_w = []  # 3D position as reconstructed
-        self.num_observable = 1 # landmarks visible in current frame (maybe without match)
-        self.num_observed = 1 # landmarks matched in current frame
-        # self.observations = {}  # keyframes, where the landmark is observed
+        self.num_observable = 1  # landmarks visible in current frame (maybe without match)
+        self.num_observed = 1  # landmarks matched in current frame
         self.first_kf_id = -1
         self.ref_kf = None
         self.mean_normal = []
@@ -78,8 +77,6 @@ class Frame(object):
         print("Creating frame: ", name)
         self.im_name = name
         self.landmarks_ = []
-        # self.lk_landmarks_ = []
-        # self.lk_pos2D_ = []
         self.idx_valid = None
         self.frame_id = id
         self.kf_id = -1  # if non-KF, id of "parent" KF
@@ -90,9 +87,29 @@ class Frame(object):
         self.local_map_update_identifier = -1
         self.lk_pyramid = None
 
-        # self.descriptors = None
-        # self.points = None
-        # self.colors = None
+        self.has_features = False
+        self.descriptors = None
+        self.points = None
+        self.colors = None
+
+    def load_points_desc_colors(self):
+        if self.has_features:
+            return (self.points, self.descriptors, self.colors)
+        return None
+
+    def extract_features(self, data, do_extract=False):
+        """Loads or extracts descriptors, points and colors"""
+        if do_extract:
+            self.points, self.descriptors, self.colors =\
+                slam_utils.extract_features(self.im_name, data)
+        else:
+            self.points, self.descriptors, self.colors = \
+                feature_loader.instance.load_points_features_colors(
+                    data, self.im_name, masked=True)
+
+        self.has_features = (self.points is not None and
+                             self.descriptors is not None and
+                             self.colors is not None)
 
     def update_visible_landmarks_old(self, idx):
         if self.visible_landmarks is None:
@@ -125,6 +142,7 @@ class Keyframe(object):
         self.im_name = frame.im_name  # im_name should also be unique
         self.kf_id = kf_id  # unique_id
         self.frame_id = frame.frame_id
+        # check if features already exist in the frame
         if pdc is not None:
             self.points, self.descriptors, self.colors = pdc
         else:

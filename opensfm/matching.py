@@ -13,7 +13,7 @@ from opensfm import multiview
 from opensfm import pairs_selection
 from opensfm import feature_loader
 from opensfm import reconstruction
-import slam_debug
+# import slam_debug
 # from openslam import slam_debug
 
 logger = logging.getLogger(__name__)

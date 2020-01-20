@@ -10,12 +10,8 @@ import slam_debug
 from opensfm import reconstruction
 logger = logging.getLogger(__name__)
 
-#TODO: implement an instance similar to feature loader!
-# class SlamMatcher(object):
 """The SlamMatcher matches a keyframe to the current frame and return the matches
 """
-    # def __init__(self, config):
-        # print("Init SlamMatcher")
 
 def match(data, ref_frame: str, curr_frame: str, camera):
     print("Matching!", ref_frame, curr_frame)
@@ -72,9 +68,7 @@ def match_desc_desc(f1, f2, data, graph):
 
 def match_frame_to_landmarks(f1, landmarks,
                              margin, data, graph):
-    """Matches features f1 to landmarks
-    """
-    # print("match_frame_to_lms: ", f1)
+    """Matches features f1 to landmarks"""
     f2 = []
     for lm_id in landmarks:
         lm = graph.node[lm_id]['data']
@@ -82,26 +76,17 @@ def match_frame_to_landmarks(f1, landmarks,
             f2.append(lm.descriptor)
     f2 = np.asarray(f2)
     return match_desc_desc(f1, f2, data, graph)
-    # chrono = reconstruction.Chronometer()
-    # matches = matching.match_brute_force_symmetric(f1, f2, data.config)
-    # chrono.lap('frame_to_lm')
-    # slam_debug.avg_timings.addTimes(chrono.laps_dict)
-    # return np.asarray(matches, dtype=int)  # len(matches), matches
 
 
 def match_for_triangulation(curr_kf: Keyframe,
                             other_kf: Keyframe, graph, data):
-    # matches = []
     cameras = data.load_camera_models()
     camera_obj = next(iter(cameras.values()))
     print("match_for_triangulation", other_kf, curr_kf.im_name)
-    # success, matches = match(data, curr_kf.im_name, other_kf,
-    #                          camera_obj)
     p1, f1, _ = curr_kf.load_points_desc_colors()
     p2, f2, _ = other_kf.load_points_desc_colors()
     success, matches = match_desc_and_points(data, f1, f2, p1, p2, camera_obj)
-    # (data, curr_kf.im_name, other_kf,
-                            # camera_obj)
+
     return matches if success else None
 
     # def match_for_triangulation_fast(self, curr_kf: Keyframe,

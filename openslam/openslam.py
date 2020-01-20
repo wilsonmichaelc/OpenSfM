@@ -74,17 +74,14 @@ class SlamSystem(object):
         else:
             pose = self.slam_tracker.track_LK(self.slam_mapper, frame,
                                     self.config, self.camera, data)
+            chrono.lap('track_lk')
+            slam_debug.avg_timings.addTimes(chrono.laps_dict)
             if pose is None:
                 return False
-            # if frame.frame_id == 10:
-            #     exit()
             frame.world_pose = pose
             self.slam_mapper.update_with_last_frame(frame)
-            chrono.lap('track_lk')
             if self.slam_mapper.new_kf_needed(frame):  # and False:
                 self.slam_mapper.create_new_keyframe(frame)
-                # if self.slam_mapper.n_keyframes == 5:
-                    # exit()
                 if self.slam_mapper.n_keyframes % 5 == 0:
                     self.slam_mapper.paint_reconstruction(data)
                     self.slam_mapper.\
@@ -111,17 +108,10 @@ class SlamSystem(object):
             logger.debug("Tracking: {}, {}".format(frame.frame_id, frame.im_name))
             # Maybe move most of the slam_mapper stuff to tracking
             self.slam_mapper.apply_landmark_replace()
-            if self.config_slam['tracker_lk']:
-                pose = self.slam_tracker.track_LK(self.slam_mapper, frame,
-                                                  self.config, self.camera, data)
-                chrono.lap('track_lk')
-            else:
-                pose = self.slam_tracker.track(self.slam_mapper, frame,
-                                               self.config, self.camera, data)
-                chrono.lap('track')
-
+            pose = self.slam_tracker.track(self.slam_mapper, frame,
+                                           self.config, self.camera, data)
+            chrono.lap('track')
             slam_debug.avg_timings.addTimes(chrono.laps_dict)
-
             print("pose after track for ", frame.im_name, ": ",
                   pose.rotation, pose.translation)
             if pose is not None:
@@ -133,23 +123,13 @@ class SlamSystem(object):
                     pose: types.Pose = self.slam_mapper.\
                         track_with_local_map(frame, self.slam_tracker)
                     chrono.lap('track_local_map')
-                    print("pose after track_with_local_map: ",
-                        pose.rotation, pose.translation)
                 if pose is not None:
                     self.slam_mapper.set_last_frame(frame)
                     if self.slam_mapper.new_kf_needed(frame):
                         new_kf = Keyframe(frame, data,
-                                          self.slam_mapper.n_keyframes)
+                                          self.slam_mapper.n_keyframes, frame.load_points_desc_colors())
                         self.slam_mapper.add_keyframe(new_kf)
                         self.slam_mapper.mapping_with_new_keyframe(new_kf)
-                        # print("mapping with kf")
-                        # print("landmarks {} and kfs {} before".
-                        #       format(len(self.slam_mapper.local_keyframes),
-                        #              len(self.slam_mapper.local_landmarks)))
-                        # # self.slam_mapper.update_local_map(frame)
-                        # print("landmarks {} and kfs {} after".
-                        #       format(len(self.slam_mapper.local_keyframes),
-                        #              len(self.slam_mapper.local_landmarks)))
                         self.slam_mapper.local_bundle_adjustment()
                         print("local ba") 
                         if new_kf.kf_id % 5 == 0:
@@ -162,26 +142,6 @@ class SlamSystem(object):
             slam_debug.avg_timings.addTimes(chrono.laps_dict)
             return True
 
-    def local_optimization(self):
-        return True
-
-    def global_optimization(self):
-        return True
-
     def reset(self):
         """Reset the system"""
-        return True
-
-    def relocalize(self, frame):
-        """Relocalize against the SLAM map either after tracking loss or
-           alternatively if the region is sufficiently explored
-        """
-        return True
-
-    def save_slam_reconstruction(self):
-        """Saves the slam recontsruction in the OpenSfM format"""
-        return True
-
-    def save_slam_trajectory(self, kf_only=False):
-        """Saves the trajectory file of all frames or only of KFs"""
         return True

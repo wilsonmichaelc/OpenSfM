@@ -107,16 +107,13 @@ class SlamTracker(object):
         th = 0.006
         valid_pts = np.zeros(n_pts, dtype=bool)
         w, h = camera.width, camera.height
-        # for (pt_id, pt) in enumerate(points3D):
         for pt_id in range(0, n_pts):
             p = ba.get_point(str(pt_id))
             error = p.reprojection_errors['0']
             # Discard if reprojection error too large
             if np.linalg.norm(error) > th:
                 pts_outside += 1
-                # print("out p.reprojection_errors: ", p, np.linalg.norm(error))
             else:
-                
                 # check if OOB
                 camera_point = pose.transform([p.p[0], p.p[1], p.p[2]])
                 if camera_point[2] <= 0.0:
@@ -130,7 +127,6 @@ class SlamTracker(object):
                 else:
                     pts_outside += 1
                     pts_outside_new += 1
-                # print("in p.reprojection_errors: ", p, np.linalg.norm(p))
 
         print("pts inside {} and outside {}/ {}".
               format(pts_inside, pts_outside, pts_outside_new))
@@ -147,10 +143,12 @@ class SlamTracker(object):
         print("track_motion: ", slam_mapper.last_frame.im_name, "<->",
               frame.im_name, len(slam_mapper.last_frame.landmarks_),
               len(frame.landmarks_))
+        
         chrono = Chronometer()
         margin = 10
         matches = slam_matcher.\
-            match_frame_to_landmarks(frame, slam_mapper.last_frame.landmarks_,
+            match_frame_to_landmarks(frame.descriptors,
+                                     slam_mapper.last_frame.landmarks_,
                                      margin, data, slam_mapper.graph)
         chrono.lap('matching')
         if len(matches) < 30:
@@ -169,8 +167,7 @@ class SlamTracker(object):
               len(slam_mapper.last_frame.landmarks_),
               "len(landmarks): ", len(frame.landmarks_),
               "len(points3D): ", len(points3D))
-        points2D, _, _ = feature_loader.instance. \
-            load_points_features_colors(data, frame.im_name, masked=True)
+        points2D, _, _ = frame.load_points_desc_colors()
         print("points2D.shape: ", points2D.shape)
         points2D = points2D[matches[:, 0], :]
         chrono.lap("dummy")
@@ -219,8 +216,7 @@ class SlamTracker(object):
         
         
         # Compute the pyramids
-        # if last_frame.lk_pyramid is None:
-            # Read and convert images
+        # Read and convert images
         # TODO: avoid double computation of gray image and lk pyramid
         im1 = data.load_image(last_frame.im_name)
         im1_g = cv2.cvtColor(im1, cv2.COLOR_RGB2GRAY)
@@ -271,8 +267,8 @@ class SlamTracker(object):
         
         camera_point = init_pose.transform_many(p0_3D)
         p1 = cam.project_many(camera_point)
-        a = np.asarray(np.arange(0,len(p0)), dtype=int)
-        slam_debug.visualize_matches_pts(p0, p1, np.column_stack((a,a)),im1, im2,False, title=last_frame.im_name+"<->"+frame.im_name+"points and reproj vel")
+        # a = np.asarray(np.arange(0,len(p0)), dtype=int)
+        # slam_debug.visualize_matches_pts(p0, p1, np.column_stack((a,a)),im1, im2,False, title=last_frame.im_name+"<->"+frame.im_name+"points and reproj vel")
 
         # camera_point2 = slam_mapper.last_frame.world_pose.transform_many(p0_3D)
         # p12 = cam.project_many(camera_point2)
@@ -296,13 +292,20 @@ class SlamTracker(object):
         chrono.lap('lk opt flow')
         slam_debug.avg_timings.addTimes(chrono.laps_dict)
         # Now, the points are matched
-        p0_3D = p0_3D.reshape([-1, 1, 3])[st == 1]
-        p1_lk = p1_init[st==1]
+        p0_3D = p0_3D[st.flatten() == 1, :]
+
+        # p0_3D = p0_3D.reshape([-1, 1, 3])[st == 1]
+        # print(p0_3D, p0_3D_t)
+        # print(np.sum(p0_3D-p0_3D_t))
+        # exit()
+        p1_lk = p1_init[st == 1]
         p1_lk = features.normalized_image_coordinates(p1_lk, cam.width, cam.height)
         # take std of old features
-        p1_lk = np.column_stack((p1_lk, p0.reshape([-1,1,3])[st==1][:, 2]))
-
-        print("len(p0_lk): ", len(p0_lk), " len(p1): ", len(p1))
+        p1_lk = np.column_stack((p1_lk, p0[st.flatten()==1, 2]))
+        # p1_lk = np.column_stack((p1_lk, p0.reshape([-1,1,3])[st==1][:, 2]))
+        # print(p1_lk, p1_lk_t)
+        # print(p1_lk.shape, p1_lk_t.shape)
+        # print("len(p0_lk): ", len(p0_lk), " len(p1): ", len(p1))
         # print("p1_lk: ", p1_lk)
         pose, valid_pts = self.bundle_tracking(p0_3D, p1_lk, init_pose,
                                                camera, config, data)
@@ -310,11 +313,10 @@ class SlamTracker(object):
         # slam_debug.draw_observations_in_image(p1_lk[valid_pts, :], frame.im_name, data, False)
         # slam_debug.draw_observations_in_image(p1_lk[valid_pts == False, :], frame.im_name, data, False)
         # slam_debug.draw_observations_in_image(p1_lk[valid_pts == False, :], frame.im_name, data, True)
-        a = np.asarray(np.arange(0,np.sum(valid_pts)), dtype=int)
-        print("p1_lk: ", p1_lk.shape, p0.shape)
+        # a = np.asarray(np.arange(0,np.sum(valid_pts)), dtype=int)
         # slam_debug.visualize_matches_pts(p0.reshape([-1, 1, 3])[st == 1], p1_lk, np.column_stack((a,a)),im1, im2,True)
 
-        slam_debug.visualize_matches_pts(p0.reshape([-1, 1, 3])[st == 1][valid_pts, :], p1_lk[valid_pts, :], np.column_stack((a,a)),im1, im2,True, title=last_frame.im_name+"<->"+frame.im_name+"lk matches!")
+        # slam_debug.visualize_matches_pts(p0.reshape([-1, 1, 3])[st == 1][valid_pts, :], p1_lk[valid_pts, :], np.column_stack((a,a)),im1, im2,True, title=last_frame.im_name+"<->"+frame.im_name+"lk matches!")
 
         print("frame.landmarks_: ", len(frame.landmarks_))
         lms = lms[st.flatten()==1]

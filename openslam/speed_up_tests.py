@@ -36,7 +36,7 @@ for i in range(0,n_test):
       kpts, points = orb.detectAndCompute(im1g, None)
 chrono.lap("orb detect+comp")
 print(chrono.lap_times())
-exit(0)
+# exit(0)
 for i in range(0,n_test):
       points = features.extract_features_orb(im1g, data.config)
 chrono.lap("orb detect opensfm")
@@ -95,11 +95,23 @@ p1_lk = np.asarray(p1_lk.reshape([-1, 1, 2]), dtype=np.float32)
 # calculate optical flow
 p2_lk, st, err = cv2.calcOpticalFlowPyrLK(im1g, im2g, p1_lk, None, **lk_params)
 # pyr1 = None
-# nLvl, pyr1 = cv2.buildOpticalFlowPyramid(im1g, lk_params['winSize'], lk_params['maxLevel'], withDerivatives=False)
-# print(nLvl, pyr1)
+nLvl, pyr1 = cv2.buildOpticalFlowPyramid(im1g, lk_params['winSize'], lk_params['maxLevel'], withDerivatives=False)
+print(nLvl, pyr1)
 # for p in pyr1:
-      # print(np.shape(p))
-# _, _, _ = cv2.calcOpticalFlowPyrLK(pyr1, im2g, p1_lk, None, **lk_params)
+
+nLvl2, pyr2 = cv2.buildOpticalFlowPyramid(im2g, lk_params['winSize'], lk_params['maxLevel'], withDerivatives=False)
+pyr1_lk = []
+for p in pyr1:
+      pyr1_lk.append(np.float32(p))
+      print("p: ", p.shape)
+
+# _, _, _ = cv2.calcOpticalFlowPyrLK((np.array(nLvl, np.array(pyr1))), np.array((nLvl2, np.array(pyr2))), p1_lk, None, **lk_params)
+# p1_lk = []
+_, _, _ = cv2.calcOpticalFlowPyrLK((pyr1[0],pyr1[1]), (pyr1[0],pyr1[1]), p1_lk, None, **lk_params)
+_, _, _ = cv2.calcOpticalFlowPyrLK((nLvl, pyr1_lk), (nLvl2, pyr1_lk), p1_lk, None, **lk_params)
+_, _, _ = cv2.calcOpticalFlowPyrLK(cv2.UMat(pyr1), cv2.UMat(pyr2), p1_lk, None, **lk_params)
+_, _, _ = cv2.calcOpticalFlowPyrLK((nLvl, np.asarray(pyr1)), (nLvl2, np.asarray(pyr2)), p1_lk, None, **lk_params)
+_, _, _ = cv2.calcOpticalFlowPyrLK((nLvl, pyr1), (nLvl2, pyr2), p1_lk, None, **lk_params)
 # print(pyr1)
 # p2_lk, st, err = cv2.calcOpticalFlowPyrLK(im1g, im2g, np.reshape(p1_lk,[-1,1,2]), None, **lk_params)
 chrono.lap('lk_match')

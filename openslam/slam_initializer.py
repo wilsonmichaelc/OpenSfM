@@ -23,25 +23,30 @@ class SlamInitializer(object):
     def set_initial_frame(self, data, frame):
         """Sets the first frame"""
         self.init_frame = frame
+        if frame.has_features:
+            self.init_pdc = frame.load_points_desc_colors()
 
     def initialize_opensfm(self, data, config_slam, frame):
         chrono = reconstruction.Chronometer()
         # im2, im1 = self.init_frame.im_name, frame.im_name
         im1, im2 = self.init_frame.im_name, frame.im_name
 
-        if config_slam['extract_features']:
+        # if config_slam['extract_features']:
             # check if init frame has features
-            if self.init_pdc is None:
-                self.init_pdc = slam_utils.extract_features(im1, data)
-            self.other_pdc = slam_utils.extract_features(im2, data)
-            # features.extract_features(data.load_image(im2), data.config)
-            p1, f1, c1 = self.init_pdc
-            p2, f2, c2 = self.other_pdc
+            # if self.init_pdc is None:
+                # self.init_pdc = slam_utils.extract_features(im1, data)
+        if frame.has_features:
+            self.other_pdc = frame.load_points_desc_colors()
         else:
-            p1, f1, c1 = feature_loader.instance.\
-                load_points_features_colors(data, im1, masked=True)
-            p2, f2, c2 = feature_loader.instance.\
-                load_points_features_colors(data, im2, masked=True)
+            self.other_pdc = slam_utils.extract_features(im2, data)
+        p1, f1, c1 = self.init_pdc
+        p2, f2, c2 = self.other_pdc
+        # else:
+        #     #TODO: I don't think this is necessary
+        #     p1, f1, c1 = feature_loader.instance.\
+        #         load_points_features_colors(data, im1, masked=True)
+        #     p2, f2, c2 = feature_loader.instance.\
+        #         load_points_features_colors(data, im2, masked=True)
         chrono.lap("loading p,f,c")
         threshold = data.config['five_point_algo_threshold']
         cameras = data.load_camera_models()

@@ -1,11 +1,12 @@
 import yaml
 default_config_yaml = '''
 # Metadata
-extract_features: True          # False = load from disk
+extract_features: False          # False = load from disk
 
-refine_with_local_map: False
-tracker_lk: True
+refine_with_local_map: True
+tracker_lk: False
 '''
+
 
 def default_config():
     """Return default configuration"""
