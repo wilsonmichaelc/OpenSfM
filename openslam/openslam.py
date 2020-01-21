@@ -63,6 +63,7 @@ class SlamSystem(object):
         """Estimates the pose for the next frame"""
         chrono = reconstruction.Chronometer()
         if not self.system_initialized:
+            frame.extract_features(data, self.config_slam['extract_features'])
             self.system_initialized = self.init_slam_system(data, frame)
             if self.system_initialized:
                 chrono.lap('init')

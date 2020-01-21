@@ -54,13 +54,15 @@ def match_desc_and_points(data, f1, f2, p1, p2, camera):
     return True, rmatches
 
 
-def match_desc_desc(f1, f2, data, graph):
+def match_desc_desc(f1, f2, data):
     if f1 is None or f2 is None:
         return np.array([])
     if len(f1) == 0 or len(f2) == 0:
         return np.array([])
     chrono = reconstruction.Chronometer()
     matches = matching.match_brute_force_symmetric(f1, f2, data.config)
+    # matches_bf = matching.match_brute_force(f1,f2, data.config)
+    # print("matches: ", len(matches), " matches_bf", len(matches_bf))
     chrono.lap('frame_to_lm')
     slam_debug.avg_timings.addTimes(chrono.laps_dict)
     return np.asarray(matches, dtype=int)  # len(matches), matches
@@ -75,7 +77,7 @@ def match_frame_to_landmarks(f1, landmarks,
         if lm.descriptor is not None:
             f2.append(lm.descriptor)
     f2 = np.asarray(f2)
-    return match_desc_desc(f1, f2, data, graph)
+    return match_desc_desc(f1, f2, data)
 
 
 def match_for_triangulation(curr_kf: Keyframe,

@@ -55,7 +55,31 @@ class Landmark(object):
     #     self.observations[kf] = idx
     #     self.num_observations += 1
 
-    def compute_descriptor(self, graph):
+    # def compute_descriptor(self, graph):
+    #     """ Computes the descriptor from the observations
+    #     - similar to OpenVSlam
+    #     - or simply take the most recent one
+    #     """
+    #     """Computes the descriptor of the lm
+    #     from all the observations
+    #     Take random descriptor
+    #     """
+
+    #     keyframes = graph[str(self.lm_id)]
+    #     print("keyframes: ", keyframes)
+    #     # for kf_name in keyframes:
+    #     #     kf: Keyframe = graph.nodes[kf_name]['data']
+    #     #     track = graph.get_edge_data(kf_name, str(self.lm_id))
+    #     #     self.descriptor = kf.descriptors[track['feature_id']]
+    #     #     return
+    #             # for kf_name in keyframes:
+    #     kf_name = keyframes[-1]
+    #     kf: Keyframe = graph.nodes[kf_name]['data']
+    #     track = graph.get_edge_data(kf_name, str(self.lm_id))
+    #     self.descriptor = kf.descriptors[track['feature_id']]
+        # return
+
+    def compute_descriptor(self, kf, graph):
         """ Computes the descriptor from the observations
         - similar to OpenVSlam
         - or simply take the most recent one
@@ -65,12 +89,20 @@ class Landmark(object):
         Take random descriptor
         """
 
-        keyframes = graph[str(self.lm_id)]
-        for kf_name in keyframes:
-            kf: Keyframe = graph.nodes[kf_name]['data']
-            track = graph.get_edge_data(kf_name, str(self.lm_id))
-            self.descriptor = kf.descriptors[track['feature_id']]
-            return
+        # keyframes = graph[str(self.lm_id)]
+        # print("keyframes: ", keyframes)
+        # for kf_name in keyframes:
+        #     kf: Keyframe = graph.nodes[kf_name]['data']
+        #     track = graph.get_edge_data(kf_name, str(self.lm_id))
+        #     self.descriptor = kf.descriptors[track['feature_id']]
+        #     return
+                # for kf_name in keyframes:
+        # kf_name = keyframes[-1]
+        # kf: Keyframe = graph.nodes[kf_name]['data']
+        track = graph.get_edge_data(kf.im_name, str(self.lm_id))
+        self.descriptor = kf.descriptors[track['feature_id']]
+        # return
+
 
 class Frame(object):
     def __init__(self, name, id):
@@ -156,8 +188,8 @@ class Keyframe(object):
     def load_points_desc_colors(self):
         return (self.points, self.descriptors, self.colors)
 
-    def add_landmark(self, lm: Landmark):
-        self.landmarks_[lm.lm_id] = lm
+    # def add_landmark(self, lm: Landmark):
+    #     self.landmarks_[lm.lm_id] = lm
 
     def get_num_tracked_landmarks(self, min_obs_thr, graph):
         """Counts the number of reliable landmarks, i.e. all visible in
@@ -171,8 +203,6 @@ class Keyframe(object):
             for lm_id in graph[self.im_name]:
                 if len(graph[lm_id]) >= min_obs_thr:
                     n_lms += 1
-                else:
-                    print("lm_id: ", graph[lm_id])                
             print("n_lms: ", n_lms, ", ", len(graph[self.im_name]))
             return n_lms
         return len(self.visible_landmarks)

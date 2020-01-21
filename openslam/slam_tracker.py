@@ -151,9 +151,12 @@ class SlamTracker(object):
                                      slam_mapper.last_frame.landmarks_,
                                      margin, data, slam_mapper.graph)
         chrono.lap('matching')
-        if len(matches) < 30:
-            print("Not enough matches!", len(matches))
-            return None
+        matches_test = slam_matcher.match_desc_desc(frame.descriptors, 
+                                                    slam_mapper.curr_kf.descriptors, data)
+        print("matches_test: ", matches_test)
+        # if len(matches) < 30:
+        #     print("Not enough matches!", len(matches))
+        #     return None
         matches = np.asarray(matches)
         print("track_motion matches: ", matches.shape)
         landmarks = [slam_mapper.last_frame.landmarks_[m1] for m1 in matches[:, 1]]

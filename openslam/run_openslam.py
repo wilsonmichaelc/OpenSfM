@@ -25,9 +25,10 @@ args.dataset = "/home/fschenk/software/mapillary_repos/mapillary_sfm_evaluation/
 slam_system = SlamSystem(args)
 data = dataset.DataSet(args.dataset)
 input_source = image_source(data)
-# EXTRACT_FEATURES = True
-for im_name in sorted(data.image_list):
-    # if EXTRACT_FEATURES:
+start_id = 100
+for idx, im_name in enumerate(sorted(data.image_list)):
+    if idx < start_id:
+        continue
     # Create frame with name and unique id    
     frame = Frame(im_name, slam_system.slam_mapper.n_frames)
     print("frame: ", frame.im_name, frame.frame_id)

@@ -575,11 +575,12 @@ def relative_pose_ransac(b1, b2, method, threshold, iterations, probability):
     try:
         return pyopengv.relative_pose_ransac(b1, b2, method, threshold,
                                              iterations=iterations,
-                                             probability=probability)
+                                             probability=probability,
+                                             randomSeed=False)
     except Exception:
         # Older versions of pyopengv do not accept the probability argument.
         return pyopengv.relative_pose_ransac(b1, b2, method, threshold,
-                                             iterations)
+                                             iterations, randomSeed=False)
 
 
 def relative_pose_ransac_rotation_only(b1, b2, threshold, iterations,
