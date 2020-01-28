@@ -82,7 +82,7 @@ pybind11_add_module(orb_extractor
     # ${openslam_SOURCE_DIR}/../../opensfm/src/types.h
 )
 pybind11_add_module(guided_matching
-    third_party/openvslam/util/guided_matching.cc
+    third_party/openvslam/util/guided_matching.h
     third_party/openvslam/util/guided_matching.cc
     ${openslam_SOURCE_DIR}/guided_matching_utils_py.cc
 )
@@ -98,6 +98,9 @@ set_target_properties(orb_extractor PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${openslam_SOURCE_DIR}/.."
 )
 
+set_target_properties(guided_matching PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${openslam_SOURCE_DIR}/.."
+)
 
 if (CMAKE_BUILD_TYPE MATCHES DEBUG)
     add_executable(debug_c_extension

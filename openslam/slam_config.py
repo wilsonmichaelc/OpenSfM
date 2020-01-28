@@ -18,6 +18,11 @@ feat_max_number: 4000
 feat_fast_ini_th: 20
 feat_fast_min_th: 7
 
+# grid parameters (from OpenVSlam)
+grid_n_cols: 64
+grid_n_rows: 48
+
+
 '''
 
 def default_config():
