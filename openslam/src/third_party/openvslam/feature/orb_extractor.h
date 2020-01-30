@@ -11,6 +11,20 @@ namespace py = pybind11;
 
 namespace openvslam {
 namespace feature {
+class Frame
+{
+public:
+    Frame(const unsigned int fid);
+    const size_t frame_id;
+    std::vector<cv::KeyPoint>& getKeypts() { return keypts; }
+    cv::Mat& getDescriptors() { return descriptors; }
+    void print_info();
+private:
+
+    std::vector<cv::KeyPoint> keypts;
+    cv::Mat descriptors;
+    // cv::Mat 
+};
 
 class orb_extractor {
 public:
@@ -31,6 +45,7 @@ public:
 
     //! Python wrapper for extract(..)
     py::object extract_orb_py(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mask); 
+    void extract_orb_py2(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mask, Frame& frame); 
     
     //! Extract keypoints and each descriptor of them
     void extract(const cv::_InputArray& in_image, const cv::_InputArray& in_image_mask,

@@ -52,8 +52,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 #endif // USE_SSE_ORB
 
+#include <iostream>
+
 namespace openvslam {
 namespace feature {
+
+Frame::Frame(const unsigned int fid):frame_id(fid)
+{
+    std::cout << "Init frme! " << std::endl;
+}
+
+void Frame::print_info()
+{
+    std::cout << "id: " << frame_id << "desc: " << descriptors.size() << " kpts: " << keypts.size() << std::endl;
+}
+
 orb_extractor::orb_extractor(const unsigned int max_num_keypts, const float scale_factor, const unsigned int num_levels,
                              const unsigned int ini_fast_thr, const unsigned int min_fast_thr,
                              const std::vector<std::vector<float>>& mask_rects)
@@ -73,8 +86,11 @@ orb_extractor::orb_extractor(const orb_params& orb_params)
 py::object 
 orb_extractor::extract_orb_py(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mask)
 {
+    std::cout << "image1: " << image.shape(0) << "/" << image.shape(1) << std::endl;
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
+    std::cout << "image2: " << img.cols <<"/" << img.rows << " vs " << image.shape(1) << "/" << image.shape(0) << std::endl;
+
     std::vector<cv::KeyPoint> kpts;
     cv::Mat desc;
     extract(img, mask_img, kpts, desc);
@@ -93,6 +109,38 @@ orb_extractor::extract_orb_py(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mas
     retn.append(csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
     retn.append(csfm::py_array_from_data(desc.ptr<unsigned char>(0), desc.rows, desc.cols));
     return retn;
+}
+
+
+void
+orb_extractor::extract_orb_py2(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mask, Frame& frame)
+{
+    const cv::Mat img(image.shape(1), image.shape(0), CV_8U, (void *)image.data());
+    const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(1), mask.shape(0), CV_8U, (void *)mask.data()));
+    // std::vector<cv::KeyPoint> kpts;
+    // cv::Mat desc;
+    std::cout << "image: " << img.cols <<"/" << img.rows << " vs " << image.shape(1) << "/" << image.shape(0) << std::endl;
+
+    auto& kpts = frame.getKeypts();
+    auto& desc = frame.getDescriptors();
+    extract(img, mask_img, kpts, desc);
+    std::cout << "kpts: " << kpts.size() << "/" << desc.size() << std::endl;
+      // Convert to numpy.
+    // cv::Mat keys(kpts.size(), 5, CV_32F);
+    // for (int i = 0; i < (int) kpts.size(); ++i) {
+    //     keys.at<float>(i, 0) = kpts[i].pt.x;
+    //     keys.at<float>(i, 1) = kpts[i].pt.y;
+    //     keys.at<float>(i, 2) = kpts[i].size;
+    //     keys.at<float>(i, 3) = kpts[i].angle;
+    //     keys.at<float>(i, 4) = kpts[i].octave;
+    // }
+
+    // py::list retn;
+    // retn.append(std::move(kpts));
+    // retn.append(desc);
+    // retn.append(csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
+    // retn.append(csfm::py_array_from_data(desc.ptr<unsigned char>(0), desc.rows, desc.cols));
+    // return retn;
 }
 
 void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArray& in_image_mask,

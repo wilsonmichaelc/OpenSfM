@@ -1,29 +1,59 @@
 #pragma once
 #include <Eigen/Eigen>
 #include <vector>
+#include <iostream>
 namespace guided_matching
 {
 struct GridParameters
 {
     GridParameters(unsigned int grid_cols_, unsigned int grid_rows_,
-                   unsigned int img_min_width_, unsigned int img_min_height_,
-                   unsigned int cell_width_, unsigned int cell_height_)
-    {
-        grid_cols = grid_cols_; grid_rows = grid_rows_;
-        img_min_width = img_min_width_; img_min_height = img_min_height_;
-        cell_width = cell_width_; cell_height = cell_height_;
-        inv_cell_width = cell_width == 0 ? 0 : 1.0f/float(cell_width);
-        inv_cell_height = cell_height == 0 ? 0 : 1.0f/float(cell_height);
-    }
+                   float img_min_width_, float img_min_height_,
+                   float inv_cell_width_, float inv_cell_height_);
     unsigned int grid_cols, grid_rows;
-    unsigned int img_min_width, img_min_height;
-    float cell_width, cell_height;
+    float img_min_width, img_min_height;
     float inv_cell_width, inv_cell_height;
 };
 using CellIndices = std::vector<std::vector<std::vector<unsigned int>>>;
-
+using MatchIndices = std::vector<std::pair<size_t, size_t>>;
+using OrbFeature = Eigen::Matrix<float, 1, 5>;
 void assign_points_to_grid(const GridParameters& params, const Eigen::MatrixXf& undist_keypts, CellIndices& keypt_indices_in_cells);
 CellIndices assign_keypoints_to_grid(const GridParameters& params, const Eigen::MatrixXf& undist_keypts);
-void match_frame_to_frame();
+
+std::vector<size_t> 
+get_keypoints_in_cell(const GridParameters& grid_params, const Eigen::MatrixXf& undist_keypts,
+                      const CellIndices& keypt_indices_in_cells,
+                      const float ref_x, const float ref_y, const float margin,
+                      const int min_level, const int max_level);
+
+MatchIndices 
+match_frame_to_frame(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
+                    //  const Eigen::MatrixXi& desc_1, const Eigen::MatrixXi& desc_2, 
+                    //  const Eigen::MatrixX& desc_1, const Eigen::MatrixXf& desc_2, 
+                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
+                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
+                     const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
+                     const GridParameters& grid_params, const size_t margin);
+
+std::vector<size_t> 
+match_frame_to_frame_dbg(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
+                    //  const Eigen::MatrixXi& desc_1, const Eigen::MatrixXi& desc_2, 
+                    //  const Eigen::MatrixX& desc_1, const Eigen::MatrixXf& desc_2, 
+                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
+                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
+                     const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
+                     const GridParameters& grid_params, const size_t margin);
+// MatchIndices 
+// match_frame_to_frame(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
+//                     //  const Eigen::MatrixXi& desc_1, const Eigen::MatrixXi& desc_2, 
+//                     //  const Eigen::MatrixX& desc_1, const Eigen::MatrixXf& desc_2, 
+//                      const Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
+//                      const Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2);
+//                     //  const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
+//                     //  const GridParameters& grid_params, const size_t margin);
+// {
+//     MatchIndices matches;
+//     std::cout << "udnist_keypts_1,2" << std::endl;
+//     return matches;
+// }
 void match_points_to_frame();
 };

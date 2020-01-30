@@ -27,6 +27,7 @@ MESSAGE("${openslam_SOURCE_DIR}/../../opensfm/src/third_party/pybind11 ${opensla
 include_directories(${PYTHON_INCLUDE_DIRS})
 
 find_package(OpenMP)
+set(OPENMP_FOUND 0)
 if (OPENMP_FOUND)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -59,9 +60,9 @@ find_package(OpenCV)
 # (even if OPTIONAL_COMPONENTS) so we remove it as we don't need it
 # Cause is imread/imwrite moved to imgcodecs on > 3.0
 if(${OpenCV_VERSION} LESS 3.0)
-    find_package(OpenCV REQUIRED core imgproc calib3d)
+    find_package(OpenCV REQUIRED core imgproc calib3d highgui)
 else()
-    find_package(OpenCV REQUIRED core imgproc calib3d OPTIONAL_COMPONENTS imgcodecs)
+    find_package(OpenCV REQUIRED core imgproc calib3d highgui OPTIONAL_COMPONENTS imgcodecs)
 endif()
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${openslam_SOURCE_DIR})
@@ -82,9 +83,11 @@ pybind11_add_module(orb_extractor
     # ${openslam_SOURCE_DIR}/../../opensfm/src/types.h
 )
 pybind11_add_module(guided_matching
+    third_party/openvslam/util/angle_checker.h
     third_party/openvslam/util/guided_matching.h
     third_party/openvslam/util/guided_matching.cc
     ${openslam_SOURCE_DIR}/guided_matching_utils_py.cc
+    
 )
 
 find_package(Eigen REQUIRED)
@@ -93,7 +96,9 @@ include_directories(${EIGEN_INCLUDE_DIRS})
 target_link_libraries(orb_extractor PRIVATE
     ${OpenCV_LIBS}
 )
-
+target_link_libraries(guided_matching PRIVATE
+    ${OpenCV_LIBS}
+)
 set_target_properties(orb_extractor PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${openslam_SOURCE_DIR}/.."
 )

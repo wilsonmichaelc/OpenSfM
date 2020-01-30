@@ -21,13 +21,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('dataset', help='dataset to process')
 args = parser.parse_args()
 args.dataset = "/home/fschenk/software/mapillary_repos/mapillary_sfm_evaluation/sfm_evaluation_workspace/kitti_03"
-args.dataset = "/home/fschenk/data/ae_sequences/single_images/blackvue20190820_235022_NF"
+# args.dataset = "/home/fschenk/data/ae_sequences/single_images/blackvue20190820_235022_NF"
 slam_system = SlamSystem(args)
 data = dataset.DataSet(args.dataset)
 start_id = 100
 for idx, im_name in enumerate(sorted(data.image_list)):
     if idx < start_id:
         continue
+    # im_name = "00129.png"
     # Create frame with name and unique id    
     frame = Frame(im_name, slam_system.slam_mapper.n_frames, data)
     ret = slam_system.process_frame(frame)

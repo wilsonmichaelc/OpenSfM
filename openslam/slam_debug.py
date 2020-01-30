@@ -8,7 +8,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-disable_debug = True
+disable_debug = False
 
 
 class AvgTimings(object):
@@ -101,6 +101,34 @@ def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True, title = "
         denormalized_image_coordinates(np.asarray(pts1[matches[:, 0]]), w1, h1)
     obs_d2 = features.\
         denormalized_image_coordinates(np.asarray(pts2[matches[:, 1]]), w1, h1)
+    ax.imshow(im)
+    skip = 5
+    ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])
+    ax.scatter(w1+obs_d2[:, 0], obs_d2[:, 1], c=[[0, 1, 0]])
+    for a, b in zip(obs_d1[::skip, :], obs_d2[::skip, :]):
+        ax.plot([a[0], b[0] + w1], [a[1], b[1]])
+    ax.set_title(title)
+    if do_show:
+        plt.show()
+
+
+def visualize_matches_pts(pts1, pts2, matches, im1, im2, is_normalized= True, do_show=True, title = ""):
+    if disable_debug:
+        return
+    
+    if len(im1.shape) == 3:
+        h1, w1, c = im1.shape
+    else:
+        h1, w1 = im1.shape
+    fig, ax = plt.subplots(1)
+    im = np.hstack((im1, im2))
+    if is_normalized:
+        obs_d1 = features.\
+            denormalized_image_coordinates(np.asarray(pts1[matches[:, 0]]), w1, h1)
+        obs_d2 = features.\
+            denormalized_image_coordinates(np.asarray(pts2[matches[:, 1]]), w1, h1)
+    else:
+        obs_d1, obs_d2 = pts1[matches[:, 0]], pts2[matches[:, 1]]
     ax.imshow(im)
     skip = 5
     ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])

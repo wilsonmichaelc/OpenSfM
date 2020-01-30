@@ -22,6 +22,9 @@ class Frame(object):
         self.points = None
         self.colors = None
 
+        self.undist_pts = None
+        self.keypts_in_cell = None
+
     def load_points_desc_colors(self):
         if self.has_features:
             return (self.points, self.descriptors, self.colors)

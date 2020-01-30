@@ -27,11 +27,10 @@ class SlamSystem(object):
         self.config_slam = slam_config.default_config()
         self.slam_mapper = SlamMapper(self.data, self.config_slam, self.camera)
         self.slam_tracker = SlamTracker(self.data, self.camera)
-        self.initializer = SlamInitializer(self.camera)
-        self.system_initialized = False
+
         self.feature_extractor = SlamFeatureExtractor(self.config_slam)
 
-        # TODO: Move to separate class
+        # TODO: Move to separate cl ass
         self.orb_extractor = orb_extractor.orb_extractor(
             self.config_slam['feat_max_number'],
             self.config_slam['feat_scale'],
@@ -53,12 +52,16 @@ class SlamSystem(object):
                            np.max((corners[1, 1], corners[3, 1]))])
         # ])
         print(bounds)
-
-        # self.grid_params =\
-        #     guided_matching.\
-        #         GridParameters(self.config_slam['grid_n_cols'],
-        #                        self.config_slam['grid_n_rows'],
-        #                        )
+        inv_cell_w = self.config_slam['grid_n_cols']/(bounds[1]-bounds[0])
+        inv_cell_h = self.config_slam['grid_n_rows']/(bounds[3]-bounds[2])
+        self.grid_params =\
+            guided_matching.\
+            GridParameters(self.config_slam['grid_n_cols'],
+                           self.config_slam['grid_n_rows'],
+                           bounds[0], bounds[2], inv_cell_w, inv_cell_h)
+        
+        self.slam_init = SlamInitializer(self.data, self.camera, self.grid_params)
+        self.system_initialized = False
         
 
     def process_frame(self, frame):
@@ -73,14 +76,20 @@ class SlamSystem(object):
         # Step 1: Detect SIFT/ORB features in first image
         # ORB
         kpt, desc = self.orb_extractor.extract_orb_py(frame.image, mask)
-        self.camera[1].undistort_many(kpt[:, 0:2])
-        # g = guided_matching.GridParameters(1,2,3,4,5,6)
-        l = guided_matching.assign_keypoints_to_grid()
+        # f = orb_extractor.Frame(10)
+        # f.print_info()
+        # self.orb_extractor.extract_orb_py2(frame.image, mask, f)
+        # f.print_info()
+        up = self.camera[1].undistort_many(kpt[:, 0:2])
+        # l = guided_matching.assign_keypoints_to_grid(self.grid_params, up.reshape(-1,2))
         slam_debug.draw_obs_in_image_no_norm(kpt, frame.image)
-
         frame.points = kpt
+        frame.undist_pts = up.reshape(-1, 2)
+        frame.keypts_in_cell = guided_matching.\
+            assign_keypoints_to_grid(self.grid_params, frame.undist_pts)
         frame.descriptors = desc
         frame.colors = slam_utils.extract_colors_for_pts(frame.image, kpt)
+        
         chrono.lap('new_orb')
         if not self.system_initialized:
             return self.init_slam_system(frame)
@@ -90,21 +99,19 @@ class SlamSystem(object):
         """Find the initial depth estimates for the slam map"""
         print("init_slam_system: ", frame)
         data = self.data
-        if self.initializer.init_frame is None:
-            slam_debug.draw_pts_in_image(frame.points, frame.image, data, True)
-            self.initializer.set_init_frame(frame)
+        if self.slam_init.init_frame is None:
+            self.slam_init.set_initial_frame(frame)
             self.system_initialized = False
         else:
             rec_init, graph, matches = \
-                self.initializer.initialize(frame.image, self.slam_tracker,
-                                            self.config_slam['match_symm'])
+                self.slam_init.initialize(frame)
             self.system_initialized = (rec_init is not None)
             if self.system_initialized:
                 self.slam_mapper.create_init_map(graph, rec_init,
-                                                 self.initializer.init_frame,
+                                                 self.slam_init.init_frame,
                                                  frame,
-                                                 self.initializer.init_pdc,
-                                                 self.initializer.other_pdc)
+                                                 self.slam_init.init_pdc,
+                                                 self.slam_init.other_pdc)
         if self.system_initialized:
             # chrono.lap('init')
             # slam_debug.avg_timings.addTimes(chrono.laps_dict)

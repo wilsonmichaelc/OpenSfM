@@ -531,7 +531,7 @@ class FisheyeCamera(Camera):
         print(self.get_K(), self.get_K_in_pixel_coordinates())
         K = self.get_K_in_pixel_coordinates()
         up = cv2.fisheye.undistortPoints(points, K, distortion, P=K)
-        up2 = cv2.undistortPoints(points, self.get_K(), distortion, P=self.get_K())
+        # up2 = cv2.undistortPoints(points, self.get_K(), distortion, P=self.get_K())
         
         return up
 
