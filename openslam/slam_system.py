@@ -16,6 +16,8 @@ import numpy as np
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+import cslam_types
+
 
 class SlamSystem(object):
 
@@ -27,6 +29,11 @@ class SlamSystem(object):
         self.config_slam = slam_config.default_config()
         self.slam_mapper = SlamMapper(self.data, self.config_slam, self.camera)
         self.slam_tracker = SlamTracker(self.data, self.camera)
+
+        # frame = cslam_types.Frame("test", 1)
+        # print("frame: ", frame)
+        # print("frame id: ", frame.frame_id)
+        # print("im_name: ", frame.im_name)
 
         self.feature_extractor = SlamFeatureExtractor(self.config_slam)
 
@@ -62,7 +69,48 @@ class SlamSystem(object):
         
         self.slam_init = SlamInitializer(self.data, self.camera, self.grid_params)
         self.system_initialized = False
+
+    def process_frame_2(self, frame, image):
+        """Process one single frame.
+        Step 1: Extract multi-scale features
+        Step 2: Init or track frame
+        """
+        # orb_detector.detect()
+        keypts = list()
+        mask = np.array([], dtype=np.uint8)
+        chrono = reconstruction.Chronometer()
+        # Step 1: Detect SIFT/ORB features in first image
+        # ORB
+        # kpt, desc = self.orb_extractor.extract_orb_py(image, mask)
+        # kpt3, desc3 = self.orb_extractor.extract_orb_py(image, mask)
+        self.orb_extractor.extract_orb_py2(image, mask, frame.cframe)
+        # undistort points
+        kpt2, desc2 = frame.cframe.getKptsAndDescPy()
         
+        # up = self.camera[1].undistort_many(kpt2[:, 0:2])
+        
+        c = self.camera[1]
+        cCamera =\
+            cslam_types.BrownPerspectiveCamera(c.width, c.height, c.projection_type,
+            c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3)
+        cCamera.undistKeyptsFrame(frame.cframe)
+        up2 = frame.cframe.getKptsUndist()
+        guided_matching.distribute_keypoints_to_grid_frame(self.grid_params, frame.cframe)
+        # l = guided_matching.assign_keypoints_to_grid(self.grid_params, up.reshape(-1,2))
+        # slam_debug.draw_obs_in_image_no_norm(kpt, image, False)
+        slam_debug.draw_obs_in_image_no_norm(kpt2, image, True)
+
+        # frame.points = kpt
+        # frame.undist_pts = up.reshape(-1, 2)
+        # frame.keypts_in_cell = guided_matching.\
+        #     assign_keypoints_to_grid(self.grid_params, frame.undist_pts)
+        # frame.descriptors = desc
+        frame.colors = slam_utils.extract_colors_for_pts(frame.image, up2)
+        
+        chrono.lap('new_orb')
+        if not self.system_initialized:
+            return self.init_slam_system(frame)
+        self.track_frame(frame)      
 
     def process_frame(self, frame):
         """Process one single frame.
@@ -109,12 +157,8 @@ class SlamSystem(object):
             if self.system_initialized:
                 self.slam_mapper.create_init_map(graph, rec_init,
                                                  self.slam_init.init_frame,
-                                                 frame,
-                                                 self.slam_init.init_pdc,
-                                                 self.slam_init.other_pdc)
+                                                 frame)
         if self.system_initialized:
-            # chrono.lap('init')
-            # slam_debug.avg_timings.addTimes(chrono.laps_dict)
             logger.debug("Initialized system with {}".format(frame.im_name))
         else:
             logger.debug("Failed to initialize with {}".format(frame.im_name))

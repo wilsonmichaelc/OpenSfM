@@ -28,7 +28,7 @@ class SlamInitializer(object):
     def set_initial_frame(self, frame):
         """Sets the first frame"""
         self.init_frame = frame
-        self.prev_pts = frame.undist_pts.reshape(-1, 2)
+        # self.prev_pts = frame.undist_pts.reshape(-1, 2)
         # if frame.has_features:
             # self.init_pdc = frame.load_points_desc_colors()
 
@@ -102,33 +102,48 @@ class SlamInitializer(object):
         """Initialize similar to ORB-SLAM and Openvslam"""
         print("initialize_openvslam")
         # We should have two frames: the current one and the init frame
+        # matches = guided_matching.\
+        #     match_frame_to_frame(
+        #         np.hstack((self.init_frame.undist_pts,
+        #                    self.init_frame.points[:, 2:])),
+        #         np.hstack((frame.undist_pts, frame.points[:, 2:])),
+        #         self.init_frame.descriptors,
+        #         frame.descriptors, frame.keypts_in_cell,
+        #         self.prev_pts, self.grid_params, 100)
+        prev_matches = np.zeros((5, 2))
+        # TODO: think about prev_matches!
         matches = guided_matching.\
-            match_frame_to_frame(np.hstack((self.init_frame.undist_pts, self.init_frame.points[:, 2:])),
-                                 np.hstack((frame.undist_pts, frame.points[:, 2:])),
-                                #  frame.undist_pts,
-                                 self.init_frame.descriptors,
-                                 frame.descriptors,
-                                 frame.keypts_in_cell,
-                                 self.prev_pts,
+            match_frame_to_frame(self.init_frame.cframe,
+                                 frame.cframe, prev_matches,
                                  self.grid_params,
                                  100)
         matches = np.array(matches)
-        slam_debug.visualize_matches_pts(self.init_frame.points[:,0:2], frame.points[:,0:2], matches, self.init_frame.image,
-                                         frame.image, is_normalized=False, do_show=True)
+        
+        f1_points = self.init_frame.cframe.getKptsPy()
+        f2_points = frame.cframe.getKptsPy()
+        
+        slam_debug.visualize_matches_pts(f1_points[:, 0:2],
+                                         f2_points[:, 0:2], matches,
+                                         self.init_frame.image,
+                                         frame.image,
+                                         is_normalized=False, do_show=True)
         print(matches)
 
+        
         # test reconstructability
-
         threshold = 4 * self.data.config['five_point_algo_threshold']
         args = []
         im1 = self.init_frame.im_name
         im2 = frame.im_name
         norm_p1 = features.\
-            normalized_image_coordinates(self.init_frame.points[matches[:, 0], 0:2], self.camera[1].width, self.camera[1].height)
+            normalized_image_coordinates(f1_points[matches[:, 0], 0:2], self.camera[1].width, self.camera[1].height)
         norm_p2 = features.\
-            normalized_image_coordinates(frame.points[matches[:, 0], 0:2], self.camera[1].width, self.camera[1].height)
-        # args.append((im1, im2, p1[:, 0:2], p2[:, 0:2],
-        #              camera, camera, threshold))
+            normalized_image_coordinates(f2_points[matches[:, 1], 0:2], self.camera[1].width, self.camera[1].height)
+        norm_size = max(self.camera[1].width, self.camera[1].height)
+
+        slam_debug.visualize_matches_pts(norm_p1, norm_p2, np.column_stack((np.arange(0,len(norm_p1)), np.arange(0,len(norm_p1)))),
+                                         self.init_frame.image,
+                                         frame.image, is_normalized=True, do_show=True)
         args.append((im1, im2, norm_p1, norm_p2,
                      self.camera[1], self.camera[1], threshold))
         chrono = reconstruction.Chronometer()
@@ -137,7 +152,8 @@ class SlamInitializer(object):
         chrono.lap("pair rec")
         if r == 0:
             return None, None, None
-        
+        scale_1 = f1_points[matches[:, 0], 2] / norm_size
+        scale_2 = f2_points[matches[:, 1], 2] / norm_size
         # create the graph
         tracks_graph = nx.Graph()
         tracks_graph.add_node(str(im1), bipartite=0)
@@ -145,7 +161,7 @@ class SlamInitializer(object):
         # p1, p2 = self.init_frame.points[mat, 0:2]
         for (track_id, (f1_id, f2_id)) in enumerate(matches):
             x, y = norm_p1[track_id, 0:2]
-            s = self.init_frame.points[f1_id, 2]
+            s = scale_1[track_id]
             r, g, b = self.init_frame.colors[f1_id, :]
             tracks_graph.add_node(str(track_id), bipartite=1)
             tracks_graph.add_edge(str(im1),
@@ -155,8 +171,8 @@ class SlamInitializer(object):
                                   feature_id=int(f1_id),
                                   feature_color=(float(r), float(g), float(b)))
             x, y = norm_p2[track_id, 0:2]
-            s = frame.points[f2_id, 2]
-            r, g, b = frame.colors[f2_id, :]
+            s = scale_2[track_id]
+            r, g, b = frame.colors[f2_id, 0:3]
             tracks_graph.add_edge(str(im2),
                                   str(track_id),
                                   feature=(float(x), float(y)),
@@ -172,6 +188,7 @@ class SlamInitializer(object):
         print("Init timings: ", chrono.lap_times())
         print("Created init rec from {}<->{} with {} points from {} matches"
               .format(im1, im2, len(reconstruction_init.points), len(matches)))
+        slam_debug.visualize_graph(graph_inliers, self.init_frame.im_name, frame.im_name, self.data, do_show=True)
         return reconstruction_init, graph_inliers, matches
         
 

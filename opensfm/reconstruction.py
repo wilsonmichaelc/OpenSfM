@@ -973,18 +973,22 @@ class TrackTriangulator:
                 r = self._shot_rotation_inverse(shot)
                 bs.append(r.dot(b))
                 ids.append(shot_id)
-
+        n_here = 0
+        n_x = 0
         if len(os) >= 2:
+            n_here +=1
             thresholds = len(os) * [reproj_threshold]
             e, X = csfm.triangulate_bearings_midpoint(
                 os, bs, thresholds, np.radians(min_ray_angle_degrees))
             if X is not None:
+                n_x += 1
                 point = types.Point()
                 point.id = track
                 point.coordinates = X.tolist()
                 self.reconstruction.add_point(point)
                 for shot_id in ids:
                     self._add_track_to_graph_inlier(track, shot_id)
+        print("n_x", n_x, "n_here", n_here)
 
     def triangulate_dlt(self, track, reproj_threshold, min_ray_angle_degrees):
         """Triangulate track using DLT and add point to reconstruction."""
@@ -1043,10 +1047,11 @@ def triangulate_shot_features(graph, graph_inliers, reconstruction, shot_id, con
     min_ray_angle = config['triangulation_min_ray_angle']
 
     triangulator = TrackTriangulator(graph, graph_inliers, reconstruction)
-
+    print("len(graph[shot_id]):", len(graph[shot_id]))
     for track in graph[shot_id]:
         if track not in reconstruction.points:
             triangulator.triangulate(track, reproj_threshold, min_ray_angle)
+    print("reconstruction.points):", len(reconstruction.points))
 
 
 def retriangulate(graph, graph_inliers, reconstruction, config):

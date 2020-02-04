@@ -13,10 +13,5 @@ py::class_<openvslam::feature::orb_extractor>(m, "orb_extractor")
                   const unsigned int, const unsigned int>())
     .def("extract_orb_py", &openvslam::feature::orb_extractor::extract_orb_py)
     .def("extract_orb_py2", &openvslam::feature::orb_extractor::extract_orb_py2);
-
-py::class_<openvslam::feature::Frame>(m, "Frame")
-    .def(py::init<const unsigned int>())
-    .def("print_info", &openvslam::feature::Frame::print_info);
-
 }
 

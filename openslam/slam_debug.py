@@ -102,7 +102,7 @@ def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True, title = "
     obs_d2 = features.\
         denormalized_image_coordinates(np.asarray(pts2[matches[:, 1]]), w1, h1)
     ax.imshow(im)
-    skip = 5
+    skip = 25
     ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])
     ax.scatter(w1+obs_d2[:, 0], obs_d2[:, 1], c=[[0, 1, 0]])
     for a, b in zip(obs_d1[::skip, :], obs_d2[::skip, :]):
@@ -130,7 +130,7 @@ def visualize_matches_pts(pts1, pts2, matches, im1, im2, is_normalized= True, do
     else:
         obs_d1, obs_d2 = pts1[matches[:, 0]], pts2[matches[:, 1]]
     ax.imshow(im)
-    skip = 5
+    skip = 25
     ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])
     ax.scatter(w1+obs_d2[:, 0], obs_d2[:, 1], c=[[0, 1, 0]])
     for a, b in zip(obs_d1[::skip, :], obs_d2[::skip, :]):

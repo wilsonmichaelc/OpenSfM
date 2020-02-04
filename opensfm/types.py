@@ -424,7 +424,9 @@ class BrownPerspectiveCamera(Camera):
         points = pixels.reshape((-1, 1, 2)).astype(np.float64)
         distortion = np.array([self.k1, self.k2, 0., 0.])
         print(self.get_K(), self.get_K_in_pixel_coordinates())
-        up = cv2.undistortPoints(points, self.get_K(), distortion)
+        K = self.get_K_in_pixel_coordinates()
+        up = cv2.undistortPoints(points, K, distortion, P=K)
+        # up = cv2.undistortPoints(points, self.get_K(), distortion)
         # up = cv2.undistortPoints(points, self.get_K_in_pixel_coordinates(), distortion)
         return up
 

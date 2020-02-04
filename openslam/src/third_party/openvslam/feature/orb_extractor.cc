@@ -53,19 +53,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif // USE_SSE_ORB
 
 #include <iostream>
+#include "slam_datastructures/frame.h"
 
+// #undef USE_OPENMP
 namespace openvslam {
 namespace feature {
-
-Frame::Frame(const unsigned int fid):frame_id(fid)
-{
-    std::cout << "Init frme! " << std::endl;
-}
-
-void Frame::print_info()
-{
-    std::cout << "id: " << frame_id << "desc: " << descriptors.size() << " kpts: " << keypts.size() << std::endl;
-}
 
 orb_extractor::orb_extractor(const unsigned int max_num_keypts, const float scale_factor, const unsigned int num_levels,
                              const unsigned int ini_fast_thr, const unsigned int min_fast_thr,
@@ -113,34 +105,11 @@ orb_extractor::extract_orb_py(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mas
 
 
 void
-orb_extractor::extract_orb_py2(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mask, Frame& frame)
+orb_extractor::extract_orb_py2(csfm::pyarray_uint8 image, csfm::pyarray_uint8 mask, cslam::Frame& frame)
 {
-    const cv::Mat img(image.shape(1), image.shape(0), CV_8U, (void *)image.data());
-    const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(1), mask.shape(0), CV_8U, (void *)mask.data()));
-    // std::vector<cv::KeyPoint> kpts;
-    // cv::Mat desc;
-    std::cout << "image: " << img.cols <<"/" << img.rows << " vs " << image.shape(1) << "/" << image.shape(0) << std::endl;
-
-    auto& kpts = frame.getKeypts();
-    auto& desc = frame.getDescriptors();
-    extract(img, mask_img, kpts, desc);
-    std::cout << "kpts: " << kpts.size() << "/" << desc.size() << std::endl;
-      // Convert to numpy.
-    // cv::Mat keys(kpts.size(), 5, CV_32F);
-    // for (int i = 0; i < (int) kpts.size(); ++i) {
-    //     keys.at<float>(i, 0) = kpts[i].pt.x;
-    //     keys.at<float>(i, 1) = kpts[i].pt.y;
-    //     keys.at<float>(i, 2) = kpts[i].size;
-    //     keys.at<float>(i, 3) = kpts[i].angle;
-    //     keys.at<float>(i, 4) = kpts[i].octave;
-    // }
-
-    // py::list retn;
-    // retn.append(std::move(kpts));
-    // retn.append(desc);
-    // retn.append(csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
-    // retn.append(csfm::py_array_from_data(desc.ptr<unsigned char>(0), desc.rows, desc.cols));
-    // return retn;
+    const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
+    const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
+    extract(img, mask_img, frame.mKeyPts, frame.mDescriptors);
 }
 
 void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArray& in_image_mask,
@@ -152,34 +121,41 @@ void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArr
     // get cv::Mat of image
     const auto image = in_image.getMat();
     assert(image.type() == CV_8UC1);
-
+    std::cout << "bef: image pyr" << std::endl;
     // build image pyramid
     compute_image_pyramid(image);
-
+    std::cout << "aft: image pyr" << std::endl;
     // mask initialization
     if (!mask_is_initialized_ && !orb_params_.mask_rects_.empty()) {
         create_rectangle_mask(image.cols, image.rows);
         mask_is_initialized_ = true;
     }
-
+    std::cout << "here1" << std::endl;
     std::vector<std::vector<cv::KeyPoint>> all_keypts;
 
     // select mask to use
     if (!in_image_mask.empty()) {
+                std::cout << "fast 1" << all_keypts.size() << std::endl;
+
         // Use image_mask if it is available
         const auto image_mask = in_image_mask.getMat();
         assert(image_mask.type() == CV_8UC1);
         compute_fast_keypoints(all_keypts, image_mask);
     }
     else if (!rect_mask_.empty()) {
+                std::cout << "fast 2" << all_keypts.size() << std::endl;
+
         // Use rectangle mask if it is available and image_mask is not used
         assert(rect_mask_.type() == CV_8UC1);
         compute_fast_keypoints(all_keypts, rect_mask_);
     }
     else {
+        std::cout << "fast 3" << all_keypts.size() << std::endl;
+
         // Do not use any mask if all masks are unavailable
         compute_fast_keypoints(all_keypts, cv::Mat());
     }
+    std::cout << "aft: fast pyr" << all_keypts.size() << std::endl;
 
     cv::Mat descriptors;
 
@@ -194,12 +170,15 @@ void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArr
         out_descriptors.create(num_keypts, 32, CV_8U);
         descriptors = out_descriptors.getMat();
     }
+    std::cout << "aft: desc" << all_keypts.size() << std::endl;
 
     keypts.clear();
     keypts.reserve(num_keypts);
 
     unsigned int offset = 0;
     for (unsigned int level = 0; level < orb_params_.num_levels_; ++level) {
+        std::cout << "lvl: " << level << std::endl;
+
         auto& keypts_at_level = all_keypts.at(level);
         const auto num_keypts_at_level = keypts_at_level.size();
 
