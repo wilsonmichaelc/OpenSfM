@@ -3,8 +3,11 @@
 #include <vector>
 #include <iostream>
 #include <opencv2/core.hpp>
-
-namespace cslam{ class Frame; }
+#include "third_party/openvslam/feature/orb_params.h"
+namespace cslam{ 
+    class Frame;
+    class Landmark;
+}
 namespace guided_matching
 {
 struct GridParameters
@@ -61,5 +64,9 @@ match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
                      const Eigen::MatrixX2f& prevMatched,
                      const GridParameters& grid_params, const size_t margin);
 
-void match_points_to_frame();
+
+// TODO: Think about the margin. Maybe make it dynamic depending on the depth of the feature!!
+size_t
+match_frame_and_landmarks(const GridParameters& grid_params, const std::vector<float>& scale_factors, //const openvslam::feature::orb_params& orb_params,
+                          cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
 };

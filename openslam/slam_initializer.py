@@ -122,11 +122,11 @@ class SlamInitializer(object):
         f1_points = self.init_frame.cframe.getKptsPy()
         f2_points = frame.cframe.getKptsPy()
         
-        slam_debug.visualize_matches_pts(f1_points[:, 0:2],
-                                         f2_points[:, 0:2], matches,
-                                         self.init_frame.image,
-                                         frame.image,
-                                         is_normalized=False, do_show=True)
+        # slam_debug.visualize_matches_pts(f1_points[:, 0:2],
+        #                                  f2_points[:, 0:2], matches,
+        #                                  self.init_frame.image,
+        #                                  frame.image,
+        #                                  is_normalized=False, do_show=True)
         print(matches)
 
         
@@ -141,9 +141,9 @@ class SlamInitializer(object):
             normalized_image_coordinates(f2_points[matches[:, 1], 0:2], self.camera[1].width, self.camera[1].height)
         norm_size = max(self.camera[1].width, self.camera[1].height)
 
-        slam_debug.visualize_matches_pts(norm_p1, norm_p2, np.column_stack((np.arange(0,len(norm_p1)), np.arange(0,len(norm_p1)))),
-                                         self.init_frame.image,
-                                         frame.image, is_normalized=True, do_show=True)
+        # slam_debug.visualize_matches_pts(norm_p1, norm_p2, np.column_stack((np.arange(0,len(norm_p1)), np.arange(0,len(norm_p1)))),
+        #                                  self.init_frame.image,
+        #                                  frame.image, is_normalized=True, do_show=True)
         args.append((im1, im2, norm_p1, norm_p2,
                      self.camera[1], self.camera[1], threshold))
         chrono = reconstruction.Chronometer()

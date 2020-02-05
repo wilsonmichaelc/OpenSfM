@@ -3,6 +3,8 @@
 #include <pybind11/eigen.h>
 #include "third_party/openvslam/util/guided_matching.h"
 #include "slam_datastructures/frame.h"
+#include "slam_datastructures/keyframe.h"
+#include "slam_datastructures/landmark.h"
 namespace py = pybind11;
 
 
@@ -15,6 +17,6 @@ PYBIND11_MODULE(guided_matching, m) {
     m.def("match_frame_to_frame_py", &guided_matching::match_frame_to_frame_py);
     m.def("match_frame_to_frame_dbg", &guided_matching::match_frame_to_frame_dbg);
     m.def("match_frame_to_frame", &guided_matching::match_frame_to_frame);
-    m.def("match_points_to_frame", 
-        &guided_matching::match_points_to_frame);
+    m.def("match_frame_and_landmarks", 
+        &guided_matching::match_frame_and_landmarks);
 }

@@ -12,21 +12,6 @@ namespace py = pybind11;
 // namespace cslam { class Frame; };
 namespace openvslam {
 namespace feature {
-// class Frame
-// {
-// public:
-//     Frame(const unsigned int fid);
-//     const size_t frame_id;
-//     std::vector<cv::KeyPoint>& getKeypts() { return keypts; }
-//     cv::Mat& getDescriptors() { return descriptors; }
-//     void print_info();
-// private:
-
-//     std::vector<cv::KeyPoint> keypts;
-//     cv::Mat descriptors;
-//     // cv::Mat 
-// };
-
 class orb_extractor {
 public:
     orb_extractor() = delete;

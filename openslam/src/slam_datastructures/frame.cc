@@ -10,27 +10,27 @@ py::object
 Frame::getKptsUndist() const
 {
     // Convert to numpy.
-    cv::Mat keys(mKeyPtsUndist.size(), 5, CV_32F);
-    for (int i = 0; i < (int) mKeyPtsUndist.size(); ++i) {
-        keys.at<float>(i, 0) = mKeyPtsUndist[i].pt.x;
-        keys.at<float>(i, 1) = mKeyPtsUndist[i].pt.y;
-        keys.at<float>(i, 2) = mKeyPtsUndist[i].size;
-        keys.at<float>(i, 3) = mKeyPtsUndist[i].angle;
-        keys.at<float>(i, 4) = mKeyPtsUndist[i].octave;
+    cv::Mat keys(undist_keypts_.size(), 5, CV_32F);
+    for (int i = 0; i < (int) undist_keypts_.size(); ++i) {
+        keys.at<float>(i, 0) = undist_keypts_[i].pt.x;
+        keys.at<float>(i, 1) = undist_keypts_[i].pt.y;
+        keys.at<float>(i, 2) = undist_keypts_[i].size;
+        keys.at<float>(i, 3) = undist_keypts_[i].angle;
+        keys.at<float>(i, 4) = undist_keypts_[i].octave;
     }
     return csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols);
 }
 py::object
 Frame::getDescPy() const
 {
-    return csfm::py_array_from_data(mDescriptors.ptr<unsigned char>(0), mDescriptors.rows, mDescriptors.cols);
+    return csfm::py_array_from_data(descriptors_.ptr<unsigned char>(0), descriptors_.rows, descriptors_.cols);
 }
 py::object
 Frame::getKptsPy() const
 {
     // Convert to numpy.
     cv::Mat keys(mKeyPts.size(), 5, CV_32F);
-    for (int i = 0; i < (int) mKeyPtsUndist.size(); ++i) {
+    for (int i = 0; i < (int) undist_keypts_.size(); ++i) {
         keys.at<float>(i, 0) = mKeyPts[i].pt.x;
         keys.at<float>(i, 1) = mKeyPts[i].pt.y;
         keys.at<float>(i, 2) = mKeyPts[i].size;
@@ -54,7 +54,7 @@ Frame::getKptsAndDescPy() const
 
     py::list retn;
     retn.append(csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
-    retn.append(csfm::py_array_from_data(mDescriptors.ptr<unsigned char>(0), mDescriptors.rows, mDescriptors.cols));
+    retn.append(csfm::py_array_from_data(descriptors_.ptr<unsigned char>(0), descriptors_.rows, descriptors_.cols));
     return retn;
 }
           

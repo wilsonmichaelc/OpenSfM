@@ -9,7 +9,7 @@ namespace cslam
 void
 BrownPerspectiveCamera::undistKeyptsFrame(Frame& frame) const
 {
-    undistKeypts(frame.mKeyPts, frame.mKeyPtsUndist);
+    undistKeypts(frame.mKeyPts, frame.undist_keypts_);
 }
 
 void 

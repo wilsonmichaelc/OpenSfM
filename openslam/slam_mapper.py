@@ -4,9 +4,9 @@ from slam_types import Keyframe
 from slam_types import Landmark
 from opensfm import types
 import logging
-
+import cslam_types as ctypes
 logger = logging.getLogger(__name__)
-
+import numpy as np
 
 class SlamMapper(object):
 
@@ -31,6 +31,28 @@ class SlamMapper(object):
         Edges are connections between keyframes and landmarks and
         basically "observations"
         """
+        # Create the keyframes
+        kf1 = ctypes.KeyFrame(0, init_frame.cframe)
+        kf2 = ctypes.KeyFrame(1, curr_frame.cframe)
+        kf1_pose = rec_init.shots[init_frame.im_name].pose.get_Rt()
+        kf1_pose = np.vstack((kf1_pose,np.array([0, 0, 0, 1])))
+        kf1.set_pose(kf1_pose)
+        kf2_pose = rec_init.shots[frame.im_name].pose.get_Rt()
+        kf2_pose = np.vstack((kf2_pose,np.array([0, 0, 0, 1])))
+        kf2.set_pose(kf2_pose)
+    def create_init_map2(self, graph_inliers, rec_init,
+                        init_frame: Frame, curr_frame: Frame,
+                        init_pdc=None, other_pdc=None):
+        """The graph contains the KFs/shots and landmarks.
+        Edges are connections between keyframes and landmarks and
+        basically "observations"
+        """
+
+        lm_id = 0
+        lm_c = ctypes.Landmark(lm_id)
+        kf1 = ctypes.KeyFrame(0, init_frame.cframe)
+        kf2 = ctypes.KeyFrame(1, curr_frame.cframe)
+
         self.graph = graph_inliers
         self.reconstruction = rec_init
         init_frame.frame_id = 0
@@ -48,6 +70,7 @@ class SlamMapper(object):
         self.n_frames = 2
         max_lm = 0  # find the highest lm id
         n_lm_added = 0
+
         # Add landmark objects to nodes
         for lm_id in self.graph[self.init_frame.im_name]:
             lm = Landmark(int(lm_id))

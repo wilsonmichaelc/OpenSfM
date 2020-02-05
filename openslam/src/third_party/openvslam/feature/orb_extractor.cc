@@ -109,7 +109,7 @@ orb_extractor::extract_orb_py2(csfm::pyarray_uint8 image, csfm::pyarray_uint8 ma
 {
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
-    extract(img, mask_img, frame.mKeyPts, frame.mDescriptors);
+    extract(img, mask_img, frame.mKeyPts, frame.descriptors_);
 }
 
 void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArray& in_image_mask,
@@ -117,7 +117,6 @@ void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArr
     if (in_image.empty()) {
         return;
     }
-
     // get cv::Mat of image
     const auto image = in_image.getMat();
     assert(image.type() == CV_8UC1);

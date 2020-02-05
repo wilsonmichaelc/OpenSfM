@@ -21,7 +21,21 @@ PYBIND11_MODULE(cslam_types, m) {
         .def("getDescPy",&cslam::Frame::getDescPy)
         .def("getKptsUndist", &cslam::Frame::getKptsUndist);
     // Keyframe
+    // py::class_<cslam::KeyFrame>(m, "KeyFrame")
+    //     .def(py::init<const size_t, const &cslam::Frame>())
+    //     .def_readonly("kf_id", &cslam::KeyFrame::kf_id_);
+    py::class_<cslam::KeyFrame>(m, "KeyFrame")
+        .def(py::init<const size_t, const cslam::Frame>())
+        .def_readonly("kf_id", &cslam::KeyFrame::kf_id_)
+        .def("set_pose", &cslam::KeyFrame::setPose)
+        .def("get_pose", &cslam::KeyFrame::getPose);
     // Landmark
+    py::class_<cslam::Landmark>(m, "Landmark")
+        .def(py::init<const size_t>())
+        .def("increase_num_observable", &cslam::Landmark::increase_num_observable)
+        .def("increase_num_observed", &cslam::Landmark::increase_num_observed)
+        .def("get_observed_ratio", &cslam::Landmark::get_observed_ratio);
+
 
     //Camera
     py::class_<cslam::BrownPerspectiveCamera>(m, "BrownPerspectiveCamera")
