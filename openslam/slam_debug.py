@@ -8,7 +8,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-disable_debug = False
+disable_debug = True
 
 
 class AvgTimings(object):
@@ -62,6 +62,8 @@ def draw_observations_in_image(observations, image, data, do_show=True):
     """Draws observations into image"""
     if disable_debug:
         return
+    if disable_debug:
+        return
     if observations is None:
         return
     if len(observations) == 0:
@@ -78,6 +80,8 @@ def draw_observations_in_image(observations, image, data, do_show=True):
 
 
 def draw_obs_in_image_no_norm(obs, image, do_show=True):
+    if disable_debug:
+        return
     fig, ax = plt.subplots(1)
     if len(image.shape) == 3:
         # h1, w1, c = image.shape
@@ -166,6 +170,8 @@ def visualize_matches(matches, frame1: str, frame2: str, data, do_show=True):
 
 
 def visualize_graph(graph, frame1: str, frame2: str, data, do_show=True):
+    if disable_debug:
+        return
     print("visualize_graph: ", frame1, frame2)
     lms = graph[frame1]
     pts2D_1 = []
@@ -201,6 +207,8 @@ def visualize_graph(graph, frame1: str, frame2: str, data, do_show=True):
 
 
 def visualize_tracked_lms(points2D, frame: Frame, data):
+    if disable_debug:
+        return
     im1 = data.load_image(frame.im_name)
     h1, w1, c = im1.shape
     im1 = cv2.cvtColor(im1, cv2.COLOR_RGB2BGR)

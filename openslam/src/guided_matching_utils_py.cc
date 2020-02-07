@@ -15,7 +15,7 @@ PYBIND11_MODULE(guided_matching, m) {
     m.def("assign_keypoints_to_grid", &guided_matching::assign_keypoints_to_grid);
     m.def("distribute_keypoints_to_grid_frame", &guided_matching::distribute_keypoints_to_grid_frame);
     m.def("match_frame_to_frame_py", &guided_matching::match_frame_to_frame_py);
-    m.def("match_frame_to_frame_dbg", &guided_matching::match_frame_to_frame_dbg);
+    // m.def("match_frame_to_frame_dbg", &guided_matching::match_frame_to_frame_dbg);
     m.def("match_frame_to_frame", &guided_matching::match_frame_to_frame);
     m.def("match_frame_and_landmarks", 
         &guided_matching::match_frame_and_landmarks);

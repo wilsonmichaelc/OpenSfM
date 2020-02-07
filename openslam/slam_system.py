@@ -9,14 +9,15 @@ import slam_debug
 import slam_utils
 import slam_config
 import logging
-import orb_extractor
-import guided_matching
+# import orb_extractor
+# import guided_matching
+import cslam
 import numpy as np
 # from opensfm import csfm
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-import cslam_types
+# import cslam_types
 
 
 class SlamSystem(object):
@@ -28,17 +29,12 @@ class SlamSystem(object):
         self.camera = next(iter(cameras.items()))
         self.config_slam = slam_config.default_config()
         self.slam_mapper = SlamMapper(self.data, self.config_slam, self.camera)
-        self.slam_tracker = SlamTracker(self.data, self.camera)
-
-        # frame = cslam_types.Frame("test", 1)
-        # print("frame: ", frame)
-        # print("frame id: ", frame.frame_id)
-        # print("im_name: ", frame.im_name)
+        # self.slam_tracker = SlamTracker() #self.data, self.camera)
 
         self.feature_extractor = SlamFeatureExtractor(self.config_slam)
 
         # TODO: Move to separate cl ass
-        self.orb_extractor = orb_extractor.orb_extractor(
+        self.orb_extractor = cslam.orb_extractor(
             self.config_slam['feat_max_number'],
             self.config_slam['feat_scale'],
             self.config_slam['feat_pyr_levels'],
@@ -62,40 +58,53 @@ class SlamSystem(object):
         inv_cell_w = self.config_slam['grid_n_cols']/(bounds[1]-bounds[0])
         inv_cell_h = self.config_slam['grid_n_rows']/(bounds[3]-bounds[2])
         self.grid_params =\
-            guided_matching.\
+            cslam.\
             GridParameters(self.config_slam['grid_n_cols'],
                            self.config_slam['grid_n_rows'],
-                           bounds[0], bounds[2], inv_cell_w, inv_cell_h)
-        
-        self.slam_init = SlamInitializer(self.data, self.camera, self.grid_params)
+                           bounds[0], bounds[2], bounds[1], bounds[3],
+                           inv_cell_w, inv_cell_h)
+        # self.slam_tracker.grid_params = self.grid_params
+        c = self.camera[1]
+        self.cCamera =\
+            cslam.BrownPerspectiveCamera(c.width, c.height, c.projection_type,
+            c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3)
+        self.guided_matcher = cslam.GuidedMatcher(self.grid_params, self.cCamera)
+        self.slam_tracker = SlamTracker(self.guided_matcher)
+        self.slam_tracker.scale_factors = self.orb_extractor.get_scale_factors()
+
+        self.slam_init =\
+            SlamInitializer(self.data, self.camera, self.guided_matcher)
         self.system_initialized = False
 
-    def process_frame_2(self, frame, image):
+    def process_frame_2(self, im_name, image):
         """Process one single frame.
         Step 1: Extract multi-scale features
         Step 2: Init or track frame
         """
+        # Create frame with name and unique id    
+        frame = Frame(im_name, self.slam_mapper.n_frames, self.data)
+        frame.make_cframe(self.orb_extractor)
         # orb_detector.detect()
         keypts = list()
         mask = np.array([], dtype=np.uint8)
         chrono = reconstruction.Chronometer()
+        
         # Step 1: Detect SIFT/ORB features in first image
         # ORB
         # kpt, desc = self.orb_extractor.extract_orb_py(image, mask)
         # kpt3, desc3 = self.orb_extractor.extract_orb_py(image, mask)
-        self.orb_extractor.extract_orb_py2(image, mask, frame.cframe)
+        # self.orb_extractor.extract_orb_py2(image, mask, frame.cframe)
+
+        # for i in range(0,100):
+        #     self.orb_extractor.extract_orb_py2(image, mask, frame.cframe)
+        
+        print("successful 100 runs")
         # undistort points
         kpt2, desc2 = frame.cframe.getKptsAndDescPy()
-        
-        # up = self.camera[1].undistort_many(kpt2[:, 0:2])
-        
-        c = self.camera[1]
-        cCamera =\
-            cslam_types.BrownPerspectiveCamera(c.width, c.height, c.projection_type,
-            c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3)
-        cCamera.undistKeyptsFrame(frame.cframe)
+        self.cCamera.undistKeyptsFrame(frame.cframe)
         up2 = frame.cframe.getKptsUndist()
-        guided_matching.distribute_keypoints_to_grid_frame(self.grid_params, frame.cframe)
+        self.guided_matcher.\
+            distribute_keypoints_to_grid_frame(frame.cframe)
         # l = guided_matching.assign_keypoints_to_grid(self.grid_params, up.reshape(-1,2))
         # slam_debug.draw_obs_in_image_no_norm(kpt, image, False)
         slam_debug.draw_obs_in_image_no_norm(kpt2, image, True)
@@ -110,7 +119,7 @@ class SlamSystem(object):
         chrono.lap('new_orb')
         if not self.system_initialized:
             return self.init_slam_system(frame)
-        self.track_frame(frame)      
+        self.track_frame(frame)
 
     def process_frame(self, frame):
         """Process one single frame.
@@ -171,8 +180,9 @@ class SlamSystem(object):
         data = self.data
         logger.debug("Tracking: {}, {}".format(frame.frame_id, frame.im_name))
         # Maybe move most of the slam_mapper stuff to tracking
-        self.slam_mapper.apply_landmark_replace()
+        # TODO: Landmark replac!
+        # self.slam_mapper.apply_landmark_replace()
         pose = self.slam_tracker.track(self.slam_mapper, frame,
-                                        self.config, self.camera, data)
+                                       self.config, self.camera, data)
 
 

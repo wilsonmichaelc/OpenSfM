@@ -5,8 +5,7 @@ from opensfm import feature_loader
 from opensfm import features
 import slam_utils
 import slam_debug
-# import slam_matcher
-import guided_matching
+import cslam
 import numpy as np
 import logging
 import networkx as nx
@@ -15,15 +14,16 @@ logger = logging.getLogger(__name__)
 
 class SlamInitializer(object):
 
-    def __init__(self, data, camera, grid_params):
+    def __init__(self, data, camera, guided_matcher):
         print("initializer")
         self.init_type = "OpenVSlam"
         self.init_frame = None
         self.init_pdc = None # points, descriptors and colors of init frame
-        self.grid_params = grid_params
+        # self.grid_params = grid_params
         self.prev_pts = None
         self.data = data
         self.camera = camera
+        self.guided_matcher = guided_matcher
 
     def set_initial_frame(self, frame):
         """Sets the first frame"""
@@ -112,11 +112,9 @@ class SlamInitializer(object):
         #         self.prev_pts, self.grid_params, 100)
         prev_matches = np.zeros((5, 2))
         # TODO: think about prev_matches!
-        matches = guided_matching.\
+        matches = self.guided_matcher.\
             match_frame_to_frame(self.init_frame.cframe,
-                                 frame.cframe, prev_matches,
-                                 self.grid_params,
-                                 100)
+                                 frame.cframe, prev_matches, 100)
         matches = np.array(matches)
         
         f1_points = self.init_frame.cframe.getKptsPy()

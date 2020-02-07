@@ -7,13 +7,15 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include "types.h"
-#include "slam_datastructures/frame.h"
+
+namespace cslam{ class Frame; }
 namespace py = pybind11;
 // namespace cslam { class Frame; };
 namespace openvslam {
 namespace feature {
 class orb_extractor {
 public:
+
     orb_extractor() = delete;
 
     //! Constructor

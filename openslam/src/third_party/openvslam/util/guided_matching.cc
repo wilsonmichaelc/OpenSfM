@@ -5,27 +5,37 @@
 #include <opencv2/core/eigen.hpp>
 #include "slam_datastructures/frame.h"
 #include "slam_datastructures/landmark.h"
-namespace guided_matching
+#include "slam_datastructures/keyframe.h"
+#include "slam_datastructures/camera.h"
+namespace cslam
 {
 
-GridParameters::GridParameters(unsigned int grid_cols_, unsigned int grid_rows_,
-                float img_min_width_, float img_min_height_,
-                float inv_cell_width_, float inv_cell_height_):
-                grid_cols(grid_cols_), grid_rows(grid_rows_),
-                img_min_width(img_min_width_), img_min_height(img_min_height_),
-                inv_cell_width(inv_cell_width_), inv_cell_height(inv_cell_height_)
+GridParameters::GridParameters(unsigned int grid_cols, unsigned int grid_rows,
+                float img_min_width, float img_min_height,
+                float img_max_width, float img_max_height,
+                float inv_cell_width, float inv_cell_height):
+                grid_cols_(grid_cols), grid_rows_(grid_rows),
+                img_min_width_(img_min_width), img_min_height_(img_min_height),
+                img_max_width_(img_max_width), img_max_height_(img_max_height),
+                inv_cell_width_(inv_cell_width), inv_cell_height_(inv_cell_height)
                 {}
 
 
+GuidedMatcher::GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera):
+    grid_params_(grid_params), camera_(camera)
+{
+
+}
+
 
 void
-assign_points_to_grid(const GridParameters& params, const Eigen::MatrixXf& undist_keypts, CellIndices& keypt_indices_in_cells)
+GuidedMatcher::assign_points_to_grid(const Eigen::MatrixXf& undist_keypts, CellIndices& keypt_indices_in_cells)
 {
     const size_t num_pts = undist_keypts.rows();
-    const size_t num_to_reserve = 0.5 * num_pts / (params.grid_cols*params.grid_rows);
-    keypt_indices_in_cells.resize(params.grid_cols);
+    const size_t num_to_reserve = 0.5 * num_pts / (grid_params_.grid_cols_*grid_params_.grid_rows_);
+    keypt_indices_in_cells.resize(grid_params_.grid_cols_);
     for (auto& keypt_indices_in_row : keypt_indices_in_cells) {
-        keypt_indices_in_row.resize(params.grid_rows);
+        keypt_indices_in_row.resize(grid_params_.grid_rows_);
         for (auto& keypt_indices_in_cell : keypt_indices_in_row) {
             keypt_indices_in_cell.reserve(num_to_reserve);
         }
@@ -34,37 +44,36 @@ assign_points_to_grid(const GridParameters& params, const Eigen::MatrixXf& undis
         // const auto& keypt = undist_keypts.at(idx);
         const Eigen::Vector2f pt = undist_keypts.block<1,2>(idx,0);
         // std::cout << "pt: " << pt.transpose() << std::endl;
-        const int cell_idx_x = std::round((pt[0] - params.img_min_width) * params.inv_cell_width);
-        const int cell_idx_y = std::round((pt[1] - params.img_min_height) * params.inv_cell_height);
-        if ((0 <= cell_idx_x && cell_idx_x < static_cast<int>(params.grid_cols)
-            && 0 <= cell_idx_y && cell_idx_y < static_cast<int>(params.grid_rows)))
+        const int cell_idx_x = std::round((pt[0] - grid_params_.img_min_width_) * grid_params_.inv_cell_width_);
+        const int cell_idx_y = std::round((pt[1] - grid_params_.img_min_height_) * grid_params_.inv_cell_height_);
+        if ((0 <= cell_idx_x && cell_idx_x < static_cast<int>(grid_params_.grid_cols_)
+            && 0 <= cell_idx_y && cell_idx_y < static_cast<int>(grid_params_.grid_rows_)))
         {
             keypt_indices_in_cells.at(cell_idx_x).at(cell_idx_y).push_back(idx);
         }
     }
 }
 CellIndices 
-assign_keypoints_to_grid(const GridParameters& params, const Eigen::MatrixXf& undist_keypts) {
+GuidedMatcher::assign_keypoints_to_grid(const Eigen::MatrixXf& undist_keypts) {
     CellIndices keypt_indices_in_cells;
-    assign_points_to_grid(params, undist_keypts, keypt_indices_in_cells);
+    assign_points_to_grid(undist_keypts, keypt_indices_in_cells);
     return keypt_indices_in_cells;
 }
 
 void
-distribute_keypoints_to_grid_frame(const GridParameters& params, cslam::Frame& frame)
+GuidedMatcher::distribute_keypoints_to_grid_frame(cslam::Frame& frame)
 {
-    distribute_keypoints_to_grid(params, frame.undist_keypts_, frame.keypts_indices_in_cells_);
+    distribute_keypoints_to_grid(frame.undist_keypts_, frame.keypts_indices_in_cells_);
 }
 
 void 
-distribute_keypoints_to_grid(const GridParameters& params, const std::vector<cv::KeyPoint>& undist_keypts,
-                             CellIndices& keypt_indices_in_cells)
+GuidedMatcher::distribute_keypoints_to_grid(const std::vector<cv::KeyPoint>& undist_keypts, CellIndices& keypt_indices_in_cells)
 {
     const size_t num_pts = undist_keypts.size();
-    const size_t num_to_reserve = 0.5 * num_pts / (params.grid_cols*params.grid_rows);
-    keypt_indices_in_cells.resize(params.grid_cols);
+    const size_t num_to_reserve = 0.5 * num_pts / (grid_params_.grid_cols_*grid_params_.grid_rows_);
+    keypt_indices_in_cells.resize(grid_params_.grid_cols_);
     for (auto& keypt_indices_in_row : keypt_indices_in_cells) {
-        keypt_indices_in_row.resize(params.grid_rows);
+        keypt_indices_in_row.resize(grid_params_.grid_rows_);
         for (auto& keypt_indices_in_cell : keypt_indices_in_row) {
             keypt_indices_in_cell.reserve(num_to_reserve);
         }
@@ -73,10 +82,10 @@ distribute_keypoints_to_grid(const GridParameters& params, const std::vector<cv:
         const auto& keypt = undist_keypts.at(idx);
         // const Eigen::Vector2f pt = undist_keypts.block<1,2>(idx,0);
         // std::cout << "pt: " << pt.transpose() << std::endl;
-        const int cell_idx_x = std::round((keypt.pt.x - params.img_min_width) * params.inv_cell_width);
-        const int cell_idx_y = std::round((keypt.pt.y - params.img_min_height) * params.inv_cell_height);
-        if ((0 <= cell_idx_x && cell_idx_x < static_cast<int>(params.grid_cols)
-            && 0 <= cell_idx_y && cell_idx_y < static_cast<int>(params.grid_rows)))
+        const int cell_idx_x = std::round((keypt.pt.x - grid_params_.img_min_width_) * grid_params_.inv_cell_width_);
+        const int cell_idx_y = std::round((keypt.pt.y - grid_params_.img_min_height_) * grid_params_.inv_cell_height_);
+        if ((0 <= cell_idx_x && cell_idx_x < static_cast<int>(grid_params_.grid_cols_)
+            && 0 <= cell_idx_y && cell_idx_y < static_cast<int>(grid_params_.grid_rows_)))
         {
             keypt_indices_in_cells.at(cell_idx_x).at(cell_idx_y).push_back(idx);
         }
@@ -96,14 +105,10 @@ distribute_keypoints_to_grid(const GridParameters& params, const std::vector<cv:
 //     return matches;
 // }
 
-static constexpr unsigned int HAMMING_DIST_THR_LOW = 50;
-static constexpr unsigned int HAMMING_DIST_THR_HIGH = 100;
-// static constexpr unsigned int HAMMING_DIST_THR_LOW = 80;
-// static constexpr unsigned int HAMMING_DIST_THR_HIGH = 120;
-static constexpr unsigned int MAX_HAMMING_DIST = 256;
-
 //! ORB特徴量間のハミング距離を計算する
-inline unsigned int compute_descriptor_distance_32(const cv::Mat& desc_1, const cv::Mat& desc_2) {
+inline unsigned int 
+GuidedMatcher::compute_descriptor_distance_32(const cv::Mat& desc_1, const cv::Mat& desc_2)
+{
     // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
 
     constexpr uint32_t mask_1 = 0x55555555U;
@@ -127,6 +132,8 @@ inline unsigned int compute_descriptor_distance_32(const cv::Mat& desc_1, const 
 }
 
 
+
+
 /**
  * 
  * unidst_keypts should have x,y,...
@@ -138,147 +145,146 @@ inline unsigned int compute_descriptor_distance_32(const cv::Mat& desc_1, const 
  * 
  * prev_matched are the updated "matched" coordinates of 1
  */
-MatchIndices
-match_frame_to_frame_py(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
-                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
-                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
-                     const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
-                     const GridParameters& grid_params, const size_t margin)
-{
-    constexpr auto check_orientation_{true};
-    constexpr float lowe_ratio_{0.9};
-    // std::cout << "grid: " << grid_params.img_min_width << "/" << grid_params.img_min_height << " inv: " << grid_params.inv_cell_height << "," << grid_params.inv_cell_width
-    //                       << grid_params.grid_cols << "/" << grid_params.grid_rows << std::endl; 
-    // std::cout << "match_frame_to_frame" << std::endl;
-    const size_t num_pts_1 = undist_keypts_1.rows();
-    const size_t num_pts_2 = undist_keypts_2.rows();
-    // std::cout << "match_frame_to_frame" << num_pts_1 << "/" << num_pts_2  
-    //           << " desc: " << desc_1.rows() << ", " << desc_1.cols()  
-    //           << " desc2: " << desc_2.rows() << ", " << desc_2.cols() << std::endl;
-    MatchIndices matches; // Index in 1, Index in 2
-    matches.reserve(num_pts_1);
-    std::vector<unsigned int> matched_dists_in_frm_2(num_pts_2, MAX_HAMMING_DIST);
-    std::vector<int> matched_indices_1_in_frm_2(num_pts_2, -1);
-    std::vector<int> matched_indices_2_in_frm_1 = std::vector<int>(num_pts_1, -1);
-    size_t num_matches = 0; // Todo: should be the same as matches.size()
-    openvslam::match::angle_checker<int> angle_checker;
-    // Wrap the descriptors in a CV Mat to make handling easier
-    cv::Mat desc1_cv;
-    cv::eigen2cv(desc_1, desc1_cv);
-    cv::Mat desc2_cv;
-    cv::eigen2cv(desc_2, desc2_cv);
-    for (size_t idx_1 = 0; idx_1 < num_pts_1; ++idx_1)
-    {
-        // f1 = x, y, size, angle, octave
-        const OrbFeature f1 = undist_keypts_1.block<1,5>(idx_1,0);
-        const float scale_1 = f1[4];
-        // std::cout << "f1: " << f1.transpose() << std::endl;
-        if (scale_1 < 0) continue;
-        // Now, 
-        const auto indices = get_keypoints_in_cell(grid_params, undist_keypts_2, cell_indices_2, f1[0], f1[1], margin, scale_1, scale_1);
-        // std::cout << "indices: " << indices.size() << std::endl;
-        if (indices.empty()) continue; // No valid match
-        // std::cout << "indices: " << indices.size() << std::endl;
+// MatchIndices
+// GuidedMatcher::match_frame_to_frame_py(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
+//                      Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
+//                      Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
+//                      const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
+//                      const size_t margin)
+// {
+//     constexpr auto check_orientation_{true};
+//     constexpr float lowe_ratio_{0.9};
+//     // std::cout << "grid: " << grid_params.img_min_width << "/" << grid_params.img_min_height << " inv: " << grid_params.inv_cell_height << "," << grid_params.inv_cell_width
+//     //                       << grid_params.grid_cols << "/" << grid_params.grid_rows << std::endl; 
+//     // std::cout << "match_frame_to_frame" << std::endl;
+//     const size_t num_pts_1 = undist_keypts_1.rows();
+//     const size_t num_pts_2 = undist_keypts_2.rows();
+//     // std::cout << "match_frame_to_frame" << num_pts_1 << "/" << num_pts_2  
+//     //           << " desc: " << desc_1.rows() << ", " << desc_1.cols()  
+//     //           << " desc2: " << desc_2.rows() << ", " << desc_2.cols() << std::endl;
+//     MatchIndices matches; // Index in 1, Index in 2
+//     matches.reserve(num_pts_1);
+//     std::vector<unsigned int> matched_dists_in_frm_2(num_pts_2, MAX_HAMMING_DIST);
+//     std::vector<int> matched_indices_1_in_frm_2(num_pts_2, -1);
+//     std::vector<int> matched_indices_2_in_frm_1 = std::vector<int>(num_pts_1, -1);
+//     size_t num_matches = 0; // Todo: should be the same as matches.size()
+//     openvslam::match::angle_checker<int> angle_checker;
+//     // Wrap the descriptors in a CV Mat to make handling easier
+//     cv::Mat desc1_cv;
+//     cv::eigen2cv(desc_1, desc1_cv);
+//     cv::Mat desc2_cv;
+//     cv::eigen2cv(desc_2, desc2_cv);
+//     for (size_t idx_1 = 0; idx_1 < num_pts_1; ++idx_1)
+//     {
+//         // f1 = x, y, size, angle, octave
+//         const OrbFeature f1 = undist_keypts_1.block<1,5>(idx_1,0);
+//         const float scale_1 = f1[4];
+//         // std::cout << "f1: " << f1.transpose() << std::endl;
+//         if (scale_1 < 0) continue;
+//         // Now, 
+//         const auto indices = get_keypoints_in_cell(undist_keypts_2, cell_indices_2, f1[0], f1[1], margin, scale_1, scale_1);
+//         // std::cout << "indices: " << indices.size() << std::endl;
+//         if (indices.empty()) continue; // No valid match
+//         // std::cout << "indices: " << indices.size() << std::endl;
 
-        // Read the descriptor
-        const auto& d1 = desc1_cv.row(idx_1);
-        auto best_hamm_dist = MAX_HAMMING_DIST;
-        auto second_best_hamm_dist = MAX_HAMMING_DIST;
-        int best_idx_2 = -1;
-        for (const auto idx_2 : indices) 
-        {
-            const auto& d2 = desc2_cv.row(idx_2);
-            const auto hamm_dist = compute_descriptor_distance_32(d1, d2);
-            // std::cout << "d1: " << d1 << "\n d2: " << d2 << "=" << hamm_dist << std::endl;
-            // through if the point already matched is closer
-            if (matched_dists_in_frm_2.at(idx_2) <= hamm_dist) {
-                // std::cout << "cont here1" << std::endl;
-                continue;
-            }
-            if (hamm_dist < best_hamm_dist) {
-                second_best_hamm_dist = best_hamm_dist;
-                best_hamm_dist = hamm_dist;
-                best_idx_2 = idx_2;
-            }
-            else if (hamm_dist < second_best_hamm_dist) {
-                second_best_hamm_dist = hamm_dist;
-            }
+//         // Read the descriptor
+//         const auto& d1 = desc1_cv.row(idx_1);
+//         auto best_hamm_dist = MAX_HAMMING_DIST;
+//         auto second_best_hamm_dist = MAX_HAMMING_DIST;
+//         int best_idx_2 = -1;
+//         for (const auto idx_2 : indices) 
+//         {
+//             const auto& d2 = desc2_cv.row(idx_2);
+//             const auto hamm_dist = compute_descriptor_distance_32(d1, d2);
+//             // std::cout << "d1: " << d1 << "\n d2: " << d2 << "=" << hamm_dist << std::endl;
+//             // through if the point already matched is closer
+//             if (matched_dists_in_frm_2.at(idx_2) <= hamm_dist) {
+//                 // std::cout << "cont here1" << std::endl;
+//                 continue;
+//             }
+//             if (hamm_dist < best_hamm_dist) {
+//                 second_best_hamm_dist = best_hamm_dist;
+//                 best_hamm_dist = hamm_dist;
+//                 best_idx_2 = idx_2;
+//             }
+//             else if (hamm_dist < second_best_hamm_dist) {
+//                 second_best_hamm_dist = hamm_dist;
+//             }
 
-        }
+//         }
 
-        if (HAMMING_DIST_THR_LOW < best_hamm_dist) {
-            // std::cout << "cont HAMMING_DIST_THR_LOW" << std::endl;
-            continue;
-        }
+//         if (HAMMING_DIST_THR_LOW < best_hamm_dist) {
+//             // std::cout << "cont HAMMING_DIST_THR_LOW" << std::endl;
+//             continue;
+//         }
 
-        // ratio test
-        if (second_best_hamm_dist * lowe_ratio_ < static_cast<float>(best_hamm_dist)) {
-            // std::cout << "cont lowe_ratio_" << std::endl;
+//         // ratio test
+//         if (second_best_hamm_dist * lowe_ratio_ < static_cast<float>(best_hamm_dist)) {
+//             // std::cout << "cont lowe_ratio_" << std::endl;
 
-            continue;
-        }
+//             continue;
+//         }
 
-        const auto prev_idx_1 = matched_indices_1_in_frm_2.at(best_idx_2);
-        if (0 <= prev_idx_1) {
-            matched_indices_2_in_frm_1.at(prev_idx_1) = -1;
-            --num_matches;
-        }
+//         const auto prev_idx_1 = matched_indices_1_in_frm_2.at(best_idx_2);
+//         if (0 <= prev_idx_1) {
+//             matched_indices_2_in_frm_1.at(prev_idx_1) = -1;
+//             --num_matches;
+//         }
 
-        // 互いの対応情報を記録する
-        matched_indices_2_in_frm_1.at(idx_1) = best_idx_2;
-        matched_indices_1_in_frm_2.at(best_idx_2) = idx_1;
-        matched_dists_in_frm_2.at(best_idx_2) = best_hamm_dist;
-        ++num_matches;
-        // std::cout << "num_matches: " << num_matches << std::endl;
+//         // 互いの対応情報を記録する
+//         matched_indices_2_in_frm_1.at(idx_1) = best_idx_2;
+//         matched_indices_1_in_frm_2.at(best_idx_2) = idx_1;
+//         matched_dists_in_frm_2.at(best_idx_2) = best_hamm_dist;
+//         ++num_matches;
+//         // std::cout << "num_matches: " << num_matches << std::endl;
 
 
 
-        if (check_orientation_) {
-            // const auto delta_angle
-                    // = undist_keypts_1.at(idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
-            const auto delta_angle
-                    = undist_keypts_1(idx_1, 3) -  undist_keypts_2(best_idx_2, 3); // (idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
-            angle_checker.append_delta_angle(delta_angle, idx_1);
-        }
-    }
+//         if (check_orientation_) {
+//             // const auto delta_angle
+//                     // = undist_keypts_1.at(idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
+//             const auto delta_angle
+//                     = undist_keypts_1(idx_1, 3) -  undist_keypts_2(best_idx_2, 3); // (idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
+//             angle_checker.append_delta_angle(delta_angle, idx_1);
+//         }
+//     }
 
-    if (check_orientation_) {
-        const auto invalid_matches = angle_checker.get_invalid_matches();
-        for (const auto invalid_idx_1 : invalid_matches) {
-            if (0 <= matched_indices_2_in_frm_1.at(invalid_idx_1)) {
-                matched_indices_2_in_frm_1.at(invalid_idx_1) = -1;
-                --num_matches;
-            }
-        }
-    }
+//     if (check_orientation_) {
+//         const auto invalid_matches = angle_checker.get_invalid_matches();
+//         for (const auto invalid_idx_1 : invalid_matches) {
+//             if (0 <= matched_indices_2_in_frm_1.at(invalid_idx_1)) {
+//                 matched_indices_2_in_frm_1.at(invalid_idx_1) = -1;
+//                 --num_matches;
+//             }
+//         }
+//     }
 
     
-    for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
-        const auto idx_2 = matched_indices_2_in_frm_1.at(idx_1);
-        if (idx_2 >= 0)
-        {
-            matches.emplace_back(std::make_pair(idx_1, idx_2));
-            std::cout << "Found match at: " << idx_1 << "/" << idx_2 << std::endl;
-        }
-    } 
+//     for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
+//         const auto idx_2 = matched_indices_2_in_frm_1.at(idx_1);
+//         if (idx_2 >= 0)
+//         {
+//             matches.emplace_back(std::make_pair(idx_1, idx_2));
+//             std::cout << "Found match at: " << idx_1 << "/" << idx_2 << std::endl;
+//         }
+//     } 
 
-    // TODO: update this out of the loop!
-    // previous matchesを更新する
-    // for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
-    //     if (0 <= matched_indices_2_in_frm_1.at(idx_1)) {
-    //         prev_matched_pts.at(idx_1) = undist_keypts_2.at(matched_indices_2_in_frm_1.at(idx_1)).pt;
-    //     }
-    // }
+//     // TODO: update this out of the loop!
+//     // previous matchesを更新する
+//     // for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
+//     //     if (0 <= matched_indices_2_in_frm_1.at(idx_1)) {
+//     //         prev_matched_pts.at(idx_1) = undist_keypts_2.at(matched_indices_2_in_frm_1.at(idx_1)).pt;
+//     //     }
+//     // }
 
 
 
-    return matches;
-};
+//     return matches;
+// };
 
 MatchIndices
-match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
-                     const Eigen::MatrixX2f& prevMatched,
-                     const GridParameters& grid_params, const size_t margin)
+GuidedMatcher::match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
+                     const Eigen::MatrixX2f& prevMatched, const size_t margin)
 {
     constexpr auto check_orientation_{true};
     constexpr float lowe_ratio_{0.9};
@@ -297,7 +303,7 @@ match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
         const auto& u_kpt_1 = frame1.undist_keypts_.at(idx_1);
         const float scale_1 = u_kpt_1.octave;
         if (scale_1 < 0) continue;
-        const auto indices = get_keypoints_in_cell(grid_params, frame2.undist_keypts_, frame2.keypts_indices_in_cells_, 
+        const auto indices = get_keypoints_in_cell(frame2.undist_keypts_, frame2.keypts_indices_in_cells_, 
                                                    u_kpt_1.pt.x, u_kpt_1.pt.y, margin, scale_1, scale_1);
         if (indices.empty()) continue; // No valid match
 
@@ -369,7 +375,7 @@ match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
         if (idx_2 >= 0)
         {
             matches.emplace_back(std::make_pair(idx_1, idx_2));
-            std::cout << "Found match at: " << idx_1 << "/" << idx_2 << std::endl;
+            // std::cout << "Found match at: " << idx_1 << "/" << idx_2 << std::endl;
         }
     } 
 
@@ -383,149 +389,149 @@ match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
     return matches;
 };
 
-std::vector<size_t>
-match_frame_to_frame_dbg(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
-                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
-                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
-                     const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
-                     const GridParameters& grid_params, const size_t margin)
-{
-    constexpr auto check_orientation_{true};
-    constexpr float lowe_ratio_{0.9};
-    std::cout << "grid: " << grid_params.img_min_width << "/" << grid_params.img_min_height << " inv: " << grid_params.inv_cell_height << "," << grid_params.inv_cell_width
-                          << grid_params.grid_cols << "/" << grid_params.grid_rows << std::endl; 
-    std::cout << "match_frame_to_frame" << std::endl;
-    const size_t num_pts_1 = undist_keypts_1.rows();
-    const size_t num_pts_2 = undist_keypts_2.rows();
-    std::cout << "match_frame_to_frame" << num_pts_1 << "/" << num_pts_2  
-              << " desc: " << desc_1.rows() << ", " << desc_1.cols()  
-              << " desc2: " << desc_2.rows() << ", " << desc_2.cols() << std::endl;
-    MatchIndices matches; // Index in 1, Index in 2
-    matches.reserve(num_pts_1);
-    std::vector<unsigned int> matched_dists_in_frm_2(num_pts_2, MAX_HAMMING_DIST);
-    std::vector<int> matched_indices_1_in_frm_2(num_pts_2, -1);
-    std::vector<int> matched_indices_2_in_frm_1 = std::vector<int>(num_pts_1, -1);
-    size_t num_matches = 0; // Todo: should be the same as matches.size()
-    openvslam::match::angle_checker<int> angle_checker;
-    // Wrap the descriptors in a CV Mat to make handling easier
-    cv::Mat desc1_cv(desc_1.rows(), desc_1.cols(), CV_8UC1, desc_1.data());
-    cv::Mat desc2_cv(desc_2.rows(), desc_2.cols(), CV_8UC1, desc_2.data());
+// std::vector<size_t>
+// match_frame_to_frame_dbg(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
+//                      Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
+//                      Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
+//                      const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
+//                      const GridParameters& grid_params, const size_t margin)
+// {
+//     constexpr auto check_orientation_{true};
+//     constexpr float lowe_ratio_{0.9};
+//     std::cout << "grid: " << grid_params.img_min_width << "/" << grid_params.img_min_height << " inv: " << grid_params.inv_cell_height << "," << grid_params.inv_cell_width
+//                           << grid_params.grid_cols << "/" << grid_params.grid_rows << std::endl; 
+//     std::cout << "match_frame_to_frame" << std::endl;
+//     const size_t num_pts_1 = undist_keypts_1.rows();
+//     const size_t num_pts_2 = undist_keypts_2.rows();
+//     std::cout << "match_frame_to_frame" << num_pts_1 << "/" << num_pts_2  
+//               << " desc: " << desc_1.rows() << ", " << desc_1.cols()  
+//               << " desc2: " << desc_2.rows() << ", " << desc_2.cols() << std::endl;
+//     MatchIndices matches; // Index in 1, Index in 2
+//     matches.reserve(num_pts_1);
+//     std::vector<unsigned int> matched_dists_in_frm_2(num_pts_2, MAX_HAMMING_DIST);
+//     std::vector<int> matched_indices_1_in_frm_2(num_pts_2, -1);
+//     std::vector<int> matched_indices_2_in_frm_1 = std::vector<int>(num_pts_1, -1);
+//     size_t num_matches = 0; // Todo: should be the same as matches.size()
+//     openvslam::match::angle_checker<int> angle_checker;
+//     // Wrap the descriptors in a CV Mat to make handling easier
+//     cv::Mat desc1_cv(desc_1.rows(), desc_1.cols(), CV_8UC1, desc_1.data());
+//     cv::Mat desc2_cv(desc_2.rows(), desc_2.cols(), CV_8UC1, desc_2.data());
     
-    for (size_t idx_1 = 0; idx_1 < num_pts_1; ++idx_1)
-    {
-        // f1 = x, y, size, angle, octave
-        const OrbFeature f1 = undist_keypts_1.block<1,5>(idx_1,0);
-        // std::cout << "idx_1: " << idx_1 << " f1: " << f1 << std::endl;
-        const float scale_1 = f1[4];
-        // std::cout << "f1: " << f1.transpose() << std::endl;
-        if (scale_1 < 0) continue;
-        // Now, 
-        const auto indices = get_keypoints_in_cell(grid_params, undist_keypts_2, cell_indices_2, f1[0], f1[1], margin, scale_1, scale_1);
-        std::cout << "indices: " << indices.size() << ", " << f1[0] << ", " << f1[1] << std::endl;
-        if (indices.empty()) continue; // No valid match
-        std::cout << "indices: " << indices.size() << "idx: " << idx_1 
-                  << " f1: " << f1 << std::endl;
-        for (const auto idx_2 : indices) 
-        {
-            std::cout << "idx_2: " << idx_2 <<": "
-                      << undist_keypts_2.block<1,5>(idx_2,0) << std::endl;
-        }
-        // return indices;
-        // Read the descriptor
-        const auto& d1 = desc1_cv.row(idx_1);
-        auto best_hamm_dist = MAX_HAMMING_DIST;
-        auto second_best_hamm_dist = MAX_HAMMING_DIST;
-        int best_idx_2 = -1;
-        for (const auto idx_2 : indices) 
-        {
-            const auto& d2 = desc2_cv.row(idx_2);
-            const auto hamm_dist = compute_descriptor_distance_32(d1, d2);
-            std::cout << "d1: " << d1 << "\n d2: " << d2 << "=" << hamm_dist << std::endl;
-            // through if the point already matched is closer
-            if (matched_dists_in_frm_2.at(idx_2) <= hamm_dist) {
-                std::cout << "cont here1" << std::endl;
-                continue;
-            }
-            if (hamm_dist < best_hamm_dist) {
-                second_best_hamm_dist = best_hamm_dist;
-                best_hamm_dist = hamm_dist;
-                best_idx_2 = idx_2;
-            }
-            else if (hamm_dist < second_best_hamm_dist) {
-                second_best_hamm_dist = hamm_dist;
-            }
+//     for (size_t idx_1 = 0; idx_1 < num_pts_1; ++idx_1)
+//     {
+//         // f1 = x, y, size, angle, octave
+//         const OrbFeature f1 = undist_keypts_1.block<1,5>(idx_1,0);
+//         // std::cout << "idx_1: " << idx_1 << " f1: " << f1 << std::endl;
+//         const float scale_1 = f1[4];
+//         // std::cout << "f1: " << f1.transpose() << std::endl;
+//         if (scale_1 < 0) continue;
+//         // Now, 
+//         const auto indices = get_keypoints_in_cell(grid_params, undist_keypts_2, cell_indices_2, f1[0], f1[1], margin, scale_1, scale_1);
+//         std::cout << "indices: " << indices.size() << ", " << f1[0] << ", " << f1[1] << std::endl;
+//         if (indices.empty()) continue; // No valid match
+//         std::cout << "indices: " << indices.size() << "idx: " << idx_1 
+//                   << " f1: " << f1 << std::endl;
+//         for (const auto idx_2 : indices) 
+//         {
+//             std::cout << "idx_2: " << idx_2 <<": "
+//                       << undist_keypts_2.block<1,5>(idx_2,0) << std::endl;
+//         }
+//         // return indices;
+//         // Read the descriptor
+//         const auto& d1 = desc1_cv.row(idx_1);
+//         auto best_hamm_dist = MAX_HAMMING_DIST;
+//         auto second_best_hamm_dist = MAX_HAMMING_DIST;
+//         int best_idx_2 = -1;
+//         for (const auto idx_2 : indices) 
+//         {
+//             const auto& d2 = desc2_cv.row(idx_2);
+//             const auto hamm_dist = compute_descriptor_distance_32(d1, d2);
+//             std::cout << "d1: " << d1 << "\n d2: " << d2 << "=" << hamm_dist << std::endl;
+//             // through if the point already matched is closer
+//             if (matched_dists_in_frm_2.at(idx_2) <= hamm_dist) {
+//                 std::cout << "cont here1" << std::endl;
+//                 continue;
+//             }
+//             if (hamm_dist < best_hamm_dist) {
+//                 second_best_hamm_dist = best_hamm_dist;
+//                 best_hamm_dist = hamm_dist;
+//                 best_idx_2 = idx_2;
+//             }
+//             else if (hamm_dist < second_best_hamm_dist) {
+//                 second_best_hamm_dist = hamm_dist;
+//             }
 
-        }
+//         }
 
-        if (HAMMING_DIST_THR_LOW < best_hamm_dist) {
-            std::cout << "cont HAMMING_DIST_THR_LOW" << std::endl;
-            continue;
-        }
+//         if (HAMMING_DIST_THR_LOW < best_hamm_dist) {
+//             std::cout << "cont HAMMING_DIST_THR_LOW" << std::endl;
+//             continue;
+//         }
 
-        // ratio test
-        if (second_best_hamm_dist * lowe_ratio_ < static_cast<float>(best_hamm_dist)) {
-            std::cout << "cont lowe_ratio_" << std::endl;
+//         // ratio test
+//         if (second_best_hamm_dist * lowe_ratio_ < static_cast<float>(best_hamm_dist)) {
+//             std::cout << "cont lowe_ratio_" << std::endl;
 
-            continue;
-        }
+//             continue;
+//         }
 
-        const auto prev_idx_1 = matched_indices_1_in_frm_2.at(best_idx_2);
-        if (0 <= prev_idx_1) {
-            matched_indices_2_in_frm_1.at(prev_idx_1) = -1;
-            --num_matches;
-        }
+//         const auto prev_idx_1 = matched_indices_1_in_frm_2.at(best_idx_2);
+//         if (0 <= prev_idx_1) {
+//             matched_indices_2_in_frm_1.at(prev_idx_1) = -1;
+//             --num_matches;
+//         }
 
-        // 互いの対応情報を記録する
-        matched_indices_2_in_frm_1.at(idx_1) = best_idx_2;
-        matched_indices_1_in_frm_2.at(best_idx_2) = idx_1;
-        matched_dists_in_frm_2.at(best_idx_2) = best_hamm_dist;
-        ++num_matches;
-        std::cout << "num_matches: " << num_matches << std::endl;
+//         // 互いの対応情報を記録する
+//         matched_indices_2_in_frm_1.at(idx_1) = best_idx_2;
+//         matched_indices_1_in_frm_2.at(best_idx_2) = idx_1;
+//         matched_dists_in_frm_2.at(best_idx_2) = best_hamm_dist;
+//         ++num_matches;
+//         std::cout << "num_matches: " << num_matches << std::endl;
 
 
 
-        if (check_orientation_) {
-            // const auto delta_angle
-                    // = undist_keypts_1.at(idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
-            const auto delta_angle
-                    = undist_keypts_1(idx_1, 3) -  undist_keypts_2(best_idx_2, 3); // (idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
-            angle_checker.append_delta_angle(delta_angle, idx_1);
-        }
-        return indices;
-    }
+//         if (check_orientation_) {
+//             // const auto delta_angle
+//                     // = undist_keypts_1.at(idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
+//             const auto delta_angle
+//                     = undist_keypts_1(idx_1, 3) -  undist_keypts_2(best_idx_2, 3); // (idx_1).angle - undist_keypts_2.at(best_idx_2).angle;
+//             angle_checker.append_delta_angle(delta_angle, idx_1);
+//         }
+//         return indices;
+//     }
 
-    if (check_orientation_) {
-        const auto invalid_matches = angle_checker.get_invalid_matches();
-        for (const auto invalid_idx_1 : invalid_matches) {
-            if (0 <= matched_indices_2_in_frm_1.at(invalid_idx_1)) {
-                matched_indices_2_in_frm_1.at(invalid_idx_1) = -1;
-                --num_matches;
-            }
-        }
-    }
+//     if (check_orientation_) {
+//         const auto invalid_matches = angle_checker.get_invalid_matches();
+//         for (const auto invalid_idx_1 : invalid_matches) {
+//             if (0 <= matched_indices_2_in_frm_1.at(invalid_idx_1)) {
+//                 matched_indices_2_in_frm_1.at(invalid_idx_1) = -1;
+//                 --num_matches;
+//             }
+//         }
+//     }
 
     
-    for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
-        const auto idx_2 = matched_indices_2_in_frm_1.at(idx_1);
-        if (idx_2 >= 0)
-        {
-            matches.emplace_back(std::make_pair(idx_1, idx_2));
-            std::cout << "Found match at: " << idx_1 << "/" << idx_2 << std::endl;
-        }
-    } 
+//     for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
+//         const auto idx_2 = matched_indices_2_in_frm_1.at(idx_1);
+//         if (idx_2 >= 0)
+//         {
+//             matches.emplace_back(std::make_pair(idx_1, idx_2));
+//             std::cout << "Found match at: " << idx_1 << "/" << idx_2 << std::endl;
+//         }
+//     } 
 
-    // TODO: update this out of the loop!
-    // previous matchesを更新する
-    // for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
-    //     if (0 <= matched_indices_2_in_frm_1.at(idx_1)) {
-    //         prev_matched_pts.at(idx_1) = undist_keypts_2.at(matched_indices_2_in_frm_1.at(idx_1)).pt;
-    //     }
-    // }
+//     // TODO: update this out of the loop!
+//     // previous matchesを更新する
+//     // for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_frm_1.size(); ++idx_1) {
+//     //     if (0 <= matched_indices_2_in_frm_1.at(idx_1)) {
+//     //         prev_matched_pts.at(idx_1) = undist_keypts_2.at(matched_indices_2_in_frm_1.at(idx_1)).pt;
+//     //     }
+//     // }
 
 
-    std::vector<size_t> dummy;
-    return dummy;
-};
+//     std::vector<size_t> dummy;
+//     return dummy;
+// };
 
 
 
@@ -534,147 +540,160 @@ match_frame_to_frame_dbg(const Eigen::MatrixXf& undist_keypts_1, const Eigen::Ma
 
 // void match_points_to_frame(){std::cout << "match_points_to_frame" << std::endl;};
 
+// std::vector<size_t> 
+// get_keypoints_in_cell(const GridParameters& grid_params, const Eigen::MatrixXf& undist_keypts,
+//                       const CellIndices& keypt_indices_in_cells,
+//                       const float ref_x, const float ref_y, const float margin,
+//                       const int min_level, const int max_level)
+// {
+//     std::vector<size_t> indices;
+//     indices.reserve(undist_keypts.size());
+//     const int min_cell_idx_x = std::max(0, cvFloor((ref_x - grid_params.img_min_width_ - margin) * grid_params.inv_cell_width_));
+
+//     if (static_cast<int>(grid_params.grid_cols) <= min_cell_idx_x) {
+//         return indices;
+//     }
+
+//     const int max_cell_idx_x = std::min(static_cast<int>(grid_params.grid_cols_ - 1), cvCeil((ref_x - grid_params.img_min_width_ + margin) * grid_params.inv_cell_width_));
+//     // std::cout << "max_cell_idx_x: " << max_cell_idx_x << std::endl;
+//     if (max_cell_idx_x < 0) {
+//         return indices;
+//     }
+
+//     const int min_cell_idx_y = std::max(0, cvFloor((ref_y - grid_params.img_min_height_ - margin) * grid_params.inv_cell_height_));
+//     // std::cout << "min_cell_idx_y: " << min_cell_idx_y << std::endl;
+//     if (static_cast<int>(grid_params.grid_rows_) <= min_cell_idx_y) {
+//         return indices;
+//     }
+
+//     const int max_cell_idx_y = std::min(static_cast<int>(grid_params.grid_rows_- 1), cvCeil((ref_y - grid_params.img_min_height_ + margin) * grid_params.inv_cell_height_));
+//     // std::cout << "max_cell_idx_y: " << max_cell_idx_y << std::endl;
+//     if (max_cell_idx_y < 0) {
+//         return indices;
+//     }
+
+//     const bool check_level = (0 < min_level) || (0 <= max_level);
+//     std::cout << "check_level: " << check_level << std::endl;
+//     for (int cell_idx_x = min_cell_idx_x; cell_idx_x <= max_cell_idx_x; ++cell_idx_x) {
+//         for (int cell_idx_y = min_cell_idx_y; cell_idx_y <= max_cell_idx_y; ++cell_idx_y) {
+//             const auto& keypt_indices_in_cell = keypt_indices_in_cells.at(cell_idx_x).at(cell_idx_y);
+//             // std::cout << "keypt_indices_in_cell: " << keypt_indices_in_cell.size() << std::endl;
+
+//             if (keypt_indices_in_cell.empty()) {
+//                 continue;
+//             }
+
+//             for (unsigned int idx : keypt_indices_in_cell) {
+//                 const OrbFeature feature = undist_keypts.block<1,5>(idx,0);
+//                 // std::cout << " feature: " << feature << " ref: " << ref_x << "/" << ref_y << std::endl;
+//                 const float octave = feature[4];
+//                 if (check_level) {
+//                     if (octave < min_level || (0 <= max_level && max_level < octave)) {
+//                         // std::cout << "cont lvl not matching!" << "min_level: " << min_level << " max_level: " 
+//                         //   << max_level << " octave: " << octave << std::endl;
+//                         continue;
+//                     }
+//                 }
+
+//                 const float dist_x = feature[0] - ref_x;
+//                 const float dist_y = feature[1] - ref_y;
+//                 // std::cout << "dist: " << dist_x << "/" << dist_y << " ref: " << ref_x << "/" << ref_y << std::endl;
+//                 if (std::abs(dist_x) < margin && std::abs(dist_y) < margin) {
+//                     indices.push_back(idx);
+//                     // std::cout << "idx: " << idx << std::endl;
+//                     // exit(0);
+//                 }
+//             }
+//         }
+//     }
+
+//     return indices;
+// }
+
 std::vector<size_t> 
-get_keypoints_in_cell(const GridParameters& grid_params, const Eigen::MatrixXf& undist_keypts,
-                      const CellIndices& keypt_indices_in_cells,
-                      const float ref_x, const float ref_y, const float margin,
-                      const int min_level, const int max_level)
+GuidedMatcher::get_keypoints_in_cell(const std::vector<cv::KeyPoint>& undist_keypts,
+                                     const CellIndices& keypt_indices_in_cells,
+                                     const float ref_x, const float ref_y, const float margin,
+                                     const int min_level, const int max_level) const
 {
     std::vector<size_t> indices;
     indices.reserve(undist_keypts.size());
-    const int min_cell_idx_x = std::max(0, cvFloor((ref_x - grid_params.img_min_width - margin) * grid_params.inv_cell_width));
+    const int min_cell_idx_x = std::max(0, cvFloor((ref_x - grid_params_.img_min_width_ - margin) * grid_params_.inv_cell_width_));
 
-    if (static_cast<int>(grid_params.grid_cols) <= min_cell_idx_x) {
+    if (static_cast<int>(grid_params_.grid_cols_) <= min_cell_idx_x) {
         return indices;
     }
 
-    const int max_cell_idx_x = std::min(static_cast<int>(grid_params.grid_cols - 1), cvCeil((ref_x - grid_params.img_min_width + margin) * grid_params.inv_cell_width));
-    // std::cout << "max_cell_idx_x: " << max_cell_idx_x << std::endl;
+    const int max_cell_idx_x = std::min(static_cast<int>(grid_params_.grid_cols_ - 1), cvCeil((ref_x - grid_params_.img_min_width_ + margin) * grid_params_.inv_cell_width_));
     if (max_cell_idx_x < 0) {
         return indices;
     }
 
-    const int min_cell_idx_y = std::max(0, cvFloor((ref_y - grid_params.img_min_height - margin) * grid_params.inv_cell_height));
-    // std::cout << "min_cell_idx_y: " << min_cell_idx_y << std::endl;
-    if (static_cast<int>(grid_params.grid_rows) <= min_cell_idx_y) {
+    const int min_cell_idx_y = std::max(0, cvFloor((ref_y - grid_params_.img_min_height_ - margin) * grid_params_.inv_cell_height_));
+    if (static_cast<int>(grid_params_.grid_rows_) <= min_cell_idx_y) {
         return indices;
     }
 
-    const int max_cell_idx_y = std::min(static_cast<int>(grid_params.grid_rows- 1), cvCeil((ref_y - grid_params.img_min_height + margin) * grid_params.inv_cell_height));
-    // std::cout << "max_cell_idx_y: " << max_cell_idx_y << std::endl;
+    const int max_cell_idx_y = std::min(static_cast<int>(grid_params_.grid_rows_ - 1), cvCeil((ref_y - grid_params_.img_min_height_ + margin) * grid_params_.inv_cell_height_));
     if (max_cell_idx_y < 0) {
         return indices;
     }
 
     const bool check_level = (0 < min_level) || (0 <= max_level);
-    std::cout << "check_level: " << check_level << std::endl;
     for (int cell_idx_x = min_cell_idx_x; cell_idx_x <= max_cell_idx_x; ++cell_idx_x) {
         for (int cell_idx_y = min_cell_idx_y; cell_idx_y <= max_cell_idx_y; ++cell_idx_y) {
             const auto& keypt_indices_in_cell = keypt_indices_in_cells.at(cell_idx_x).at(cell_idx_y);
-            // std::cout << "keypt_indices_in_cell: " << keypt_indices_in_cell.size() << std::endl;
 
             if (keypt_indices_in_cell.empty()) {
                 continue;
             }
 
             for (unsigned int idx : keypt_indices_in_cell) {
-                const OrbFeature feature = undist_keypts.block<1,5>(idx,0);
-                // std::cout << " feature: " << feature << " ref: " << ref_x << "/" << ref_y << std::endl;
-                const float octave = feature[4];
-                if (check_level) {
-                    if (octave < min_level || (0 <= max_level && max_level < octave)) {
-                        // std::cout << "cont lvl not matching!" << "min_level: " << min_level << " max_level: " 
-                        //   << max_level << " octave: " << octave << std::endl;
-                        continue;
-                    }
-                }
-
-                const float dist_x = feature[0] - ref_x;
-                const float dist_y = feature[1] - ref_y;
-                // std::cout << "dist: " << dist_x << "/" << dist_y << " ref: " << ref_x << "/" << ref_y << std::endl;
-                if (std::abs(dist_x) < margin && std::abs(dist_y) < margin) {
-                    indices.push_back(idx);
-                    // std::cout << "idx: " << idx << std::endl;
-                    // exit(0);
-                }
-            }
-        }
-    }
-
-    return indices;
-}
-
-std::vector<size_t> 
-get_keypoints_in_cell(const GridParameters& grid_params, const std::vector<cv::KeyPoint>& undist_keypts,
-                      const CellIndices& keypt_indices_in_cells,
-                      const float ref_x, const float ref_y, const float margin,
-                      const int min_level, const int max_level)
-{
-    std::vector<size_t> indices;
-    indices.reserve(undist_keypts.size());
-    const int min_cell_idx_x = std::max(0, cvFloor((ref_x - grid_params.img_min_width - margin) * grid_params.inv_cell_width));
-
-    if (static_cast<int>(grid_params.grid_cols) <= min_cell_idx_x) {
-        return indices;
-    }
-
-    const int max_cell_idx_x = std::min(static_cast<int>(grid_params.grid_cols - 1), cvCeil((ref_x - grid_params.img_min_width + margin) * grid_params.inv_cell_width));
-    // std::cout << "max_cell_idx_x: " << max_cell_idx_x << std::endl;
-    if (max_cell_idx_x < 0) {
-        return indices;
-    }
-
-    const int min_cell_idx_y = std::max(0, cvFloor((ref_y - grid_params.img_min_height - margin) * grid_params.inv_cell_height));
-    // std::cout << "min_cell_idx_y: " << min_cell_idx_y << std::endl;
-    if (static_cast<int>(grid_params.grid_rows) <= min_cell_idx_y) {
-        return indices;
-    }
-
-    const int max_cell_idx_y = std::min(static_cast<int>(grid_params.grid_rows- 1), cvCeil((ref_y - grid_params.img_min_height + margin) * grid_params.inv_cell_height));
-    // std::cout << "max_cell_idx_y: " << max_cell_idx_y << std::endl;
-    if (max_cell_idx_y < 0) {
-        return indices;
-    }
-
-    const bool check_level = (0 < min_level) || (0 <= max_level);
-    std::cout << "check_level: " << check_level << std::endl;
-    for (int cell_idx_x = min_cell_idx_x; cell_idx_x <= max_cell_idx_x; ++cell_idx_x) {
-        for (int cell_idx_y = min_cell_idx_y; cell_idx_y <= max_cell_idx_y; ++cell_idx_y) {
-            const auto& keypt_indices_in_cell = keypt_indices_in_cells.at(cell_idx_x).at(cell_idx_y);
-            // std::cout << "keypt_indices_in_cell: " << keypt_indices_in_cell.size() << std::endl;
-
-            if (keypt_indices_in_cell.empty()) {
-                continue;
-            }
-
-            for (unsigned int idx : keypt_indices_in_cell) {
-                // const OrbFeature feature = undist_keypts.block<1,5>(idx,0);
-                // std::cout << " feature: " << feature << " ref: " << ref_x << "/" << ref_y << std::endl;
-                // const float octave = feature[4];
                 const auto& keypt = undist_keypts[idx];
                 if (check_level) {
                     if (keypt.octave < min_level || (0 <= max_level && max_level < keypt.octave)) {
                         continue;
                     }
                 }
-
                 const float dist_x = keypt.pt.x - ref_x;
                 const float dist_y = keypt.pt.y - ref_y;
                 if (std::abs(dist_x) < margin && std::abs(dist_y) < margin) {
                     indices.push_back(idx);
+                    if (idx >= undist_keypts.size())
+                    {
+                        std::cout << "keypts idx error!" << idx << std::endl;
+                        exit(0);
+                    }
                 }
             }
         }
     }
-
     return indices;
 }
 
+std::vector<cslam::Landmark*>
+GuidedMatcher::update_local_landmarks(const std::vector<cslam::KeyFrame*>& local_keyframes, const size_t curr_frm_id)
+{
+    std::vector<cslam::Landmark*> local_landmarks;
+    for (auto* keyframe : local_keyframes)
+    {
+        for (auto* lm : keyframe->landmarks_)
+        {
+            if (lm == nullptr) continue;
+            // do not add twice
+            if (lm->identifier_in_local_map_update_ == curr_frm_id) continue;
+            lm->identifier_in_local_map_update_ = curr_frm_id;
+            local_landmarks.push_back(lm);
+        }
+    }
+    return local_landmarks;
+}
+
 size_t
-match_frame_and_landmarks(const GridParameters& grid_params, const std::vector<float>& scale_factors,
-                          cslam::Frame& frm, std::vector<cslam::Landmark*>& local_landmarks, const float margin)
+GuidedMatcher::match_frame_and_landmarks(const std::vector<float>& scale_factors, cslam::Frame& frm, std::vector<cslam::Landmark*>& local_landmarks, const float margin)
 {
     size_t num_matches{0};
+    std::cout << "scale: " << scale_factors.size() << " local_lm: " << local_landmarks.size() << std::endl;
 
     for (auto local_lm : local_landmarks) {
         if (!local_lm->is_observable_in_tracking_) {
@@ -685,15 +704,13 @@ match_frame_and_landmarks(const GridParameters& grid_params, const std::vector<f
         }
         // orb_params.scale_factors_.at 
         const auto pred_scale_level = local_lm->scale_level_in_tracking_;
-        
+        std::cout << " local_lm->reproj_in_tracking_: " <<  local_lm->reproj_in_tracking_ << ", " << pred_scale_level << std::endl;
+        std::cout << frm.undist_keypts_.size() << "/" << frm.keypts_indices_in_cells_.size() << "/" << scale_factors.size() << std::endl;
         // Get the feature point of the area where the 3D point reprojects to
-        const auto indices_in_cell = get_keypoints_in_cell(grid_params, frm.undist_keypts_, frm.keypts_indices_in_cells_,
+        const auto indices_in_cell = get_keypoints_in_cell(frm.undist_keypts_, frm.keypts_indices_in_cells_,
                                                            local_lm->reproj_in_tracking_(0), local_lm->reproj_in_tracking_(1),
-                                                            margin * scale_factors.at(pred_scale_level),
-                                                            pred_scale_level - 1, pred_scale_level);
-        // const auto indices_in_cell = frm.get_keypoints_in_cell(local_lm->reproj_in_tracking_(0), local_lm->reproj_in_tracking_(1),
-        //                                                        margin * orb_params.scale_factors_.at(pred_scale_level),
-        //                                                        pred_scale_level - 1, pred_scale_level);
+                                                           margin * scale_factors.at(pred_scale_level),
+                                                           pred_scale_level - 1, pred_scale_level);
         if (indices_in_cell.empty()) {
             continue;
         }
@@ -752,5 +769,178 @@ match_frame_and_landmarks(const GridParameters& grid_params, const std::vector<f
 
     return num_matches;
 }
+
+
+size_t
+GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam::Frame& last_frm, const float margin) {
+    size_t num_matches = 0;
+    constexpr auto check_orientation_{true};
+    constexpr float lowe_ratio_{0.9};
+    openvslam::match::angle_checker<int> angle_checker;
+
+    const Eigen::Matrix4f cam_pose_cw = curr_frm.getPose().inverse();
+    const Eigen::Matrix3f rot_cw = cam_pose_cw.block<3, 3>(0, 0);
+    const Eigen::Vector3f trans_cw = cam_pose_cw.block<3, 1>(0, 3);
+
+    // const Eigen::Vector3f trans_wc = -rot_cw.transpose() * trans_cw;
+
+    // const Eigen::Matrix3f rot_lw = last_frm.cam_pose_cw_.block<3, 3>(0, 0);
+    // const Eigen::Vector3f trans_lw = last_frm.cam_pose_cw_.block<3, 1>(0, 3);
+
+    // const Eigen::Vector3f trans_lc = rot_lw * trans_wc + trans_lw;
+
+    // monocular以外の場合は，current->lastの並進ベクトルのz成分で前進しているか判断しているかを判定する
+    // z成分が正に振れている -> 前進している
+
+    // If it is not monocular, determine whether it is moving forward with the z component of the current-> last translation vector
+    // z component is swinging positive-> moving forward
+    // const bool assume_forward = (curr_frm.camera_->setup_type_ == camera::setup_type_t::Monocular)
+    //                             ? false : trans_lc(2) > curr_frm.camera_->true_baseline_;
+    // // z成分が負に振れている -> 後退している
+    // // z component swings negative-> retreats
+    // const bool assume_backward = (curr_frm.camera_->setup_type_ == camera::setup_type_t::Monocular)
+    //                              ? false : -trans_lc(2) > curr_frm.camera_->true_baseline_;
+
+    // For monocular forward/backward is always false
+    // last frameの特徴点と対応が取れている3次元点を，current frameに再投影して対応を求める
+    // Find the correspondence by reprojecting the 3D points that correspond to the feature points of the last frame to the current frame
+    std::cout << "last_frm: " << last_frm.mImgName << " nK: " << last_frm.num_keypts_<< "," << last_frm.landmarks_.size() << std::endl;
+    for (unsigned int idx_last = 0; idx_last < last_frm.num_keypts_; ++idx_last) {
+        auto* lm = last_frm.landmarks_.at(idx_last);
+        // 3次元点と対応が取れていない
+        std::cout << "lm: " << lm << "idx_last: " << idx_last << std::endl;
+        // Not compatible with 3D points
+        if (!lm) {
+            continue;
+        }
+        // pose optimizationでoutlierになったものとは対応を取らない        
+        // Does not correspond to the outlier in pose optimization
+        if (last_frm.outlier_flags_.at(idx_last)) {
+            continue;
+        }
+        
+
+        // グローバル基準の3次元点座標
+        // Global standard 3D point coordinates
+        const Eigen::Vector3f pos_w = lm->get_pos_in_world();
+
+        // 再投影して可視性を求める
+        // Reproject to find visibility
+        Eigen::Vector2f pt2D;
+
+
+        // float x_right;
+        // const bool in_image = camera_->reproject_to_image(rot_cw, trans_cw, pos_w, pt2D, x_right);
+        // const bool in_image = camera_.reproject_to_image(rot_cw, trans_cw, pos_w, pt2D);
+
+        std::cout << "pos_w: " << pos_w << std::endl;
+        // 画像外に再投影される場合はスルー
+        // Thru if reprojected outside image
+        if (!camera_.reproject_to_image(rot_cw, trans_cw, pos_w, grid_params_, pt2D))
+        { 
+            std::cout << " out pt2D: " << pt2D.transpose() << std::endl;
+            continue;
+        }
+        std::cout << "in pt2D: " << pt2D.transpose() << std::endl;
+        // 隣接フレーム間では対応する特徴点のスケールは一定であると仮定し，探索範囲を設定
+        // Set search range assuming that the scale of corresponding feature points is constant between adjacent frames
+        const auto last_scale_level = last_frm.keypts_.at(idx_last).octave;
+        std::cout << "in last_scale_level: " << last_scale_level  
+                  << "ud kpts: " << curr_frm.undist_keypts_.size() << std::endl;
+
+        // 3次元点を再投影した点が存在するcellの特徴点を取得
+        // Get the feature point of the cell where the reprojected 3D point exists
+        // std::vector<unsigned int> indices;
+        // if (assume_forward) {
+        //     indices = curr_frm.get_keypoints_in_cell(reproj(0), reproj(1),
+        //                                              margin * curr_frm.scale_factors_.at(last_scale_level),
+        //                                              last_scale_level, last_frm.num_scale_levels_ - 1);
+        // }
+        // else if (assume_backward) {
+        //     indices = curr_frm.get_keypoints_in_cell(reproj(0), reproj(1),
+        //                                              margin * curr_frm.scale_factors_.at(last_scale_level),
+        //                                              0, last_scale_level);
+        // }
+        // else {
+        const auto indices = get_keypoints_in_cell(curr_frm.undist_keypts_, curr_frm.keypts_indices_in_cells_, pt2D[0], pt2D[1],
+                                                   margin * curr_frm.scale_factors_.at(last_scale_level),
+                                                   last_scale_level -1, last_scale_level + 1);
+        // const auto indices = curr_frm.get_keypoints_in_cell(reproj(0), reproj(1),
+                                                            //  margin * curr_frm.scale_factors_.at(last_scale_level),
+                                                            //  last_scale_level - 1, last_scale_level + 1);
+        // }
+        std::cout << "indices: " << indices.size();
+        if (indices.empty()) {
+            continue;
+        }
+
+        const auto lm_desc = lm->get_descriptor();
+
+        unsigned int best_hamm_dist = MAX_HAMMING_DIST;
+        int best_idx = -1;
+
+        for (const auto curr_idx : indices) {
+            std::cout << "curr_idx: " << curr_idx << ", " << curr_frm.landmarks_.size() 
+                      << "," << curr_frm.keypts_.size() << "," << curr_frm.undist_keypts_.size() << std::endl;
+            //prevent adding new landmarks
+            if (curr_frm.landmarks_.at(curr_idx) && curr_frm.landmarks_[curr_idx]->has_observation()) {
+                continue;
+            }
+            std::cout << "aft curr_idx: " << curr_idx << std::endl;
+            //filter reprojection errors
+            // if (curr_frm.stereo_x_right_.at(curr_idx) > 0) {
+            //     const float reproj_error = std::fabs(x_right - curr_frm.stereo_x_right_.at(curr_idx));
+            //     if (margin * curr_frm.scale_factors_.at(last_scale_level) < reproj_error) {
+            //         continue;
+            //     }
+            // }
+
+            const auto& desc = curr_frm.descriptors_.row(curr_idx);
+            std::cout << "desc: " << curr_idx << std::endl;
+            const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
+
+            if (hamm_dist < best_hamm_dist) {
+                best_hamm_dist = hamm_dist;
+                best_idx = curr_idx;
+            }
+        }
+
+        if (HAMMING_DIST_THR_HIGH < best_hamm_dist) {
+            continue;
+        }
+
+        // 有効なmatchingとする
+        // Valid matching
+        curr_frm.landmarks_.at(best_idx) = lm;
+        ++num_matches;
+
+        if (check_orientation_) {
+            const auto delta_angle
+                    = last_frm.undist_keypts_.at(idx_last).angle - curr_frm.undist_keypts_.at(best_idx).angle;
+            angle_checker.append_delta_angle(delta_angle, best_idx);
+        }
+    }
+
+    if (check_orientation_) {
+        const auto invalid_matches = angle_checker.get_invalid_matches();
+        for (const auto invalid_idx : invalid_matches) {
+            curr_frm.landmarks_.at(invalid_idx) = nullptr;
+            --num_matches;
+        }
+    }
+
+    return num_matches;
+}
+
+// Eigen::Matrix4f
+// track_to_last_frame(const GridParameters& grid_params, const Eigen::Matrix4f& T_wc_init,
+//                     const cslam::Frame& last_frame, cslam::Frame& curr_frame)
+// {
+//     Eigen::Matrix4f T_wc = T_wc_init;
+
+//     openvslam::match::angle_checker<int> angle_checker;
+//     size_t num_matches = 0;
+
+// }
 
 };

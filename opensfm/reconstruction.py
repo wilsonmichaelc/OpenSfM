@@ -988,7 +988,7 @@ class TrackTriangulator:
                 self.reconstruction.add_point(point)
                 for shot_id in ids:
                     self._add_track_to_graph_inlier(track, shot_id)
-        print("n_x", n_x, "n_here", n_here)
+        # print("n_x", n_x, "n_here", n_here)
 
     def triangulate_dlt(self, track, reproj_threshold, min_ray_angle_degrees):
         """Triangulate track using DLT and add point to reconstruction."""

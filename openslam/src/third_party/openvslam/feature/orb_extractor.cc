@@ -43,7 +43,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <opencv2/opencv.hpp>
-
 #ifdef USE_SSE_ORB
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -109,11 +108,12 @@ orb_extractor::extract_orb_py2(csfm::pyarray_uint8 image, csfm::pyarray_uint8 ma
 {
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
-    extract(img, mask_img, frame.mKeyPts, frame.descriptors_);
+    extract(img, mask_img, frame.keypts_, frame.descriptors_);
 }
 
 void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArray& in_image_mask,
-                            std::vector<cv::KeyPoint>& keypts, const cv::_OutputArray& out_descriptors) {
+                            std::vector<cv::KeyPoint>& keypts, const cv::_OutputArray& out_descriptors)
+{
     if (in_image.empty()) {
         return;
     }
@@ -330,6 +330,8 @@ void orb_extractor::compute_image_pyramid(const cv::Mat& image) {
 void orb_extractor::compute_fast_keypoints(std::vector<std::vector<cv::KeyPoint>>& all_keypts, const cv::Mat& mask) const {
     all_keypts.resize(orb_params_.num_levels_);
 
+    std::cout << "orb: " << orb_params_.num_levels_ << ";" << orb_params_.max_num_keypts_ 
+              << ", "<< orb_params_.ini_fast_thr_ << ", " << orb_params_.min_fast_thr << std::endl;
     // An anonymous function which checks mask(image or rectangle)
     auto is_in_mask = [&mask](const unsigned int y, const unsigned int x, const float scale_factor) {
         return mask.at<unsigned char>(y * scale_factor, x * scale_factor) == 0;
@@ -343,7 +345,7 @@ void orb_extractor::compute_fast_keypoints(std::vector<std::vector<cv::KeyPoint>
 #endif
     for (unsigned int level = 0; level < orb_params_.num_levels_; ++level) {
         const float scale_factor = scale_factors_.at(level);
-
+        std::cout << "level: " << level << " scale_factor: " << scale_factor << std::endl;
         constexpr unsigned int min_border_x = orb_patch_radius_;
         constexpr unsigned int min_border_y = orb_patch_radius_;
         const unsigned int max_border_x = image_pyramid_.at(level).cols - orb_patch_radius_;
@@ -410,7 +412,7 @@ void orb_extractor::compute_fast_keypoints(std::vector<std::vector<cv::KeyPoint>
 #ifdef USE_OPENMP
 #pragma omp critical
 #endif
-                {
+                { 
                     for (auto& keypt : keypts_in_cell) {
                         keypt.pt.x += j * cell_size;
                         keypt.pt.y += i * cell_size;

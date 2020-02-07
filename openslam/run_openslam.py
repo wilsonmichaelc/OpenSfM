@@ -14,7 +14,7 @@ from opensfm import dataset
 from opensfm import features
 from opensfm import io
 
-import cslam_types
+# import cslam_types
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -31,17 +31,15 @@ for idx, im_name in enumerate(sorted(data.image_list)):
     if idx < start_id:
         continue
     # im_name = "00129.png"
-    # Create frame with name and unique id    
-    frame = Frame(im_name, slam_system.slam_mapper.n_frames, data)
+
     # gray_scale_img = data.load_image(im_name)
     gray_scale_img = io.imread(data._image_file(im_name), grayscale=True)  # The gray-scale image
-
-    ret = slam_system.process_frame_2(frame, gray_scale_img)
+    ret = slam_system.process_frame_2(im_name, gray_scale_img)
     slam_debug.avg_timings.printAvgTimings()
     if ret:
-        logger.info("Successfully tracked {}".format(frame.im_name))
+        logger.info("Successfully tracked {}".format(im_name))
     else:
-        logger.info("Trying to init with {}".format(frame.im_name))
+        logger.info("Trying to init with {}".format(im_name))
 
 
 slam_system.slam_mapper.paint_reconstruction(data)

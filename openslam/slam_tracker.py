@@ -18,12 +18,14 @@ import slam_debug
 from itertools import compress
 logger = logging.getLogger(__name__)
 
-
+import cslam
 class SlamTracker(object):
 
-    def __init__(self,  data, config):
-        # self.slam_matcher = SlamMatcher(config)
+    # def __init__(self, data, config, guided_matcher):
+    def __init__(self, guided_matcher):
         print("init slam tracker")
+        self.guided_matcher = guided_matcher
+        self.scale_factors = None
 
     def bundle_tracking(self, points3D, observations, init_pose, camera,
                         config, data):
@@ -134,16 +136,33 @@ class SlamTracker(object):
 
     def track_motion(self, slam_mapper: SlamMapper, frame: Frame,
                      init_pose, camera, config, data):
-        """Estimate 6 DOF world pose of frame 
-        
+        """Estimate 6 DOF world pose of frame
         Reproject the landmarks seen in the last frame
         to frame and estimate the relative 6 DOF motion between
         the two by minimizing the reprojection error.
         """
         print("track_motion: ", slam_mapper.last_frame.im_name, "<->",
-              frame.im_name, len(slam_mapper.last_frame.landmarks_),
-              len(frame.landmarks_))
+              frame.im_name)
+        # TODO: Make an actual update on the closest frames in the map
+        # For now, simply take the last 10 keyframes
+        # return
         
+        margin = 20
+        pose = np.vstack((slam_mapper.last_frame.world_pose.get_Rt(), np.array([0, 0, 0, 1])))
+        frame.cframe.set_pose(pose)
+        n_matches = self.guided_matcher.\
+            match_current_and_last_frame(frame.cframe, slam_mapper.last_frame.cframe, margin)
+        if n_matches < 10: # not enough matches found, increase margin
+            n_matches = self.guided_matcher.\
+                match_current_and_last_frame(frame.cframe, slam_mapper.last_frame.cframe, margin*2)
+
+        local_landmarks = self.guided_matcher.\
+            update_local_landmarks(slam_mapper.local_keyframes[-10:],
+                                   frame.frame_id)
+        n_matches = self.guided_matcher.\
+            match_frame_and_landmarks(self.scale_factors,
+                                      frame.cframe, local_landmarks, 10.0)
+
         chrono = Chronometer()
         margin = 10
         matches = slam_matcher.\
