@@ -106,30 +106,30 @@ GuidedMatcher::distribute_keypoints_to_grid(const std::vector<cv::KeyPoint>& und
 // }
 
 //! ORB特徴量間のハミング距離を計算する
-inline unsigned int 
-GuidedMatcher::compute_descriptor_distance_32(const cv::Mat& desc_1, const cv::Mat& desc_2)
-{
-    // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+// inline unsigned int 
+// GuidedMatcher::compute_descriptor_distance_32(const cv::Mat& desc_1, const cv::Mat& desc_2)
+// {
+//     // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
 
-    constexpr uint32_t mask_1 = 0x55555555U;
-    constexpr uint32_t mask_2 = 0x33333333U;
-    constexpr uint32_t mask_3 = 0x0F0F0F0FU;
-    constexpr uint32_t mask_4 = 0x01010101U;
+//     constexpr uint32_t mask_1 = 0x55555555U;
+//     constexpr uint32_t mask_2 = 0x33333333U;
+//     constexpr uint32_t mask_3 = 0x0F0F0F0FU;
+//     constexpr uint32_t mask_4 = 0x01010101U;
 
-    const auto* pa = desc_1.ptr<uint32_t>();
-    const auto* pb = desc_2.ptr<uint32_t>();
+//     const auto pa = desc_1.ptr<uint32_t>();
+//     const auto pb = desc_2.ptr<uint32_t>();
 
-    unsigned int dist = 0;
+//     unsigned int dist = 0;
 
-    for (unsigned int i = 0; i < 8; ++i, ++pa, ++pb) {
-        auto v = *pa ^*pb;
-        v -= ((v >> 1) & mask_1);
-        v = (v & mask_2) + ((v >> 2) & mask_2);
-        dist += (((v + (v >> 4)) & mask_3) * mask_4) >> 24;
-    }
+//     for (unsigned int i = 0; i < 8; ++i, ++pa, ++pb) {
+//         auto v = *pa ^*pb;
+//         v -= ((v >> 1) & mask_1);
+//         v = (v & mask_2) + ((v >> 2) & mask_2);
+//         dist += (((v + (v >> 4)) & mask_3) * mask_4) >> 24;
+//     }
 
-    return dist;
-}
+//     return dist;
+// }
 
 
 
@@ -675,9 +675,9 @@ std::vector<cslam::Landmark*>
 GuidedMatcher::update_local_landmarks(const std::vector<cslam::KeyFrame*>& local_keyframes, const size_t curr_frm_id)
 {
     std::vector<cslam::Landmark*> local_landmarks;
-    for (auto* keyframe : local_keyframes)
+    for (auto keyframe : local_keyframes)
     {
-        for (auto* lm : keyframe->landmarks_)
+        for (auto lm : keyframe->landmarks_)
         {
             if (lm == nullptr) continue;
             // do not add twice
@@ -688,12 +688,100 @@ GuidedMatcher::update_local_landmarks(const std::vector<cslam::KeyFrame*>& local
     }
     return local_landmarks;
 }
+bool 
+GuidedMatcher::can_observe(Landmark* lm, const Frame& frame, const float ray_cos_thr,
+                           Eigen::Vector2f& reproj, size_t& pred_scale_level) const 
+{
+    const Eigen::Vector3f pos_w = lm->get_pos_in_world();
+    const Eigen::Matrix4f T_cw = frame.getTcw();
+    const Eigen::Matrix3f rot_cw = T_cw.block<3,3>(0,0);
+    const Eigen::Vector3f trans_cw = T_cw.block<3,1>(0,3);
+    // camera_.reproject_to_image()
+    const bool in_image = camera_.reproject_to_image(rot_cw, trans_cw, pos_w, grid_params_, reproj);
+    if (!in_image) {
+        return false;
+    }
+    // const Eigen::Vector3f cam_center = frame.get_cam_center();
+    const Eigen::Vector3f cam_to_lm_vec = pos_w - frame.get_cam_center();
+    const auto cam_to_lm_dist = cam_to_lm_vec.norm();
+    if (!lm->is_inside_in_orb_scale(cam_to_lm_dist)) {
+        return false;
+    }
+
+    const Eigen::Vector3f obs_mean_normal = lm->get_obs_mean_normal();
+    const auto ray_cos = cam_to_lm_vec.dot(obs_mean_normal) / cam_to_lm_dist;
+    if (ray_cos < ray_cos_thr) {
+        return false;
+    }
+
+    pred_scale_level = lm->predict_scale_level(cam_to_lm_dist, frame);
+    return true;
+}
 
 size_t
-GuidedMatcher::match_frame_and_landmarks(const std::vector<float>& scale_factors, cslam::Frame& frm, std::vector<cslam::Landmark*>& local_landmarks, const float margin)
+GuidedMatcher::search_local_landmarks(std::vector<Landmark*>& local_landmarks, Frame& curr_frm)
+{
+    //go through the landmarks of the current frame
+    for (auto lm : curr_frm.landmarks_)
+    {
+        //select the ones with a global landmark match
+        if (lm != nullptr)
+        {
+            lm->is_observable_in_tracking_ = false;
+            lm->identifier_in_local_lm_search_ = curr_frm.frame_id;
+            lm->increase_num_observable();
+        }
+    }
+    bool found_proj_candidate = false;
+    // temporary variables
+    Eigen::Vector2f reproj;
+    size_t pred_scale_level;
+    for (auto lm : local_landmarks) 
+    {
+        // avoid the landmarks which cannot be reprojected (== observed in the current frame)
+        if (lm->identifier_in_local_lm_search_ == curr_frm.frame_id) {
+            continue;
+        }
+        if (lm->will_be_erased()) {
+            continue;
+        }
+        // check the observability
+        // if (curr_frm.can_observe(lm, 0.5, reproj, x_right, pred_scale_level)) {
+        if (can_observe(lm, curr_frm, 0.5, reproj, pred_scale_level)) 
+        {
+            // pass the temporary variables
+            lm->reproj_in_tracking_ = reproj;
+            // lm->x_right_in_tracking_ = x_right;
+            lm->scale_level_in_tracking_ = pred_scale_level;
+
+            // this landmark can be reprojected
+            lm->is_observable_in_tracking_ = true;
+
+            // this landmark is observable from the current frame
+            lm->increase_num_observable();
+
+            found_proj_candidate = true;
+        }
+        else {
+            // this landmark cannot be reprojected
+            lm->is_observable_in_tracking_ = false;
+        }
+    }
+
+    if (!found_proj_candidate) {
+        return 0;
+    }
+    //TODO: margin depends on relocalisation
+    constexpr float margin{5};
+    return match_frame_and_landmarks(curr_frm, local_landmarks, margin);
+}
+
+size_t
+// GuidedMatcher::match_frame_and_landmarks(const std::vector<float>& scale_factors, cslam::Frame& frm, std::vector<cslam::Landmark*>& local_landmarks, const float margin)
+GuidedMatcher::match_frame_and_landmarks(cslam::Frame& frm, std::vector<cslam::Landmark*>& local_landmarks, const float margin)
 {
     size_t num_matches{0};
-    std::cout << "scale: " << scale_factors.size() << " local_lm: " << local_landmarks.size() << std::endl;
+    std::cout << "scale: " << frm.scale_factors_.size() << " local_lm: " << local_landmarks.size() << std::endl;
 
     for (auto local_lm : local_landmarks) {
         if (!local_lm->is_observable_in_tracking_) {
@@ -704,12 +792,12 @@ GuidedMatcher::match_frame_and_landmarks(const std::vector<float>& scale_factors
         }
         // orb_params.scale_factors_.at 
         const auto pred_scale_level = local_lm->scale_level_in_tracking_;
-        std::cout << " local_lm->reproj_in_tracking_: " <<  local_lm->reproj_in_tracking_ << ", " << pred_scale_level << std::endl;
-        std::cout << frm.undist_keypts_.size() << "/" << frm.keypts_indices_in_cells_.size() << "/" << scale_factors.size() << std::endl;
+        // std::cout << " local_lm->reproj_in_tracking_: " <<  local_lm->reproj_in_tracking_ << ", " << pred_scale_level << std::endl;
+        // std::cout << frm.undist_keypts_.size() << "/" << frm.keypts_indices_in_cells_.size() << "/" << frm.scale_factors_.size() << std::endl;
         // Get the feature point of the area where the 3D point reprojects to
         const auto indices_in_cell = get_keypoints_in_cell(frm.undist_keypts_, frm.keypts_indices_in_cells_,
                                                            local_lm->reproj_in_tracking_(0), local_lm->reproj_in_tracking_(1),
-                                                           margin * scale_factors.at(pred_scale_level),
+                                                           margin * frm.scale_factors_.at(pred_scale_level),
                                                            pred_scale_level - 1, pred_scale_level);
         if (indices_in_cell.empty()) {
             continue;
@@ -771,7 +859,8 @@ GuidedMatcher::match_frame_and_landmarks(const std::vector<float>& scale_factors
 }
 
 
-size_t
+// size_t
+std::vector<std::pair<size_t, size_t>>
 GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam::Frame& last_frm, const float margin) {
     size_t num_matches = 0;
     constexpr auto check_orientation_{true};
@@ -804,11 +893,12 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
     // For monocular forward/backward is always false
     // last frameの特徴点と対応が取れている3次元点を，current frameに再投影して対応を求める
     // Find the correspondence by reprojecting the 3D points that correspond to the feature points of the last frame to the current frame
-    std::cout << "last_frm: " << last_frm.mImgName << " nK: " << last_frm.num_keypts_<< "," << last_frm.landmarks_.size() << std::endl;
+    std::cout << "last_frm: " << last_frm.im_name << " nK: " << last_frm.num_keypts_<< "," << last_frm.landmarks_.size() << std::endl;
+    std::vector<std::pair<size_t, size_t>> matches;
     for (unsigned int idx_last = 0; idx_last < last_frm.num_keypts_; ++idx_last) {
-        auto* lm = last_frm.landmarks_.at(idx_last);
+        auto lm = last_frm.landmarks_.at(idx_last);
         // 3次元点と対応が取れていない
-        std::cout << "lm: " << lm << "idx_last: " << idx_last << std::endl;
+        // std::cout << "lm: " << lm << "idx_last: " << idx_last << std::endl;
         // Not compatible with 3D points
         if (!lm) {
             continue;
@@ -833,20 +923,20 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
         // const bool in_image = camera_->reproject_to_image(rot_cw, trans_cw, pos_w, pt2D, x_right);
         // const bool in_image = camera_.reproject_to_image(rot_cw, trans_cw, pos_w, pt2D);
 
-        std::cout << "pos_w: " << pos_w << std::endl;
+        // std::cout << "pos_w: " << pos_w << std::endl;
         // 画像外に再投影される場合はスルー
         // Thru if reprojected outside image
         if (!camera_.reproject_to_image(rot_cw, trans_cw, pos_w, grid_params_, pt2D))
         { 
-            std::cout << " out pt2D: " << pt2D.transpose() << std::endl;
+            // std::cout << " out pt2D: " << pt2D.transpose() << std::endl;
             continue;
         }
-        std::cout << "in pt2D: " << pt2D.transpose() << std::endl;
+        // std::cout << "in pt2D: " << pt2D.transpose() << std::endl;
         // 隣接フレーム間では対応する特徴点のスケールは一定であると仮定し，探索範囲を設定
         // Set search range assuming that the scale of corresponding feature points is constant between adjacent frames
         const auto last_scale_level = last_frm.keypts_.at(idx_last).octave;
-        std::cout << "in last_scale_level: " << last_scale_level  
-                  << "ud kpts: " << curr_frm.undist_keypts_.size() << std::endl;
+        // std::cout << "in last_scale_level: " << last_scale_level  
+                //   << "ud kpts: " << curr_frm.undist_keypts_.size() << std::endl;
 
         // 3次元点を再投影した点が存在するcellの特徴点を取得
         // Get the feature point of the cell where the reprojected 3D point exists
@@ -869,7 +959,7 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
                                                             //  margin * curr_frm.scale_factors_.at(last_scale_level),
                                                             //  last_scale_level - 1, last_scale_level + 1);
         // }
-        std::cout << "indices: " << indices.size();
+        // std::cout << "indices: " << indices.size();
         if (indices.empty()) {
             continue;
         }
@@ -880,13 +970,13 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
         int best_idx = -1;
 
         for (const auto curr_idx : indices) {
-            std::cout << "curr_idx: " << curr_idx << ", " << curr_frm.landmarks_.size() 
-                      << "," << curr_frm.keypts_.size() << "," << curr_frm.undist_keypts_.size() << std::endl;
+            // std::cout << "curr_idx: " << curr_idx << ", " << curr_frm.landmarks_.size() 
+                    //   << "," << curr_frm.keypts_.size() << "," << curr_frm.undist_keypts_.size() << std::endl;
             //prevent adding new landmarks
             if (curr_frm.landmarks_.at(curr_idx) && curr_frm.landmarks_[curr_idx]->has_observation()) {
                 continue;
             }
-            std::cout << "aft curr_idx: " << curr_idx << std::endl;
+            // std::cout << "aft curr_idx: " << curr_idx << std::endl;
             //filter reprojection errors
             // if (curr_frm.stereo_x_right_.at(curr_idx) > 0) {
             //     const float reproj_error = std::fabs(x_right - curr_frm.stereo_x_right_.at(curr_idx));
@@ -896,7 +986,7 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
             // }
 
             const auto& desc = curr_frm.descriptors_.row(curr_idx);
-            std::cout << "desc: " << curr_idx << std::endl;
+            // std::cout << "desc: " << curr_idx << std::endl;
             const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
 
             if (hamm_dist < best_hamm_dist) {
@@ -919,6 +1009,7 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
                     = last_frm.undist_keypts_.at(idx_last).angle - curr_frm.undist_keypts_.at(best_idx).angle;
             angle_checker.append_delta_angle(delta_angle, best_idx);
         }
+        matches.emplace_back(idx_last,best_idx);
     }
 
     if (check_orientation_) {
@@ -928,19 +1019,130 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
             --num_matches;
         }
     }
+    // return num_matches;
+    return matches;
+}
+MatchIndices
+GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12) const
+{
+    // get the already matched landmarks
+    const auto& lms1 = kf1.landmarks_;
+    const auto& lms2 = kf2.landmarks_;
+    const Eigen::Vector3f cam_center_1 = kf1.get_cam_center();
+    const Eigen::Matrix4f T_cw = kf2.getTcw();
+    const Eigen::Matrix3f rot_2w = T_cw.block<3,3>(0,0);
+    const Eigen::Vector3f trans_2w = T_cw.block<3,1>(0,3);
+    size_t num_matches{0};
+    // matching情報を格納する
+    // keyframe1の各特徴点に対して対応を求めるため，keyframe2で既にkeyframe1と対応が取れているものを除外するようにする
+    std::vector<bool> is_already_matched_in_keyfrm_2(lms2.size(), false); // to keep track of potentially triangulated points
 
-    return num_matches;
+    // keyframe1のidxと対応しているkeyframe2のidxを格納する
+    std::vector<int> matched_indices_2_in_keyfrm_1(lms1.size(), -1);
+    MatchIndices matches;
+    
+    Eigen::Vector3f epiplane_in_keyfrm_2;
+    camera_.reproject_to_bearing(rot_2w, trans_2w, cam_center_1, grid_params_, epiplane_in_keyfrm_2);
+    // TODO: Maybe do some bag of words matching to reduce the number of potential keyframes!
+    // For now, try exhaustive matching
+
+    for (size_t idx_1 = 0; idx_1 < lms1.size(); ++idx_1)
+    {
+        const auto* lm_1 = lms1[idx_1];
+        if (lm_1 != nullptr) continue; // already matched to a landmark
+
+        auto best_hamm_dist = HAMMING_DIST_THR_LOW;
+        int best_idx_2 = -1;
+        const auto& keypt_1 = kf1.undist_keypts_.at(idx_1);
+        const Eigen::Vector3f& bearing_1 = kf1.bearings_.at(idx_1);
+        const auto& desc_1 = kf1.descriptors_.row(idx_1);
+
+        //start exhaustive matching
+        for (size_t idx_2 = 0; idx_2 < lms2.size(); ++idx_2)
+        {
+            const auto* lm_2 = lms2[idx_2];
+            if (lm_2 != nullptr) continue; // already matched to a lm and not compatible
+            if (is_already_matched_in_keyfrm_2.at(idx_2)) continue; //already matched to another feature
+
+
+            // 特徴点・特徴量を取得
+            // std::cout << "bearings: " << kf2.bearings_.size() << "/" << idx_2 << std::endl;
+            const Eigen::Vector3f& bearing_2 = kf2.bearings_.at(idx_2);
+            const auto& desc_2 = kf2.descriptors_.row(idx_2);
+            const auto hamm_dist = compute_descriptor_distance_32(desc_1, desc_2);
+
+            if (HAMMING_DIST_THR_LOW < hamm_dist || best_hamm_dist < hamm_dist) {
+                continue;
+            }
+
+            // if (!is_stereo_keypt_1 && !is_stereo_keypt_2) {
+            std::cout << "Before angle!" << std::endl;
+                // If both are not stereo keypoints, don't use feature points near epipole
+                const auto cos_dist = epiplane_in_keyfrm_2.dot(bearing_2);
+                // Threshold angle between epipole and bearing (= 3.0deg)
+                constexpr double cos_dist_thr = 0.99862953475;
+                // do not match if the included angle is smaller than the threshold
+                if (cos_dist_thr < cos_dist) { 
+                    std::cout << "rejected because: " << cos_dist << "," << cos_dist_thr << "bering: " << bearing_2 << std::endl;
+                    continue; 
+                    }
+            // }
+            
+
+            // E行列による整合性チェック
+            const bool is_inlier = check_epipolar_constraint(bearing_1, bearing_2, E_12,
+                                                             kf1.scale_factors_.at(keypt_1.octave));
+            if (is_inlier) {
+                best_idx_2 = idx_2;
+                best_hamm_dist = hamm_dist;
+            }
+        }
+        if (best_idx_2 < 0) {
+            continue;
+        }
+
+        is_already_matched_in_keyfrm_2.at(best_idx_2) = true;
+        matched_indices_2_in_keyfrm_1.at(idx_1) = best_idx_2;
+        std::cout << "Matched!!" << std::endl;
+        ++num_matches;
+        // no angle checker for now
+        // if (check_orientation_) {
+        //             const auto delta_angle
+        //                 = keypt_1.angle - keyfrm_2->undist_keypts_.at(best_idx_2).angle;
+        //             angle_checker.append_delta_angle(delta_angle, idx_1);
+        //         }
+    }
+
+    matches.reserve(num_matches);
+    //We do not check the orientation
+    for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_keyfrm_1.size(); ++idx_1) {
+        if (matched_indices_2_in_keyfrm_1.at(idx_1) < 0) {
+            continue;
+        }
+        matches.emplace_back(std::make_pair(idx_1, matched_indices_2_in_keyfrm_1.at(idx_1)));
+    }
+    return matches;
 }
 
-// Eigen::Matrix4f
-// track_to_last_frame(const GridParameters& grid_params, const Eigen::Matrix4f& T_wc_init,
-//                     const cslam::Frame& last_frame, cslam::Frame& curr_frame)
-// {
-//     Eigen::Matrix4f T_wc = T_wc_init;
+bool 
+GuidedMatcher::check_epipolar_constraint(const Eigen::Vector3f& bearing_1, const Eigen::Vector3f& bearing_2,
+                                       const Eigen::Matrix3f& E_12, const float bearing_1_scale_factor) 
+{
+    // keyframe1上のtエピポーラ平面の法線ベクトル
+    const Eigen::Vector3f epiplane_in_1 = E_12 * bearing_2;
 
-//     openvslam::match::angle_checker<int> angle_checker;
-//     size_t num_matches = 0;
+    // 法線ベクトルとbearingのなす角を求める
+    const auto cos_residual = epiplane_in_1.dot(bearing_1) / epiplane_in_1.norm();
+    const auto residual_rad = M_PI / 2.0 - std::abs(std::acos(cos_residual));
 
-// }
+    // inlierの閾値(=0.2deg)
+    // (e.g. FOV=90deg,横900pixのカメラにおいて,0.2degは横方向の2pixに相当)
+    // TODO: 閾値のパラメータ化
+    constexpr double residual_deg_thr = 0.2;
+    constexpr double residual_rad_thr = residual_deg_thr * M_PI / 180.0;
 
+    // 特徴点スケールが大きいほど閾値を緩くする
+    // TODO: thresholdの重み付けの検討
+    return residual_rad < residual_rad_thr * bearing_1_scale_factor;
+}
 };

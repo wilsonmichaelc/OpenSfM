@@ -5,18 +5,141 @@ namespace cslam
 {
 
 KeyFrame::KeyFrame(const size_t kf_id, const Frame& frame):
-    kf_id_(kf_id), src_frm_id_(frame.mFrameId),
+    kf_id_(kf_id), src_frm_id_(frame.frame_id),
     keypts_(frame.keypts_), undist_keypts_(frame.undist_keypts_),
     bearings_(frame.bearings_), descriptors_(frame.descriptors_),
-    scale_factors_(frame.scale_factors_), num_scale_levels_(scale_factors_.size()),
-    landmarks_(frame.landmarks_)
+    scale_factors_(frame.scale_factors_), //num_scale_levels_(scale_factors_.size()),
+    landmarks_(frame.landmarks_), num_scale_levels_(frame.num_scale_levels_),
+    scale_factor_(frame.scale_factor_), log_scale_factor_(frame.log_scale_factor_)
 {
 
 }
+py::object
+KeyFrame::getKptsUndist() const
+{
+    // Convert to numpy.
+    cv::Mat keys(undist_keypts_.size(), 5, CV_32F);
+    for (int i = 0; i < (int) undist_keypts_.size(); ++i) {
+        keys.at<float>(i, 0) = undist_keypts_[i].pt.x;
+        keys.at<float>(i, 1) = undist_keypts_[i].pt.y;
+        keys.at<float>(i, 2) = undist_keypts_[i].size;
+        keys.at<float>(i, 3) = undist_keypts_[i].angle;
+        keys.at<float>(i, 4) = undist_keypts_[i].octave;
+    }
+    return csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols);
+}
 
+py::object
+KeyFrame::getDescPy() const
+{
+    return csfm::py_array_from_data(descriptors_.ptr<unsigned char>(0), descriptors_.rows, descriptors_.cols);
+}
+
+py::object
+KeyFrame::getKptsPy() const
+{
+    // Convert to numpy.
+    cv::Mat keys(keypts_.size(), 5, CV_32F);
+    for (int i = 0; i < (int) keypts_.size(); ++i) {
+        keys.at<float>(i, 0) = keypts_[i].pt.x;
+        keys.at<float>(i, 1) = keypts_[i].pt.y;
+        keys.at<float>(i, 2) = keypts_[i].size;
+        keys.at<float>(i, 3) = keypts_[i].angle;
+        keys.at<float>(i, 4) = keypts_[i].octave;
+    }
+    return csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols);
+}
 void
 KeyFrame::add_landmark(Landmark* lm, const size_t idx)
 {
     landmarks_[idx] = lm;
 }
+
+size_t 
+KeyFrame::get_num_tracked_lms(const size_t min_num_obs_thr) const
+{
+    size_t num_tracked_lms = 0;
+    if (0 < min_num_obs_thr) {
+        for (const auto lm : landmarks_) {
+            if (lm == nullptr) {
+                continue;
+            }
+            if (lm->will_be_erased()) {
+                continue;
+            }
+
+            if (min_num_obs_thr <= lm->num_observations()) {
+                ++num_tracked_lms;
+            }
+        }
+    }
+    else {
+        for (const auto lm : landmarks_) {
+            if (lm == nullptr) {
+                continue;
+            }
+            if (lm->will_be_erased()) {
+                continue;
+            }
+
+            ++num_tracked_lms;
+        }
+    }
+
+    return num_tracked_lms;
+
+}
+
+float 
+KeyFrame::compute_median_depth(const bool abs) const
+{
+    std::vector<float> depths;
+    depths.reserve(landmarks_.size());
+    const Eigen::Vector3f rot_cw_z_row = T_cw.block<1, 3>(2, 0);
+    // const Eigen::Vector3f rot_cw_z_row = cam_pose_cw_.block<1, 3>(2, 0);
+
+    // T_cw
+    const float trans_cw_z = T_cw(2, 3);
+    for (const auto lm : landmarks_)
+    {
+        if (lm == nullptr) continue;
+        const float pos_c_z = rot_cw_z_row.dot(lm->get_pos_in_world())+trans_cw_z;
+        depths.push_back(abs ? std::abs(pos_c_z) : pos_c_z);
+    }
+    std::sort(depths.begin(), depths.end());
+    return depths.at((depths.size() - 1) / 2);
+}
+
+// std::vector<Landmark*> 
+// KeyFrame::update_lms_after_kf_insert()
+// {
+//     std::vector<Landmark*> landmarks_to_clean;
+//     // landmarks_
+//     for (unsigned int idx = 0; idx < landmarks_.size(); ++idx) {
+//         auto lm = landmarks_.at(idx);
+//         if (!lm) {
+//             continue;
+//         }
+//         if (lm->will_be_erased()) {
+//             continue;
+//         }
+
+//         // if `lm` does not have the observation information from `cur_keyfrm_`,
+//         // add the association between the keyframe and the landmark
+//         if (lm->is_observed_in_keyframe(this)) {
+//             // if `lm` is correctly observed, make it be checked by the local map cleaner
+//             // local_map_cleaner_->add_fresh_landmark(lm);
+//             landmarks_to_clean.push_back(lm);
+//             continue;
+//         }
+
+//         // update connection
+//         lm->add_observation(this, idx);
+//         // update geometry
+//         lm->update_normal_and_depth();
+//         lm->compute_descriptor();
+//     }
+//     return landmarks_to_clean;
+// }
+
 }

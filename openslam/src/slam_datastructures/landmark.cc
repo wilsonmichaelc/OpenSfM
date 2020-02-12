@@ -1,5 +1,6 @@
 #include "landmark.h"
 #include "keyframe.h"
+#include "frame.h"
 #include "third_party/openvslam/util/guided_matching.h"
 #include <iostream>
 namespace cslam
@@ -9,17 +10,17 @@ Landmark::Landmark(const size_t lm_id, KeyFrame* ref_kf, const Eigen::Vector3f& 
     lm_id_(lm_id), ref_keyfrm_(ref_kf), ref_kf_id_(ref_kf->kf_id_), pos_w_(pos_w)
     {
         scale_level_in_tracking_ = 0;
-        std::cout << "ref_kf: " << ref_kf << std::endl;
+        // std::cout << "ref_kf: " << ref_kf << std::endl;
     };
 void 
 Landmark::add_observation(KeyFrame* keyfrm, size_t idx) {
     // std::lock_guard<std::mutex> lock(mtx_observations_);
-    std::cout << "Trying to add: " << keyfrm->kf_id_ << "/" << idx << "/" << keyfrm << std::endl;
+    // std::cout << "Trying to add: " << keyfrm->kf_id_ << "/" << idx << "/" << keyfrm << std::endl;
     if (observations_.count(keyfrm)) {
         return;
     }
     observations_[keyfrm] = idx;
-    std::cout << "Added: " << keyfrm->kf_id_ << "/" << idx << std::endl;
+    // std::cout << "Added: " << keyfrm->kf_id_ << "/" << idx << std::endl;
     // if (0 <= keyfrm->stereo_x_right_.at(idx)) {
     //     num_observations_ += 2;
     // }
@@ -29,7 +30,53 @@ Landmark::add_observation(KeyFrame* keyfrm, size_t idx) {
     // const auto class_id = keyfrm->keypts_[idx].class_id;
     // if (class_id > 0 && class_id < 255) num_map_feature_obs_2_++;
 }
-void Landmark::compute_descriptor()
+
+size_t 
+Landmark::predict_scale_level(const float cam_to_lm_dist, const float log_scale_factor, const size_t num_scale_levels) const 
+{
+    const auto ratio = max_valid_dist_ / cam_to_lm_dist;
+
+    const auto pred_scale_level = static_cast<int>(std::ceil(std::log(ratio) / log_scale_factor));
+    if (pred_scale_level < 0) {
+        return 0;
+    }
+    else if (num_scale_levels <= static_cast<unsigned int>(pred_scale_level)) {
+        return num_scale_levels - 1;
+    }
+    else {
+        return static_cast<unsigned int>(pred_scale_level);
+    }
+    //Should be the same as:
+    // if (pred_scale_level < 0) return 0;
+    // if (num_scale_levels_ <= static_cast<unsigned int>(pred_scale_level)) return num_scale_levels_ - 1;
+    // return static_cast<unsigned int>(pred_scale_level);
+}
+
+size_t 
+Landmark::predict_scale_level(const float cam_to_lm_dist, const KeyFrame& keyfrm) const 
+{
+    return predict_scale_level(cam_to_lm_dist, keyfrm.log_scale_factor_, keyfrm.num_scale_levels_);
+}
+
+size_t 
+Landmark::predict_scale_level(const float cam_to_lm_dist, const Frame& frm) const 
+{
+    return predict_scale_level(cam_to_lm_dist, frm.log_scale_factor_, frm.num_scale_levels_);
+}
+
+void 
+Landmark::prepare_for_erasing() 
+{
+    for (const auto& keyfrm_and_idx : observations_) {
+        keyfrm_and_idx.first->erase_landmark_with_index(keyfrm_and_idx.second);
+    }
+    observations_.clear();
+    will_be_erased_ = true;
+    // map_db_->erase_landmark(this);
+}
+
+void
+Landmark::compute_descriptor()
 {
     if (observations_.empty()) return;
 

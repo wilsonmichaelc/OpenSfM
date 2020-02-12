@@ -25,11 +25,11 @@ class Landmark(object):
         # self.mean_normal = []
         self.clm = None
 
-    def update_descriptor(self, desc):
-        """ There are two options:
-        - Update with most recent descriptor
-        - or compute similar to openvslam
-        """
+    # def update_descriptor(self, desc):
+    #     """ There are two options:
+    #     - Update with most recent descriptor
+    #     - or compute similar to openvslam
+    #     """
 
 
 class Frame(object):
@@ -96,10 +96,10 @@ class Keyframe(object):
         """
         print("Creating KF: ", kf_id, frame.im_name)
         self.kf_id = kf_id  # unique_id
-        self.frame = frame
+        # self.frame = frame
+        self.frame_id = frame.frame_id
         self.im_name = frame.im_name
-        self.frame.image = None  # free image
-        self.kf_id = -1  # if non-KF, id of "parent" KF
+        # self.frame.image = None  # free image
         self.world_pose = frame.world_pose
         self.rel_pose_to_kf = types.Pose()  # since this is a keyframe, rel = I
         self.ckf = None

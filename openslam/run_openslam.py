@@ -30,9 +30,6 @@ start_id = 0
 for idx, im_name in enumerate(sorted(data.image_list)):
     if idx < start_id:
         continue
-    # im_name = "00129.png"
-
-    # gray_scale_img = data.load_image(im_name)
     gray_scale_img = io.imread(data._image_file(im_name), grayscale=True)  # The gray-scale image
     ret = slam_system.process_frame_2(im_name, gray_scale_img)
     slam_debug.avg_timings.printAvgTimings()

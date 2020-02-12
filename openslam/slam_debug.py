@@ -30,7 +30,7 @@ avg_timings = AvgTimings()
 
 
 def reproject_landmarks(points3D, observations, pose_world_to_cam,
-                        image, camera, data, title="", do_show=True):
+                        im, camera, title="", obs_normalized=True, do_show=True):
     """Draw observations and reprojects observations into image"""
     if disable_debug:
         return
@@ -42,16 +42,22 @@ def reproject_landmarks(points3D, observations, pose_world_to_cam,
     camera_point = pose_world_to_cam.transform_many(points3D)
     points2D = camera.project_many(camera_point)
     fig, ax = plt.subplots(1)
-    im = data.load_image(image)
-    print("Show image ", image)
-    h1, w1, c = im.shape
+    # im = data.load_image(image)
+    # print("Show image ", image)
+    if len(im.shape) == 3:
+        h1, w1, c = im.shape
+    else:
+        h1, w1 = im.shape
     pt = features.denormalized_image_coordinates(points2D, w1, h1)
     # print("obs:", obs)
     # print("points2D: ", points2D)
     ax.imshow(im)
     ax.scatter(pt[:, 0], pt[:, 1], c=[[1, 0, 0]])
     if observations is not None:
-        obs = features.denormalized_image_coordinates(observations, w1, h1)
+        if obs_normalized:
+            obs = features.denormalized_image_coordinates(observations, w1, h1)
+        else:
+            obs = observations
         ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
     ax.set_title(title)
     if do_show:

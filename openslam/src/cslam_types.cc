@@ -19,8 +19,8 @@ PYBIND11_MODULE(cslam_types, m) {
         // .def(py::init< const std::string&, const size_t, const std::vector<float>>())
         .def(py::init<const csfm::pyarray_uint8, const csfm::pyarray_uint8, const std::string&,
                       const size_t, openvslam::feature::orb_extractor*>())
-        .def_readonly("frame_id", &cslam::Frame::mFrameId)
-        .def_readonly("im_name", &cslam::Frame::mImgName)
+        .def_readonly("frame_id", &cslam::Frame::frame_id)
+        .def_readonly("im_name", &cslam::Frame::im_name)
         // .def_readonly("keypts", &cslam::Frame::keypts_)
         .def("getKptsAndDescPy",&cslam::Frame::getKptsAndDescPy)
         .def("getKptsPy",&cslam::Frame::getKptsPy)

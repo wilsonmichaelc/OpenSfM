@@ -44,7 +44,29 @@ public:
 
     //! ORB特徴量間のハミング距離を計算する
     static inline unsigned int 
-    compute_descriptor_distance_32(const cv::Mat& desc_1, const cv::Mat& desc_2);
+    compute_descriptor_distance_32(const cv::Mat& desc_1, const cv::Mat& desc_2)
+    {
+        // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+
+        constexpr uint32_t mask_1 = 0x55555555U;
+        constexpr uint32_t mask_2 = 0x33333333U;
+        constexpr uint32_t mask_3 = 0x0F0F0F0FU;
+        constexpr uint32_t mask_4 = 0x01010101U;
+
+        const auto* pa = desc_1.ptr<uint32_t>();
+        const auto* pb = desc_2.ptr<uint32_t>();
+
+        unsigned int dist = 0;
+
+        for (unsigned int i = 0; i < 8; ++i, ++pa, ++pb) {
+            auto v = *pa ^*pb;
+            v -= ((v >> 1) & mask_1);
+            v = (v & mask_2) + ((v >> 2) & mask_2);
+            dist += (((v + (v >> 4)) & mask_3) * mask_4) >> 24;
+        }
+
+        return dist;
+    }
     GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera);
     const GridParameters& grid_params_;
     const BrownPerspectiveCamera& camera_;
@@ -90,14 +112,47 @@ public:
 
 
     // TODO: Think about the margin. Maybe make it dynamic depending on the depth of the feature!!
+    // size_t
+    // match_frame_and_landmarks(const std::vector<float>& scale_factors,
+    //                         cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
     size_t
-    match_frame_and_landmarks(const std::vector<float>& scale_factors, //const openvslam::feature::orb_params& orb_params,
-                            cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
+    match_frame_and_landmarks(cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
     std::vector<cslam::Landmark*>
     update_local_landmarks(const std::vector<cslam::KeyFrame*>& local_keyframes, const size_t curr_frm_id);
 
-    size_t
+    // size_t
+    std::vector<std::pair<size_t, size_t>>
     match_current_and_last_frame(cslam::Frame& curr_frm, const cslam::Frame& last_frm, const float margin);
+
+    size_t search_local_landmarks(std::vector<Landmark*>& local_landmarks, Frame& curr_frm);
+    bool can_observe(Landmark* lm, const Frame& frame, const float ray_cos_thr, Eigen::Vector2f& reproj, size_t& pred_scale_level) const;
+
+    MatchIndices
+    match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12) const;
+    
+    static bool 
+    check_epipolar_constraint(const Eigen::Vector3f& bearing_1, const Eigen::Vector3f& bearing_2,
+                              const Eigen::Matrix3f& E_12, const float bearing_1_scale_factor);
+
+    Eigen::Matrix3f
+    to_skew_symmetric_mat(const Eigen::Vector3f& vec) const
+    {
+        Eigen::Matrix3f skew;
+        skew << 0, -vec(2), vec(1),
+                vec(2), 0, -vec(0),
+                -vec(1), vec(0), 0;
+        return skew;
+    }
+    
+    Eigen::Matrix3f
+    create_E_21(const Eigen::Matrix3f& rot_1w, const Eigen::Vector3f& trans_1w,
+                const Eigen::Matrix3f& rot_2w, const Eigen::Vector3f& trans_2w) const
+    {
+        const Eigen::Matrix3f rot_21 = rot_2w * rot_1w.transpose();
+        const Eigen::Vector3f trans_21 = -rot_21 * trans_1w + trans_2w;
+        const Eigen::Matrix3f trans_21_x = to_skew_symmetric_mat(trans_21);
+        return trans_21_x * rot_21;
+    }
 };
 
 // Eigen::Matrix4f

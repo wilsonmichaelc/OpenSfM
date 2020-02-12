@@ -12,6 +12,25 @@ BrownPerspectiveCamera::undistKeyptsFrame(Frame& frame) const
 {
     undistKeypts(frame.keypts_, frame.undist_keypts_);
 }
+void
+BrownPerspectiveCamera::convertKeyptsToBearingsFrame(Frame& frame) const
+{
+    convertKeyptsToBearings(frame.undist_keypts_, frame.bearings_);
+}
+void
+BrownPerspectiveCamera::convertKeyptsToBearings(const std::vector<cv::KeyPoint>& undist_keypts,
+std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>>& bearings) const
+{
+    bearings.resize(undist_keypts.size());
+    for (unsigned long idx = 0; idx < undist_keypts.size(); ++idx) {
+        const auto x_normalized = (undist_keypts.at(idx).pt.x - cx_p) / fx_p;
+        const auto y_normalized = (undist_keypts.at(idx).pt.y - cy_p) / fy_p;
+        const auto l2_norm = std::sqrt(x_normalized * x_normalized + y_normalized * y_normalized + 1.0);
+        // bearings.at(idx) = Eigen::Vector3f{x_normalized / l2_norm, y_normalized / l2_norm, 1.0 / l2_norm};
+        // std::cout << "oslam: " <<  bearings.at(idx) << " my: " << Eigen::Vector3f(x_normalized, y_normalized, 1.0).normalized() << std::endl;
+        bearings.at(idx) = Eigen::Vector3f(x_normalized, y_normalized, 1.0).normalized();
+    }
+}
 
 void 
 BrownPerspectiveCamera::undistKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const
@@ -43,7 +62,12 @@ BrownPerspectiveCamera::undistKeypts(const std::vector<cv::KeyPoint>& keypts, st
     }
     std::cout << "undist_keypts: " << undist_keypts.size() << std::endl;
 }
-
+// bool 
+// BrownPerspectiveCamera::reproject_to_image_dist(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+//                                          const cslam::GridParameters& gridParams, Eigen::Vector2f& pt2D) const
+// {
+//     cv::projectPoints()
+// }
 bool 
 BrownPerspectiveCamera::reproject_to_image(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                             const cslam::GridParameters& gridParams,
@@ -51,23 +75,27 @@ BrownPerspectiveCamera::reproject_to_image(const Eigen::Matrix3f& R_cw, const Ei
 {
     //first, transform pt3D into cam
     const Eigen::Vector3f ptCam = R_cw*ptWorld + t_cw;
-    std::cout << "ptCam: " << ptCam << " R: " << R_cw << " t_cw: " << t_cw << std::endl;
-    std::cout << "K: " << K <<  "K_pixel: " << K_pixel << std::endl;
     //check z coordinate
     if (ptCam[2] < 0.0) return false;
-    
-
     // //now reproject to image
-    // const float z_inv = 1.0/ptCam[2];
-    // pt2D[0] = fx*ptCam[0]*z_inv + cx;
-    // pt2D[1] = fy*ptCam[1]*z_inv + cy;
     pt2D = (K_pixel_eig*ptCam).hnormalized();
-    std::cout << "pt2D: " << pt2D << " f: " << fx << ", " << fy << std::endl;
-
+    // bearing.normalized();
     //check boundaries
     return gridParams.in_grid(pt2D);
-    // return gridParams.img_min_width_ < pt2D[0] && gridParams.img_max_width_ > pt2D[0] &&
-    //        gridParams.img_min_height_ < pt2D[1] && gridParams.img_max_height_ > pt2D[1]; 
 }
-
+bool 
+BrownPerspectiveCamera::reproject_to_bearing(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                            const cslam::GridParameters& gridParams,
+                                            Eigen::Vector3f& bearing) const
+{
+    //first, transform pt3D into cam
+    bearing = R_cw*ptWorld + t_cw;
+    //check z coordinate
+    if (bearing[2] < 0.0) return false;
+    // //now reproject to image
+    const Eigen::Vector2f pt2D = (K_pixel_eig*bearing).hnormalized();
+    bearing.normalized();
+    //check boundaries
+    return gridParams.in_grid(pt2D);
+}
 }

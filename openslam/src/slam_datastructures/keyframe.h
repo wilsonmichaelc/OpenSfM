@@ -2,6 +2,9 @@
 #include <vector>
 #include <Eigen/Eigen>
 #include <opencv2/core.hpp>
+#include <pybind11/pybind11.h>
+#include "types.h"
+namespace py = pybind11;
 namespace cslam
 {
 class Frame;
@@ -35,10 +38,29 @@ public:
         T_cw = T_wc.inverse();
         cam_center_ = T_cw.block<3,1>(0,3);//-rot_wc * trans_cw;
     }
+    Eigen::Matrix4f getTcw() const { return T_cw; }
     Eigen::Vector3f get_cam_center() const { return cam_center_; }
     const std::vector<float> scale_factors_;
-    const size_t num_scale_levels_;
+    // ORB scale pyramid information
+    //! number of scale levels
+    size_t num_scale_levels_;
+    //! scale factor
+    float scale_factor_;
+    //! log scale factor
+    float log_scale_factor_;
     void add_landmark(Landmark* lm, const size_t idx);
+    size_t get_num_tracked_lms(const size_t min_num_obs_thr) const;
+    // basically store_new_keyframe
+    // std::vector<Landmark*> update_lms_after_kf_insert();
+    void erase_landmark_with_index(const unsigned int idx) 
+    {
+        // std::lock_guard<std::mutex> lock(mtx_observations_);
+        landmarks_.at(idx) = nullptr;
+    }
+    float compute_median_depth(const bool abs) const;
+    py::object getKptsUndist() const;
+    py::object getKptsPy() const;
+    py::object getDescPy() const;
 private:
     Eigen::Matrix4f T_wc; // camera to world transformation, pose
     Eigen::Matrix4f T_cw; // world to camera transformation

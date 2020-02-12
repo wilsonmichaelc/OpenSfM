@@ -5,6 +5,7 @@
 namespace cslam
 {
 class KeyFrame;
+class Frame;
 class Landmark
 {
 public:
@@ -31,10 +32,30 @@ public:
     void update_normal_and_depth(); //const std::vector<float>& scale_factors);
     size_t identifier_in_local_map_update_ = 0;
     size_t identifier_in_local_lm_search_ = 0;
-
     Eigen::Vector3f get_pos_in_world() const { return pos_w_; }
-private:
+    float get_min_valid_distance() const { return 0.7 * min_valid_dist_; }
+    float get_max_valid_distance() const { return 1.3 * max_valid_dist_; }
+    //! predict scale level assuming this landmark is observed in the specified frame
+    size_t predict_scale_level(const float cam_to_lm_dist, const Frame& frm) const;
+    //! predict scale level assuming this landmark is observed in the specified keyframe
+    size_t predict_scale_level(const float cam_to_lm_dist, const KeyFrame& keyfrm) const;
+    size_t predict_scale_level(const float cam_to_lm_dist, const float log_scale_factor, const size_t num_scale_levels) const;
+
+    //! check the distance between landmark and camera is in ORB scale variance
+    inline bool is_inside_in_orb_scale(const float cam_to_lm_dist) const {
+        return (get_min_valid_distance() <= cam_to_lm_dist && cam_to_lm_dist <= get_max_valid_distance());
+    }
+    Eigen::Vector3f get_obs_mean_normal() const { return mean_normal_; }
+    void prepare_for_erasing();
+    //! whether this landmark is observed in the specified keyframe
+    bool is_observed_in_keyframe(KeyFrame* keyfrm) const
+    {
+        return static_cast<bool>(observations_.count(keyfrm));
+    }
     const size_t lm_id_;
+    size_t ref_kf_id_;
+private:
+    
     size_t num_observations_ = 0;
 
     // track counter
@@ -55,7 +76,7 @@ private:
 
     //! reference keyframe
     KeyFrame* ref_keyfrm_;
-    size_t ref_kf_id_;
+    
     Eigen::Vector3f pos_w_;
 
     //! observations (keyframe and keypoint index)

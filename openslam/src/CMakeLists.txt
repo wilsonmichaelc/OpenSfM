@@ -127,28 +127,32 @@ include_directories(${openslam_SOURCE_DIR})
 pybind11_add_module(cslam
     ${openslam_SOURCE_DIR}/cslam.cc
     # third_party/orb_extractor_py.cc
-    third_party/openvslam/feature/orb_extractor.cc
-    third_party/openvslam/feature/orb_extractor.h
-    third_party/openvslam/feature/orb_params.h
-    third_party/openvslam/feature/orb_params.cc
-    third_party/openvslam/feature/orb_extractor_node.h
-    third_party/openvslam/feature/orb_extractor_node.cc
-    third_party/openvslam/feature/orb_point_pairs.h
+    ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_extractor.cc
+    ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_extractor.h
+    ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_params.h
+    ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_params.cc
+    ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_extractor_node.h
+    ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_extractor_node.cc
+    ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_point_pairs.h
     ${openslam_SOURCE_DIR}/types.h
     ${openslam_SOURCE_DIR}/types.cc
-    third_party/openvslam/util/angle_checker.h
-    third_party/openvslam/util/guided_matching.h
-    third_party/openvslam/util/guided_matching.cc
+    ${openslam_SOURCE_DIR}/third_party/openvslam/util/angle_checker.h
+    ${openslam_SOURCE_DIR}/third_party/openvslam/util/guided_matching.h
+    ${openslam_SOURCE_DIR}/third_party/openvslam/util/guided_matching.cc
     # ${openslam_SOURCE_DIR}/guided_matching_utils_py.cc
     # ${openslam_SOURCE_DIR}/cslam_types.cc
-    slam_datastructures/frame.h
-    slam_datastructures/frame.cc
-    slam_datastructures/keyframe.h
-    slam_datastructures/keyframe.cc
-    slam_datastructures/landmark.h
-    slam_datastructures/landmark.cc
-    slam_datastructures/camera.cc
-    slam_datastructures/camera.h
+    ${openslam_SOURCE_DIR}/slam_datastructures/frame.h
+    ${openslam_SOURCE_DIR}/slam_datastructures/frame.cc
+    ${openslam_SOURCE_DIR}/slam_datastructures/keyframe.h
+    ${openslam_SOURCE_DIR}/slam_datastructures/keyframe.cc
+    ${openslam_SOURCE_DIR}/slam_datastructures/landmark.h
+    ${openslam_SOURCE_DIR}/slam_datastructures/landmark.cc
+    ${openslam_SOURCE_DIR}/slam_datastructures/camera.cc
+    ${openslam_SOURCE_DIR}/slam_datastructures/camera.h
+    ${openslam_SOURCE_DIR}/slam_debug.h
+    ${openslam_SOURCE_DIR}/slam_debug.cc
+    ${openslam_SOURCE_DIR}/slam_datastructures/local_map_cleaner.h
+    ${openslam_SOURCE_DIR}/slam_datastructures/local_map_cleaner.cc
 )
 # pybind11_add_libr
 

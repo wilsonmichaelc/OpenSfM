@@ -20,6 +20,8 @@ struct Camera
     const size_t height;
     const std::string projectionType;
     virtual void undistKeyptsFrame(Frame& frame) const = 0;
+    virtual void convertKeyptsToBearingsFrame(Frame& frame) const = 0;
+    virtual void convertKeyptsToBearings(const std::vector<cv::KeyPoint>& keypts, std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>>& bearings) const = 0;
     virtual void undistKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const = 0;
     virtual bool reproject_to_image(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                     const cslam::GridParameters& gridParams, Eigen::Vector2f& pt2D) const = 0;
@@ -56,8 +58,15 @@ struct BrownPerspectiveCamera: Camera
         
         K_pixel = norm_mat*K; //(cv::Mat_<float>(3,3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
         cv::cv2eigen(K_pixel, K_pixel_eig);
-    }
+        fx_p = K_pixel_eig(0,0);
+        fy_p = K_pixel_eig(1,1);
+        cx_p = K_pixel_eig(0,2);
+        cy_p = K_pixel_eig(1,2);
 
+    }
+    float fx_p, fy_p; // focal lengths in pixels
+    float cx_p, cy_p; // principal points in pixels
+    
     const float fx, fy; // focal lengths
     const float cx, cy; // principal points
     const float k1, k2, p1, p2, k3; // distortion coefficients
@@ -66,8 +75,14 @@ struct BrownPerspectiveCamera: Camera
     Eigen::Matrix3f K_pixel_eig;
     virtual void undistKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const;
     virtual void undistKeyptsFrame(Frame& frame) const;
+    virtual void convertKeyptsToBearingsFrame(Frame& frame) const;
+    virtual void convertKeyptsToBearings(const std::vector<cv::KeyPoint>& keypts, std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>>& bearings) const;
     virtual bool reproject_to_image(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                     const cslam::GridParameters& gridParams, Eigen::Vector2f& pt2D) const;
+    virtual bool reproject_to_bearing(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                      const cslam::GridParameters& gridParams, Eigen::Vector3f& bearing) const;
+    // virtual bool reproject_to_image_dist(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                        //  const cslam::GridParameters& gridParams, Eigen::Vector2f& pt2D) const;
 
 };
 

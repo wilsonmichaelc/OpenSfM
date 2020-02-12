@@ -28,7 +28,6 @@ class SlamSystem(object):
         self.config = self.data.config
         self.camera = next(iter(cameras.items()))
         self.config_slam = slam_config.default_config()
-        self.slam_mapper = SlamMapper(self.data, self.config_slam, self.camera)
         # self.slam_tracker = SlamTracker() #self.data, self.camera)
 
         self.feature_extractor = SlamFeatureExtractor(self.config_slam)
@@ -69,6 +68,7 @@ class SlamSystem(object):
             cslam.BrownPerspectiveCamera(c.width, c.height, c.projection_type,
             c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3)
         self.guided_matcher = cslam.GuidedMatcher(self.grid_params, self.cCamera)
+        self.slam_mapper = SlamMapper(self.guided_matcher, self.data, self.config_slam, self.camera)
         self.slam_tracker = SlamTracker(self.guided_matcher)
         self.slam_tracker.scale_factors = self.orb_extractor.get_scale_factors()
 
@@ -102,6 +102,7 @@ class SlamSystem(object):
         # undistort points
         kpt2, desc2 = frame.cframe.getKptsAndDescPy()
         self.cCamera.undistKeyptsFrame(frame.cframe)
+        self.cCamera.convertKeyptsToBearingsFrame(frame.cframe)
         up2 = frame.cframe.getKptsUndist()
         self.guided_matcher.\
             distribute_keypoints_to_grid_frame(frame.cframe)
@@ -119,7 +120,14 @@ class SlamSystem(object):
         chrono.lap('new_orb')
         if not self.system_initialized:
             return self.init_slam_system(frame)
-        self.track_frame(frame)
+        pose = self.track_frame(frame)
+        if pose is not None:
+            frame.world_pose = pose
+        self.slam_mapper.update_with_last_frame(frame)
+        self.slam_mapper.num_tracked_lms = self.slam_tracker.num_tracked_lms
+        # if pose is not None:
+        if self.slam_mapper.new_keyframe_is_needed(frame):
+            self.slam_mapper.insert_new_keyframe(frame)
 
     def process_frame(self, frame):
         """Process one single frame.
@@ -182,7 +190,7 @@ class SlamSystem(object):
         # Maybe move most of the slam_mapper stuff to tracking
         # TODO: Landmark replac!
         # self.slam_mapper.apply_landmark_replace()
-        pose = self.slam_tracker.track(self.slam_mapper, frame,
+        return self.slam_tracker.track(self.slam_mapper, frame,
                                        self.config, self.camera, data)
 
 
