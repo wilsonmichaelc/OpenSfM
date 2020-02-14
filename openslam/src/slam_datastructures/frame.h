@@ -34,7 +34,6 @@ public:
     //! bearing vectors
     // Eigen::eigen_alloc_vector<Eigen::Vector3f> bearings_;
     std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings_;
-    const std::vector<float> scale_factors_;
     py::object getKptsAndDescPy() const;
     py::object getKptsUndist() const;
     py::object getKptsPy() const;
@@ -42,6 +41,8 @@ public:
     py::object get_valid_keypts() const;
     std::vector<size_t> get_valid_idx() const;
     void set_outlier(const std::vector<size_t>& invalid_ids);
+    size_t clean_and_tick_landmarks();
+    // void tick_tracked_lms();
     std::vector<Landmark*> get_valid_lms();
     size_t num_keypts_;
     Eigen::Vector3f get_cam_center() const { return cam_center_; }
@@ -69,6 +70,15 @@ public:
     float scale_factor_;
     //! log scale factor
     float log_scale_factor_;
+    //! list of scale factors
+    std::vector<float> scale_factors_;
+    //! list of inverse of scale factors
+    std::vector<float> inv_scale_factors_;
+    //! list of sigma^2 (sigma=1.0 at scale=0) for optimization
+    std::vector<float> level_sigma_sq_;
+    //! list of 1 / sigma^2 for optimization
+    std::vector<float> inv_level_sigma_sq_;
+
     void update_orb_info(openvslam::feature::orb_extractor* orb_extractor);
 private:
     Eigen::Matrix4f T_cw, T_wc;

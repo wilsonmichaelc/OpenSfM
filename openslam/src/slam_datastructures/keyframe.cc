@@ -6,14 +6,45 @@ namespace cslam
 
 KeyFrame::KeyFrame(const size_t kf_id, const Frame& frame):
     kf_id_(kf_id), src_frm_id_(frame.frame_id),
+    im_name_(frame.im_name),
     keypts_(frame.keypts_), undist_keypts_(frame.undist_keypts_),
     bearings_(frame.bearings_), descriptors_(frame.descriptors_),
-    scale_factors_(frame.scale_factors_), //num_scale_levels_(scale_factors_.size()),
-    landmarks_(frame.landmarks_), num_scale_levels_(frame.num_scale_levels_),
-    scale_factor_(frame.scale_factor_), log_scale_factor_(frame.log_scale_factor_)
+    landmarks_(frame.landmarks_), 
+    // ORB scale pyramid
+    num_scale_levels_(frame.num_scale_levels_), scale_factor_(frame.scale_factor_),
+    log_scale_factor_(frame.log_scale_factor_), scale_factors_(frame.scale_factors_),
+    level_sigma_sq_(frame.level_sigma_sq_), inv_level_sigma_sq_(frame.inv_level_sigma_sq_),
+    keypts_indices_in_cells_(frame.keypts_indices_in_cells_)
 {
 
 }
+
+std::vector<size_t>
+KeyFrame::compute_local_keyframes() const
+{
+    std::vector<bool> seen(kf_id_+1, false);
+    for (auto lm : landmarks_)
+    {
+        if (lm != nullptr)
+        {
+            // const auto& m = lm->get_observations();
+            for (const auto& elem : lm->get_observations())
+            {
+                seen.at(elem.first->kf_id_) = true;
+            }
+
+        }
+    }
+    //TODO: be careful when we remove KFs!!!!
+    std::vector<size_t> seen_idx;
+    seen_idx.reserve(kf_id_+1);
+    for (size_t idx = 0; idx < seen.size()+1; ++idx)
+    {
+        if (seen[idx]) seen_idx.push_back(idx);
+    }
+    return seen_idx;
+}
+
 py::object
 KeyFrame::getKptsUndist() const
 {

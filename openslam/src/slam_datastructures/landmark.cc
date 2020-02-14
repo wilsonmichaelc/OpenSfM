@@ -15,12 +15,12 @@ Landmark::Landmark(const size_t lm_id, KeyFrame* ref_kf, const Eigen::Vector3f& 
 void 
 Landmark::add_observation(KeyFrame* keyfrm, size_t idx) {
     // std::lock_guard<std::mutex> lock(mtx_observations_);
-    // std::cout << "Trying to add: " << keyfrm->kf_id_ << "/" << idx << "/" << keyfrm << std::endl;
+    std::cout << "Trying to add: " << keyfrm->kf_id_ << "/" << idx << "/" << keyfrm << std::endl;
     if (observations_.count(keyfrm)) {
         return;
     }
     observations_[keyfrm] = idx;
-    // std::cout << "Added: " << keyfrm->kf_id_ << "/" << idx << std::endl;
+    std::cout << "Added: " << keyfrm->kf_id_ << "/" << idx << std::endl;
     // if (0 <= keyfrm->stereo_x_right_.at(idx)) {
     //     num_observations_ += 2;
     // }
@@ -74,6 +74,44 @@ Landmark::prepare_for_erasing()
     will_be_erased_ = true;
     // map_db_->erase_landmark(this);
 }
+
+void 
+Landmark::replace(Landmark* lm) {
+    if (lm->lm_id_ == this->lm_id_) {
+        return;
+    }
+
+    unsigned int num_observable, num_observed;
+    std::map<KeyFrame*, size_t> observations;
+    // {
+        // std::lock_guard<std::mutex> lock1(mtx_observations_);
+        // std::lock_guard<std::mutex> lock2(mtx_position_);
+        observations = observations_;
+        observations_.clear();
+        will_be_erased_ = true;
+        num_observable = num_observable_;
+        num_observed = num_observed_;
+        // replaced_ = lm;
+    // }
+    for (const auto& keyfrm_and_idx : observations) {
+        KeyFrame* keyfrm = keyfrm_and_idx.first;
+
+        if (!lm->is_observed_in_keyframe(keyfrm)) {
+            keyfrm->replace_landmark(lm, keyfrm_and_idx.second);
+            lm->add_observation(keyfrm, keyfrm_and_idx.second);
+        }
+        else {
+            keyfrm->erase_landmark_with_index(keyfrm_and_idx.second);
+        }
+    }
+
+    lm->increase_num_observed(num_observed);
+    lm->increase_num_observable(num_observable);
+    lm->compute_descriptor();
+
+    // map_db_->erase_landmark(this);
+}
+
 
 void
 Landmark::compute_descriptor()

@@ -9,7 +9,7 @@ namespace cslam
 Frame::Frame(const csfm::pyarray_uint8 image, const csfm::pyarray_uint8 mask,
              const std::string& img_name, const size_t frame_id, 
              openvslam::feature::orb_extractor* orb_extractor):
-    im_name(img_name), frame_id(frame_id), scale_factors_(orb_extractor->get_scale_factors()),
+    im_name(img_name), frame_id(frame_id), //scale_factors_(orb_extractor->get_scale_factors()),
     T_wc(Eigen::Matrix4f::Identity()), T_cw(Eigen::Matrix4f::Identity()), cam_center_(Eigen::Vector3f::Zero())
 {
     orb_extractor->extract_orb_py2(image, mask, *this);
@@ -24,15 +24,19 @@ Frame::Frame(const csfm::pyarray_uint8 image, const csfm::pyarray_uint8 mask,
  void 
  Frame::update_orb_info(openvslam::feature::orb_extractor* orb_extractor)
  {
-     num_scale_levels_ = orb_extractor->get_num_scale_levels();
-     scale_factor_ = orb_extractor->get_scale_factor();
-     log_scale_factor_ = std::log(scale_factor_);
+    num_scale_levels_ = orb_extractor->get_num_scale_levels();
+    scale_factor_ = orb_extractor->get_scale_factor();
+    log_scale_factor_ = std::log(scale_factor_);
+    scale_factors_ = orb_extractor->get_scale_factors();
+    inv_scale_factors_ = orb_extractor->get_inv_scale_factors();
+    level_sigma_sq_ = orb_extractor->get_level_sigma_sq();
+    inv_level_sigma_sq_ = orb_extractor->get_inv_level_sigma_sq();
  }
 
 void 
 Frame::add_landmark(Landmark* lm, size_t idx)
 {
-    std::cout << "idx: " << idx << ", " << num_keypts_ << std::endl;
+    // std::cout << "idx: " << idx << ", " << num_keypts_ << std::endl;
     // landmarks_[idx] = lm;
     // outlier_flags_[idx] = false;
     landmarks_.at(idx) = lm;
@@ -130,6 +134,30 @@ Frame::set_outlier(const std::vector<size_t>& invalid_ids)
     for (const auto id : invalid_ids)
         outlier_flags_[id] = true;
 }
+
+size_t
+Frame::clean_and_tick_landmarks() //const std::vector<size_t>& invalid_ids)
+{
+    size_t num_tracked_landmarks{0};
+    for (size_t idx = 0; idx < landmarks_.size(); ++idx)
+    {
+        auto lm = landmarks_[idx];
+        if (lm == nullptr)
+            continue;
+        if (outlier_flags_[idx]) 
+        {
+            landmarks_[idx] = nullptr;
+        }
+        else
+        {
+            lm->increase_num_observed();
+            ++num_tracked_landmarks;
+        }
+        
+    }
+    return num_tracked_landmarks;
+}
+
 
 py::object
 Frame::get_valid_keypts() const

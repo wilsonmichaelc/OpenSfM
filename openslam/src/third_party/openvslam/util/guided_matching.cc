@@ -3,10 +3,12 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <unordered_set>
 #include "slam_datastructures/frame.h"
 #include "slam_datastructures/landmark.h"
 #include "slam_datastructures/keyframe.h"
 #include "slam_datastructures/camera.h"
+
 namespace cslam
 {
 
@@ -1076,14 +1078,12 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
             }
 
             // if (!is_stereo_keypt_1 && !is_stereo_keypt_2) {
-            std::cout << "Before angle!" << std::endl;
                 // If both are not stereo keypoints, don't use feature points near epipole
                 const auto cos_dist = epiplane_in_keyfrm_2.dot(bearing_2);
                 // Threshold angle between epipole and bearing (= 3.0deg)
                 constexpr double cos_dist_thr = 0.99862953475;
                 // do not match if the included angle is smaller than the threshold
                 if (cos_dist_thr < cos_dist) { 
-                    std::cout << "rejected because: " << cos_dist << "," << cos_dist_thr << "bering: " << bearing_2 << std::endl;
                     continue; 
                     }
             // }
@@ -1103,7 +1103,6 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
 
         is_already_matched_in_keyfrm_2.at(best_idx_2) = true;
         matched_indices_2_in_keyfrm_1.at(idx_1) = best_idx_2;
-        std::cout << "Matched!!" << std::endl;
         ++num_matches;
         // no angle checker for now
         // if (check_orientation_) {
@@ -1145,4 +1144,165 @@ GuidedMatcher::check_epipolar_constraint(const Eigen::Vector3f& bearing_1, const
     // TODO: thresholdの重み付けの検討
     return residual_rad < residual_rad_thr * bearing_1_scale_factor;
 }
+
+template<typename T> size_t 
+GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check, const float margin)  const
+{
+    unsigned int num_fused = 0;
+
+    const Eigen::Matrix3f rot_cw = keyfrm->get_rotation();
+    const Eigen::Vector3f trans_cw = keyfrm->get_translation();
+    const Eigen::Vector3f cam_center = keyfrm->get_cam_center();
+
+    for (const auto lm : landmarks_to_check) {
+        if (!lm) {
+            continue;
+        }
+        if (lm->will_be_erased()) {
+            continue;
+        }
+        std::cout << "lm is_observed_in_keyframe: " << lm->lm_id_ << std::endl;
+        if (lm->is_observed_in_keyframe(keyfrm)) {
+            continue;
+        }
+        std::cout << "lm: " << lm->lm_id_ << std::endl;
+        // グローバル基準の3次元点座標
+        const Eigen::Vector3f pos_w = lm->get_pos_in_world();
+        // 再投影して可視性を求める
+        Eigen::Vector2f reproj;
+        float x_right;
+        // const bool in_image = camera_->reproject_to_image(rot_cw, trans_cw, pos_w, reproj, x_right);
+        const bool in_image = camera_.reproject_to_image(rot_cw, trans_cw, pos_w, grid_params_, reproj);
+        std::cout << "rot_cw: " << rot_cw << "/" << trans_cw << "pos: " << pos_w << " reproj: " << reproj << std::endl;
+        std::cout << "K_eig: " << camera_.K_pixel_eig << " grid: "
+                  << grid_params_.img_min_height_ << "/" << grid_params_.img_max_height_ << "/" 
+                  << grid_params_.img_min_width_ << "/" << grid_params_.img_max_width_ 
+                  << std::endl;
+        // 画像外に再投影される場合はスルー
+        if (!in_image) {
+            continue;
+        }
+
+        // ORBスケールの範囲内であることを確認
+        const Eigen::Vector3f cam_to_lm_vec = pos_w - cam_center;
+        const auto cam_to_lm_dist = cam_to_lm_vec.norm();
+        const auto max_cam_to_lm_dist = lm->get_max_valid_distance();
+        const auto min_cam_to_lm_dist = lm->get_min_valid_distance();
+
+        if (cam_to_lm_dist < min_cam_to_lm_dist || max_cam_to_lm_dist < cam_to_lm_dist) {
+            continue;
+        }
+
+        std::cout << "lm get_obs_mean_normal: " << lm->lm_id_ << std::endl;
+        // 3次元点の平均観測ベクトルとの角度を計算し，閾値(60deg)より大きければ破棄
+        const Eigen::Vector3f obs_mean_normal = lm->get_obs_mean_normal();
+
+        if (cam_to_lm_vec.dot(obs_mean_normal) < 0.5 * cam_to_lm_dist) {
+            continue;
+        }
+
+        // 3次元点を再投影した点が存在するcellの特徴点を取得
+        const auto pred_scale_level = lm->predict_scale_level(cam_to_lm_dist, *keyfrm);
+        std::cout << "lm get_keypoints_in_cell: " << lm->lm_id_  
+                  << " pred: " << pred_scale_level << "/" << reproj.transpose() << ", size: " << keyfrm->keypts_indices_in_cells_.size() 
+                  << ", " << margin*keyfrm->scale_factors_.at(pred_scale_level)<< std::endl;
+
+        // const auto indices = keyfrm->get_keypoints_in_cell(reproj(0), reproj(1), margin * keyfrm->scale_factors_.at(pred_scale_level));
+        const auto indices = get_keypoints_in_cell(keyfrm->undist_keypts_, keyfrm->keypts_indices_in_cells_, 
+                                                   reproj(0), reproj(1), margin*keyfrm->scale_factors_.at(pred_scale_level));//, scale_1, scale_1);
+
+        if (indices.empty()) {
+            continue;
+        }
+        std::cout << "lm get_descriptor: " << lm->lm_id_ << std::endl;
+
+        // descriptorが最も近い特徴点を探す
+        const auto lm_desc = lm->get_descriptor();
+
+        unsigned int best_dist = MAX_HAMMING_DIST;
+        int best_idx = -1;
+
+        for (const auto idx : indices) {
+            const auto& keypt = keyfrm->undist_keypts_.at(idx);
+
+            const auto scale_level = static_cast<unsigned int>(keypt.octave);
+
+            // TODO: keyfrm->get_keypts_in_cell()でスケールの判断をする
+            if (scale_level < pred_scale_level - 1 || pred_scale_level < scale_level) {
+                continue;
+            }
+
+            // if (keyfrm->stereo_x_right_.at(idx) >= 0) {
+            //     // stereo matchが存在する場合は自由度3の再投影誤差を計算する
+            //     // If there is a stereo match, calculate the reprojection error with 3 degrees of freedom
+            //     const auto e_x = reproj(0) - keypt.pt.x;
+            //     const auto e_y = reproj(1) - keypt.pt.y;
+            //     const auto e_x_right = x_right - keyfrm->stereo_x_right_.at(idx);
+            //     const auto reproj_error_sq = e_x * e_x + e_y * e_y + e_x_right * e_x_right;
+
+            //     // 自由度n=3
+            //     constexpr float chi_sq_3D = 7.81473;
+            //     if (chi_sq_3D < reproj_error_sq * keyfrm->inv_level_sigma_sq_.at(scale_level)) {
+            //         continue;
+            //     }
+            // }
+            // else {
+                // stereo matchが存在しない場合は自由度2の再投影誤差を計算する
+                // If there is no stereo match, calculate the reprojection error with 2 degrees of freedom
+                const auto e_x = reproj(0) - keypt.pt.x;
+                const auto e_y = reproj(1) - keypt.pt.y;
+                const auto reproj_error_sq = e_x * e_x + e_y * e_y;
+
+                // 自由度n=2
+                constexpr float chi_sq_2D = 5.99146;
+                if (chi_sq_2D < reproj_error_sq * keyfrm->inv_level_sigma_sq_.at(scale_level)) {
+                    continue;
+                }
+            // }
+
+            const auto& desc = keyfrm->descriptors_.row(idx);
+
+            const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
+
+            if (hamm_dist < best_dist) {
+                best_dist = hamm_dist;
+                best_idx = idx;
+            }
+        }
+
+        if (HAMMING_DIST_THR_LOW < best_dist) {
+            continue;
+        }
+
+        auto* lm_in_keyfrm = keyfrm->landmarks_.at(best_idx);//keyfrm->get_landmark(best_idx);
+        if (lm_in_keyfrm) {
+            // keyframeのbest_idxに対応する3次元点が存在する -> 重複している場合
+            if (!lm_in_keyfrm->will_be_erased()) {
+                // より信頼できる(=観測数が多い)3次元点で置き換える
+                if (lm->num_observations() < lm_in_keyfrm->num_observations()) {
+                    // lm_in_keyfrmで置き換える
+                    lm->replace(lm_in_keyfrm);
+                }
+                else {
+                    // lmで置き換える
+                    lm_in_keyfrm->replace(lm);
+                }
+            }
+        }
+        else {
+            // keyframeのbest_idxに対応する3次元点が存在しない
+            // 観測情報を追加
+            lm->add_observation(keyfrm, best_idx);
+            keyfrm->add_landmark(lm, best_idx);
+        }
+
+        ++num_fused;
+    }
+
+    return num_fused;
+}
+
+template size_t GuidedMatcher::replace_duplication(KeyFrame*, const std::vector<Landmark*>&, const float) const;
+template size_t GuidedMatcher::replace_duplication(KeyFrame*, const std::unordered_set<Landmark*>&, const float) const;
+
 };

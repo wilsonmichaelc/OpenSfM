@@ -232,7 +232,7 @@ class SlamTracker(object):
             # slam_debug.visualize_matches_pts(p0, p13, np.column_stack((a, a)), im1, im2, True, title="to last frame and then frame")
             # slam_debug.disable_debug = True
         
-        # frame.cframe.parent_kf = slam_mapper.local_keyframes[-1]
+        # frame.cframe.parent_kf = slam_mapper.c_keyframes[-1]
         n_matches = len(matches)
         if n_matches < 10: # not enough matches found, increase margin
             matches = self.guided_matcher.\
@@ -273,7 +273,7 @@ class SlamTracker(object):
         # point3D, points2D = cslam.GuidedMatcher.get_point_lm_correspondences()
 
         # local_landmarks = self.guided_matcher.\
-        #     update_local_landmarks(slam_mapper.local_keyframes[-10:],
+        #     update_local_landmarks(slam_mapper.c_keyframes[-10:],
         #                            frame.frame_id)
         # n_matches = self.guided_matcher.\
         #     match_frame_and_landmarks(self.scale_factors,
@@ -337,7 +337,7 @@ class SlamTracker(object):
         pose_tracking = self.track_motion(slam_mapper, frame,
                                  init_pose, camera, config, data)
 
-        local_landmarks = self.guided_matcher.update_local_landmarks(slam_mapper.local_keyframes[-10:], frame.frame_id)
+        local_landmarks = self.guided_matcher.update_local_landmarks(slam_mapper.c_keyframes[-10:], frame.frame_id)
         frame.cframe.set_pose(np.linalg.inv(np.vstack((pose_tracking.get_Rt(), [0, 0, 0, 1]))))
         # print(local_landmarks)
         n_matches = self.guided_matcher.search_local_landmarks(local_landmarks, frame.cframe)
@@ -371,6 +371,7 @@ class SlamTracker(object):
         #                                title="aft tracking: "+frame.im_name, obs_normalized=True, do_show=True)
         # slam_debug.disable_debug = True
 
+        # for 
 
                 
         # print("got: ", len(lms), " landmarks and ", len(points2D))
@@ -378,5 +379,6 @@ class SlamTracker(object):
         self.num_tracked_lms = np.sum(valid_pts)
         # frame.cframe.set_outlier(np.array(valid_ids)[not valid_pts])
         frame.cframe.set_outlier(np.array(valid_ids)[np.invert(valid_pts)])
-
+        n_tracked = frame.cframe.clean_and_tick_landmarks()
+        print("n tracked: ", n_tracked)
         return pose

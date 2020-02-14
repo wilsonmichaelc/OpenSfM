@@ -10,7 +10,6 @@ class Landmark
 {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    // ADD EIGEN_MAKE_ALIGNED_OPERATOR_NEW!
     Landmark(const size_t lm_id, KeyFrame* ref_kf, const Eigen::Vector3f& pos_w);
 
     void increase_num_observable(unsigned int num_observable = 1){ num_observable_ += num_observable; }
@@ -40,7 +39,8 @@ public:
     //! predict scale level assuming this landmark is observed in the specified keyframe
     size_t predict_scale_level(const float cam_to_lm_dist, const KeyFrame& keyfrm) const;
     size_t predict_scale_level(const float cam_to_lm_dist, const float log_scale_factor, const size_t num_scale_levels) const;
-
+    //! replace this with specified landmark
+    void replace(Landmark* lm);
     //! check the distance between landmark and camera is in ORB scale variance
     inline bool is_inside_in_orb_scale(const float cam_to_lm_dist) const {
         return (get_min_valid_distance() <= cam_to_lm_dist && cam_to_lm_dist <= get_max_valid_distance());
@@ -54,6 +54,7 @@ public:
     }
     const size_t lm_id_;
     size_t ref_kf_id_;
+    const auto& get_observations() { return observations_; }
 private:
     
     size_t num_observations_ = 0;

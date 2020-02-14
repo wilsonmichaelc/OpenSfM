@@ -98,6 +98,7 @@ class Keyframe(object):
         self.kf_id = kf_id  # unique_id
         # self.frame = frame
         self.frame_id = frame.frame_id
+        self.colors = frame.colors
         self.im_name = frame.im_name
         # self.frame.image = None  # free image
         self.world_pose = frame.world_pose

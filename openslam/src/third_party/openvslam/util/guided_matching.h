@@ -88,7 +88,7 @@ public:
     get_keypoints_in_cell(const std::vector<cv::KeyPoint>& undist_keypts,
                           const CellIndices& keypt_indices_in_cells,
                           const float ref_x, const float ref_y, const float margin,
-                          const int min_level, const int max_level) const;
+                          const int min_level = -1, const int max_level = -1) const;
 
     // MatchIndices 
     // match_frame_to_frame_py(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
@@ -153,6 +153,8 @@ public:
         const Eigen::Matrix3f trans_21_x = to_skew_symmetric_mat(trans_21);
         return trans_21_x * rot_21;
     }
+    template<typename T> size_t 
+    replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check, const float margin = 3.0) const;
 };
 
 // Eigen::Matrix4f

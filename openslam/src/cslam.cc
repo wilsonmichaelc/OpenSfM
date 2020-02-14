@@ -59,12 +59,14 @@ py::class_<cslam::Frame>(m, "Frame")
         .def("get_valid_keypts", &cslam::Frame::get_valid_keypts)
         .def("set_outlier", &cslam::Frame::set_outlier)
         .def("get_valid_idx", &cslam::Frame::get_valid_idx)
-        .def("discard_outliers", &cslam::Frame::discard_outliers);
+        .def("discard_outliers", &cslam::Frame::discard_outliers)
+        .def("clean_and_tick_landmarks", &cslam::Frame::clean_and_tick_landmarks);
         
 // Keyframe
 py::class_<cslam::KeyFrame>(m, "KeyFrame")
     .def(py::init<const size_t, const cslam::Frame>())
     .def_readonly("kf_id", &cslam::KeyFrame::kf_id_)
+    .def_readonly("im_name", &cslam::KeyFrame::im_name_)
     .def("set_pose", &cslam::KeyFrame::setPose)
     .def("get_pose", &cslam::KeyFrame::getPose)
     .def("add_landmark", &cslam::KeyFrame::add_landmark)
@@ -73,7 +75,8 @@ py::class_<cslam::KeyFrame>(m, "KeyFrame")
     .def("compute_median_depth", &cslam::KeyFrame::compute_median_depth)
     .def("getKptsPy",&cslam::KeyFrame::getKptsPy)
     .def("getDescPy",&cslam::KeyFrame::getDescPy)
-    .def("getKptsUndist", &cslam::KeyFrame::getKptsUndist);
+    .def("getKptsUndist", &cslam::KeyFrame::getKptsUndist)
+    .def("compute_local_keyframes", &cslam::KeyFrame::compute_local_keyframes);
     // .def("update_lms_after_kf_insert", &cslam::KeyFrame::update_lms_after_kf_insert);
 
 // Landmark
@@ -86,7 +89,8 @@ py::class_<cslam::Landmark>(m, "Landmark")
     .def("add_observation", &cslam::Landmark::add_observation)
     .def("update_normal_and_depth", &cslam::Landmark::update_normal_and_depth)
     .def("compute_descriptor", &cslam::Landmark::compute_descriptor)
-    .def("get_pos_in_world", &cslam::Landmark::get_pos_in_world);
+    .def("get_pos_in_world", &cslam::Landmark::get_pos_in_world)
+    .def("is_observable_in_kf", &cslam::Landmark::is_observed_in_keyframe);
 
 
 //Camera
@@ -99,9 +103,12 @@ py::class_<cslam::BrownPerspectiveCamera>(m, "BrownPerspectiveCamera")
 
 //LocalMapCleanr
 py::class_<cslam::LocalMapCleaner>(m, "LocalMapCleaner")
-    .def(py::init<>())
+    .def(py::init<const cslam::GuidedMatcher&>()) //, cslam::BrownPerspectiveCamera*>())
     .def("update_lms_after_kf_insert", &cslam::LocalMapCleaner::update_lms_after_kf_insert)
-    .def("remove_redundant_lms", &cslam::LocalMapCleaner::remove_redundant_landmarks);
+    .def("remove_redundant_lms", &cslam::LocalMapCleaner::remove_redundant_landmarks)
+    .def("add_landmark", &cslam::LocalMapCleaner::add_landmark)
+    .def("fuse_landmark_duplication", &cslam::LocalMapCleaner::fuse_landmark_duplication)
+    .def("update_new_keyframe", &cslam::LocalMapCleaner::update_new_keyframe);
 
 
 py::class_<cslam::SlamDebug>(m, "SlamDebug")
