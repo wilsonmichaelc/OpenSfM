@@ -3,11 +3,12 @@
 #include "landmark.h"
 #include "camera.h"
 #include "third_party/openvslam/util/guided_matching.h"
+#include "slam_reconstruction.h"
 namespace cslam
 {
 
-LocalMapCleaner::LocalMapCleaner(const GuidedMatcher& guided_matcher): //, BrownPerspectiveCamera* camera):
-    guided_matcher_(guided_matcher), camera_(guided_matcher.camera_)
+LocalMapCleaner::LocalMapCleaner(const GuidedMatcher& guided_matcher, SlamReconstruction* map_db): //, BrownPerspectiveCamera* camera):
+    guided_matcher_(guided_matcher), camera_(guided_matcher.camera_), map_db_(map_db)
 {
 
 }
@@ -46,6 +47,8 @@ void
 LocalMapCleaner::fuse_landmark_duplication(KeyFrame* curr_kf, const std::vector<KeyFrame*>& fuse_tgt_keyfrms) const
 {
     auto cur_landmarks = curr_kf->landmarks_;
+    std::cout << "Before first for" <<std::endl;
+
     // go through kfs and fuse!
     // reproject the landmarks observed in the current keyframe to each of the targets, and acquire
     // - additional matches
@@ -55,7 +58,7 @@ LocalMapCleaner::fuse_landmark_duplication(KeyFrame* curr_kf, const std::vector<
             const auto n_fused = guided_matcher_.replace_duplication(fuse_tgt_keyfrm, cur_landmarks);
             std::cout << "Fused: " << n_fused << " for " << fuse_tgt_keyfrm->im_name_ << std::endl;
     }
-
+    // std::cout << "After first for" <<std::endl;
     // reproject the landmarks observed in each of the targets to each of the current frame, and acquire
     // - additional matches
     // - duplication of matches
@@ -80,7 +83,7 @@ LocalMapCleaner::fuse_landmark_duplication(KeyFrame* curr_kf, const std::vector<
             candidate_landmarks_to_fuse.insert(lm);
         }
     }
-
+    std::cout << "After second for" <<std::endl;
     const auto n_fused = guided_matcher_.replace_duplication(curr_kf, candidate_landmarks_to_fuse);
     std::cout << "Fused: " << n_fused << " for curr" << curr_kf->im_name_ << std::endl;
 
@@ -92,8 +95,6 @@ LocalMapCleaner::fuse_landmark_duplication(KeyFrame* curr_kf, const std::vector<
 void
 LocalMapCleaner::update_new_keyframe(KeyFrame* curr_kf) const
 {
-
-
     // update the geometries
     const auto& cur_landmarks = curr_kf->landmarks_;
     for (const auto lm : cur_landmarks) {
@@ -155,13 +156,14 @@ LocalMapCleaner::remove_redundant_landmarks(const size_t cur_keyfrm_id) {
             ++num_removed;
             lm->prepare_for_erasing();
             iter = fresh_landmarks_.erase(iter);
+            map_db_->erase_landmark(lm);
         }
         else {
             // hold decision because the state is NotClear
             iter++;
         }
     }
-
+    std::cout << "remove_redundant_landmarks: " << num_removed << std::endl;
     return num_removed;
 }
 }

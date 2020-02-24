@@ -8,7 +8,7 @@
 #include "slam_datastructures/landmark.h"
 #include "slam_datastructures/keyframe.h"
 #include "slam_datastructures/camera.h"
-
+#include "slam_datastructures/slam_reconstruction.h"
 namespace cslam
 {
 
@@ -23,8 +23,9 @@ GridParameters::GridParameters(unsigned int grid_cols, unsigned int grid_rows,
                 {}
 
 
-GuidedMatcher::GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera):
-    grid_params_(grid_params), camera_(camera)
+GuidedMatcher::GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera,
+                             SlamReconstruction* map_db):
+    grid_params_(grid_params), camera_(camera), map_db_(map_db)
 {
 
 }
@@ -664,7 +665,7 @@ GuidedMatcher::get_keypoints_in_cell(const std::vector<cv::KeyPoint>& undist_key
                     if (idx >= undist_keypts.size())
                     {
                         std::cout << "keypts idx error!" << idx << std::endl;
-                        exit(0);
+                        // exit(0);
                     }
                 }
             }
@@ -695,7 +696,7 @@ GuidedMatcher::can_observe(Landmark* lm, const Frame& frame, const float ray_cos
                            Eigen::Vector2f& reproj, size_t& pred_scale_level) const 
 {
     const Eigen::Vector3f pos_w = lm->get_pos_in_world();
-    const Eigen::Matrix4f T_cw = frame.getTcw();
+    const Eigen::Matrix4f T_cw = frame.get_Tcw();
     const Eigen::Matrix3f rot_cw = T_cw.block<3,3>(0,0);
     const Eigen::Vector3f trans_cw = T_cw.block<3,1>(0,3);
     // camera_.reproject_to_image()
@@ -735,6 +736,7 @@ GuidedMatcher::search_local_landmarks(std::vector<Landmark*>& local_landmarks, F
         }
     }
     bool found_proj_candidate = false;
+    
     // temporary variables
     Eigen::Vector2f reproj;
     size_t pred_scale_level;
@@ -806,7 +808,7 @@ GuidedMatcher::match_frame_and_landmarks(cslam::Frame& frm, std::vector<cslam::L
         }
 
         const cv::Mat lm_desc = local_lm->get_descriptor();
-
+        // std::cout << "lm_desc mfal: " << lm_desc << std::endl;
         unsigned int best_hamm_dist = MAX_HAMMING_DIST;
         int best_scale_level = -1;
         unsigned int second_best_hamm_dist = MAX_HAMMING_DIST;
@@ -869,7 +871,7 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
     constexpr float lowe_ratio_{0.9};
     openvslam::match::angle_checker<int> angle_checker;
 
-    const Eigen::Matrix4f cam_pose_cw = curr_frm.getPose().inverse();
+    const Eigen::Matrix4f cam_pose_cw = curr_frm.get_Twc().inverse();
     const Eigen::Matrix3f rot_cw = cam_pose_cw.block<3, 3>(0, 0);
     const Eigen::Vector3f trans_cw = cam_pose_cw.block<3, 1>(0, 3);
 
@@ -913,8 +915,12 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
         
 
         // グローバル基準の3次元点座標
+        // std::cout << "Trying to get world pos: " << lm << std::endl;
+
         // Global standard 3D point coordinates
         const Eigen::Vector3f pos_w = lm->get_pos_in_world();
+        // std::cout << "Got world pos: " << lm << std::endl;
+
 
         // 再投影して可視性を求める
         // Reproject to find visibility
@@ -965,8 +971,9 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
         if (indices.empty()) {
             continue;
         }
-
+        // std::cout << "Trying to get desc from: " << lm << std::endl;
         const auto lm_desc = lm->get_descriptor();
+        // std::cout << "lm_desc mcal: " << lm_desc << std::endl;
 
         unsigned int best_hamm_dist = MAX_HAMMING_DIST;
         int best_idx = -1;
@@ -1021,7 +1028,6 @@ GuidedMatcher::match_current_and_last_frame(cslam::Frame& curr_frm, const cslam:
             --num_matches;
         }
     }
-    // return num_matches;
     return matches;
 }
 MatchIndices
@@ -1031,10 +1037,13 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
     const auto& lms1 = kf1.landmarks_;
     const auto& lms2 = kf2.landmarks_;
     const Eigen::Vector3f cam_center_1 = kf1.get_cam_center();
-    const Eigen::Matrix4f T_cw = kf2.getTcw();
+    const Eigen::Matrix4f T_cw = kf2.get_Tcw();
     const Eigen::Matrix3f rot_2w = T_cw.block<3,3>(0,0);
     const Eigen::Vector3f trans_2w = T_cw.block<3,1>(0,3);
+    // std::cout << "kf1: " << cam_center_1 << ", " << T_cw << std::endl;
     size_t num_matches{0};
+    size_t num_epi{0};
+    size_t num_cos{0};
     // matching情報を格納する
     // keyframe1の各特徴点に対して対応を求めるため，keyframe2で既にkeyframe1と対応が取れているものを除外するようにする
     std::vector<bool> is_already_matched_in_keyfrm_2(lms2.size(), false); // to keep track of potentially triangulated points
@@ -1072,18 +1081,20 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
             const Eigen::Vector3f& bearing_2 = kf2.bearings_.at(idx_2);
             const auto& desc_2 = kf2.descriptors_.row(idx_2);
             const auto hamm_dist = compute_descriptor_distance_32(desc_1, desc_2);
-
+            // std::cout << "hamm_dist: " << hamm_dist << std::endl;
             if (HAMMING_DIST_THR_LOW < hamm_dist || best_hamm_dist < hamm_dist) {
                 continue;
             }
-
+            // std::cout << "hamm_dist ok" << hamm_dist << std::endl;
             // if (!is_stereo_keypt_1 && !is_stereo_keypt_2) {
                 // If both are not stereo keypoints, don't use feature points near epipole
                 const auto cos_dist = epiplane_in_keyfrm_2.dot(bearing_2);
                 // Threshold angle between epipole and bearing (= 3.0deg)
                 constexpr double cos_dist_thr = 0.99862953475;
                 // do not match if the included angle is smaller than the threshold
-                if (cos_dist_thr < cos_dist) { 
+                if (cos_dist_thr < cos_dist) {
+                    ++num_cos; 
+                    // std::cout << "cos_dist: " << cos_dist << std::endl;
                     continue; 
                     }
             // }
@@ -1095,7 +1106,8 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
             if (is_inlier) {
                 best_idx_2 = idx_2;
                 best_hamm_dist = hamm_dist;
-            }
+                // num_epi++;
+            } else num_epi++;
         }
         if (best_idx_2 < 0) {
             continue;
@@ -1120,6 +1132,7 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
         }
         matches.emplace_back(std::make_pair(idx_1, matched_indices_2_in_keyfrm_1.at(idx_1)));
     }
+    // std::cout << "num_epi: " << num_epi << " num_cos: " << num_cos << " discarded!" << std::endl;
     return matches;
 }
 
@@ -1149,11 +1162,10 @@ template<typename T> size_t
 GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check, const float margin)  const
 {
     unsigned int num_fused = 0;
-
+    size_t n_cam_to_lm_dist{0}, n_cam_disc{0};
     const Eigen::Matrix3f rot_cw = keyfrm->get_rotation();
     const Eigen::Vector3f trans_cw = keyfrm->get_translation();
     const Eigen::Vector3f cam_center = keyfrm->get_cam_center();
-
     for (const auto lm : landmarks_to_check) {
         if (!lm) {
             continue;
@@ -1161,11 +1173,11 @@ GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check
         if (lm->will_be_erased()) {
             continue;
         }
-        std::cout << "lm is_observed_in_keyframe: " << lm->lm_id_ << std::endl;
+        // std::cout << "lm is_observed_in_keyframe: " << lm->lm_id_ <<" ptr: " << lm << std::endl;
         if (lm->is_observed_in_keyframe(keyfrm)) {
             continue;
         }
-        std::cout << "lm: " << lm->lm_id_ << std::endl;
+        // std::cout << "lm: " << lm->lm_id_ << std::endl;
         // グローバル基準の3次元点座標
         const Eigen::Vector3f pos_w = lm->get_pos_in_world();
         // 再投影して可視性を求める
@@ -1173,11 +1185,11 @@ GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check
         float x_right;
         // const bool in_image = camera_->reproject_to_image(rot_cw, trans_cw, pos_w, reproj, x_right);
         const bool in_image = camera_.reproject_to_image(rot_cw, trans_cw, pos_w, grid_params_, reproj);
-        std::cout << "rot_cw: " << rot_cw << "/" << trans_cw << "pos: " << pos_w << " reproj: " << reproj << std::endl;
-        std::cout << "K_eig: " << camera_.K_pixel_eig << " grid: "
-                  << grid_params_.img_min_height_ << "/" << grid_params_.img_max_height_ << "/" 
-                  << grid_params_.img_min_width_ << "/" << grid_params_.img_max_width_ 
-                  << std::endl;
+        // std::cout << "rot_cw: " << rot_cw << "/" << trans_cw << "pos: " << pos_w << " reproj: " << reproj << std::endl;
+        // std::cout << "K_eig: " << camera_.K_pixel_eig << " grid: "
+                //   << grid_params_.img_min_height_ << "/" << grid_params_.img_max_height_ << "/" 
+                //   << grid_params_.img_min_width_ << "/" << grid_params_.img_max_width_ 
+                //   << std::endl;
         // 画像外に再投影される場合はスルー
         if (!in_image) {
             continue;
@@ -1190,22 +1202,24 @@ GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check
         const auto min_cam_to_lm_dist = lm->get_min_valid_distance();
 
         if (cam_to_lm_dist < min_cam_to_lm_dist || max_cam_to_lm_dist < cam_to_lm_dist) {
+            ++n_cam_to_lm_dist;
             continue;
         }
 
-        std::cout << "lm get_obs_mean_normal: " << lm->lm_id_ << std::endl;
+        // std::cout << "lm get_obs_mean_normal: " << lm->lm_id_ << std::endl;
         // 3次元点の平均観測ベクトルとの角度を計算し，閾値(60deg)より大きければ破棄
         const Eigen::Vector3f obs_mean_normal = lm->get_obs_mean_normal();
 
         if (cam_to_lm_vec.dot(obs_mean_normal) < 0.5 * cam_to_lm_dist) {
+            ++n_cam_disc;
             continue;
         }
 
         // 3次元点を再投影した点が存在するcellの特徴点を取得
         const auto pred_scale_level = lm->predict_scale_level(cam_to_lm_dist, *keyfrm);
-        std::cout << "lm get_keypoints_in_cell: " << lm->lm_id_  
-                  << " pred: " << pred_scale_level << "/" << reproj.transpose() << ", size: " << keyfrm->keypts_indices_in_cells_.size() 
-                  << ", " << margin*keyfrm->scale_factors_.at(pred_scale_level)<< std::endl;
+        // std::cout << "lm get_keypoints_in_cell: " << lm->lm_id_  
+                //   << " pred: " << pred_scale_level << "/" << reproj.transpose() << ", size: " << keyfrm->keypts_indices_in_cells_.size() 
+                //   << ", " << margin*keyfrm->scale_factors_.at(pred_scale_level)<< std::endl;
 
         // const auto indices = keyfrm->get_keypoints_in_cell(reproj(0), reproj(1), margin * keyfrm->scale_factors_.at(pred_scale_level));
         const auto indices = get_keypoints_in_cell(keyfrm->undist_keypts_, keyfrm->keypts_indices_in_cells_, 
@@ -1214,15 +1228,16 @@ GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check
         if (indices.empty()) {
             continue;
         }
-        std::cout << "lm get_descriptor: " << lm->lm_id_ << std::endl;
+        // std::cout << "lm get_descriptor: " << lm->lm_id_ << ", ptr: " << lm << std::endl;
 
         // descriptorが最も近い特徴点を探す
         const auto lm_desc = lm->get_descriptor();
-
+        // std::cout << "lm get_descriptor: " << lm->get_descriptor() << std::endl;
         unsigned int best_dist = MAX_HAMMING_DIST;
         int best_idx = -1;
 
         for (const auto idx : indices) {
+            // std::cout <<"idx: " << idx << " size: " << keyfrm->undist_keypts_.size() << std::endl;
             const auto& keypt = keyfrm->undist_keypts_.at(idx);
 
             const auto scale_level = static_cast<unsigned int>(keypt.octave);
@@ -1261,7 +1276,7 @@ GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check
             // }
 
             const auto& desc = keyfrm->descriptors_.row(idx);
-
+            // std::cout << "desc: " << desc << " size: " << keyfrm->descriptors_.cols << "/" << keyfrm->descriptors_.rows << std::endl;
             const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
 
             if (hamm_dist < best_dist) {
@@ -1278,18 +1293,31 @@ GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check
         if (lm_in_keyfrm) {
             // keyframeのbest_idxに対応する3次元点が存在する -> 重複している場合
             if (!lm_in_keyfrm->will_be_erased()) {
+                // std::cout << "replace_duplication" << lm_in_keyfrm << "/" << lm << std::endl;
                 // より信頼できる(=観測数が多い)3次元点で置き換える
                 if (lm->num_observations() < lm_in_keyfrm->num_observations()) {
                     // lm_in_keyfrmで置き換える
-                    lm->replace(lm_in_keyfrm);
+                    if (lm->lm_id_ != lm_in_keyfrm->lm_id_)
+                    {
+                        lm->replace(lm_in_keyfrm);
+                        map_db_->erase_landmark(lm);
+                    }
                 }
                 else {
                     // lmで置き換える
-                    lm_in_keyfrm->replace(lm);
+                    if (lm->lm_id_ != lm_in_keyfrm->lm_id_)
+                    {
+                        lm_in_keyfrm->replace(lm);
+                        map_db_->erase_landmark(lm_in_keyfrm);
+                    }
                 }
+                // std::cout << "replace_duplication end"  << lm_in_keyfrm << "/" << lm << std::endl;
+
             }
         }
         else {
+            // std::cout << "add_observation"  << lm_in_keyfrm << "/" << lm  << ", " << best_idx << std::endl;
+
             // keyframeのbest_idxに対応する3次元点が存在しない
             // 観測情報を追加
             lm->add_observation(keyfrm, best_idx);
@@ -1298,7 +1326,7 @@ GuidedMatcher::replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check
 
         ++num_fused;
     }
-
+    std::cout << "num_fused: " << num_fused << " num_cam_disc: " << n_cam_disc << " n_cam_to_lm_dist: " << n_cam_to_lm_dist << std::endl;
     return num_fused;
 }
 

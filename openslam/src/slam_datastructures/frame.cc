@@ -141,12 +141,14 @@ Frame::clean_and_tick_landmarks() //const std::vector<size_t>& invalid_ids)
     size_t num_tracked_landmarks{0};
     for (size_t idx = 0; idx < landmarks_.size(); ++idx)
     {
-        auto lm = landmarks_[idx];
+        auto lm = landmarks_.at(idx);
         if (lm == nullptr)
             continue;
-        if (outlier_flags_[idx]) 
+        // if (outlier_flags_[idx]) 
+        if (outlier_flags_.at(idx))
         {
-            landmarks_[idx] = nullptr;
+            // landmarks_[idx] = nullptr;
+            landmarks_.at(idx) = nullptr;
         }
         else
         {
@@ -157,7 +159,6 @@ Frame::clean_and_tick_landmarks() //const std::vector<size_t>& invalid_ids)
     }
     return num_tracked_landmarks;
 }
-
 
 py::object
 Frame::get_valid_keypts() const
@@ -177,6 +178,7 @@ Frame::get_valid_keypts() const
     }
     return csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols);
 }
+
 size_t
 Frame::discard_outliers()
 {

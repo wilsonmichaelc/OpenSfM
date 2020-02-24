@@ -62,13 +62,13 @@ class SlamSystem(object):
                            self.config_slam['grid_n_rows'],
                            bounds[0], bounds[2], bounds[1], bounds[3],
                            inv_cell_w, inv_cell_h)
-        # self.slam_tracker.grid_params = self.grid_params
+        self.slam_map = cslam.SlamReconstruction()
         c = self.camera[1]
         self.cCamera =\
             cslam.BrownPerspectiveCamera(c.width, c.height, c.projection_type,
             c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3)
-        self.guided_matcher = cslam.GuidedMatcher(self.grid_params, self.cCamera)
-        self.slam_mapper = SlamMapper(self.guided_matcher, self.data, self.config_slam, self.camera)
+        self.guided_matcher = cslam.GuidedMatcher(self.grid_params, self.cCamera, self.slam_map)
+        self.slam_mapper = SlamMapper(self.guided_matcher, self.data, self.config_slam, self.camera, self.slam_map)
         self.slam_tracker = SlamTracker(self.guided_matcher)
         self.slam_tracker.scale_factors = self.orb_extractor.get_scale_factors()
 
@@ -84,21 +84,10 @@ class SlamSystem(object):
         # Create frame with name and unique id    
         frame = Frame(im_name, self.slam_mapper.n_frames, self.data)
         frame.make_cframe(self.orb_extractor)
-        # orb_detector.detect()
         keypts = list()
         mask = np.array([], dtype=np.uint8)
         chrono = reconstruction.Chronometer()
-        
-        # Step 1: Detect SIFT/ORB features in first image
-        # ORB
-        # kpt, desc = self.orb_extractor.extract_orb_py(image, mask)
-        # kpt3, desc3 = self.orb_extractor.extract_orb_py(image, mask)
-        # self.orb_extractor.extract_orb_py2(image, mask, frame.cframe)
-
-        # for i in range(0,100):
-        #     self.orb_extractor.extract_orb_py2(image, mask, frame.cframe)
-        
-        print("successful 100 runs")
+    
         # undistort points
         kpt2, desc2 = frame.cframe.getKptsAndDescPy()
         self.cCamera.undistKeyptsFrame(frame.cframe)
@@ -106,59 +95,23 @@ class SlamSystem(object):
         up2 = frame.cframe.getKptsUndist()
         self.guided_matcher.\
             distribute_keypoints_to_grid_frame(frame.cframe)
-        # l = guided_matching.assign_keypoints_to_grid(self.grid_params, up.reshape(-1,2))
-        # slam_debug.draw_obs_in_image_no_norm(kpt, image, False)
         slam_debug.draw_obs_in_image_no_norm(kpt2, image, True)
-
-        # frame.points = kpt
-        # frame.undist_pts = up.reshape(-1, 2)
-        # frame.keypts_in_cell = guided_matching.\
-        #     assign_keypoints_to_grid(self.grid_params, frame.undist_pts)
-        # frame.descriptors = desc
         frame.colors = slam_utils.extract_colors_for_pts(frame.image, up2)
         
         chrono.lap('new_orb')
         if not self.system_initialized:
             return self.init_slam_system(frame)
+        chrono.lap("init_slam_system_all")
         pose = self.track_frame(frame)
+        chrono.lap("track")
         if pose is not None:
             frame.world_pose = pose
         self.slam_mapper.update_with_last_frame(frame)
         self.slam_mapper.num_tracked_lms = self.slam_tracker.num_tracked_lms
-        # if pose is not None:
         if self.slam_mapper.new_keyframe_is_needed(frame):
             self.slam_mapper.insert_new_keyframe(frame)
-
-    def process_frame(self, frame):
-        """Process one single frame.
-        Step 1: Extract multi-scale features
-        Step 2: Init or track frame
-        """
-        # orb_detector.detect()
-        keypts = list()
-        mask = np.array([], dtype=np.uint8)
-        chrono = reconstruction.Chronometer()
-        # Step 1: Detect SIFT/ORB features in first image
-        # ORB
-        kpt, desc = self.orb_extractor.extract_orb_py(frame.image, mask)
-        # f = orb_extractor.Frame(10)
-        # f.print_info()
-        # self.orb_extractor.extract_orb_py2(frame.image, mask, f)
-        # f.print_info()
-        up = self.camera[1].undistort_many(kpt[:, 0:2])
-        # l = guided_matching.assign_keypoints_to_grid(self.grid_params, up.reshape(-1,2))
-        slam_debug.draw_obs_in_image_no_norm(kpt, frame.image)
-        frame.points = kpt
-        frame.undist_pts = up.reshape(-1, 2)
-        frame.keypts_in_cell = guided_matching.\
-            assign_keypoints_to_grid(self.grid_params, frame.undist_pts)
-        frame.descriptors = desc
-        frame.colors = slam_utils.extract_colors_for_pts(frame.image, kpt)
-        
-        chrono.lap('new_orb')
-        if not self.system_initialized:
-            return self.init_slam_system(frame)
-        self.track_frame(frame)
+        slam_debug.avg_timings.addTimes(chrono.laps_dict)
+        return pose is not None
 
     def init_slam_system(self, frame: Frame):
         """Find the initial depth estimates for the slam map"""
@@ -168,19 +121,22 @@ class SlamSystem(object):
             self.slam_init.set_initial_frame(frame)
             self.system_initialized = False
         else:
+            chrono = reconstruction.Chronometer()
             rec_init, graph, matches = \
                 self.slam_init.initialize(frame)
+            chrono.lap("slam_init")
             self.system_initialized = (rec_init is not None)
             if self.system_initialized:
                 self.slam_mapper.create_init_map(graph, rec_init,
                                                  self.slam_init.init_frame,
                                                  frame)
+                chrono.lap("create_init_map")
+            slam_debug.avg_timings.addTimes(chrono.laps_dict)
         if self.system_initialized:
             logger.debug("Initialized system with {}".format(frame.im_name))
         else:
             logger.debug("Failed to initialize with {}".format(frame.im_name))
         return self.system_initialized
-
 
     def track_frame(self, frame: Frame):
         """ Tracks a frame
@@ -189,8 +145,38 @@ class SlamSystem(object):
         logger.debug("Tracking: {}, {}".format(frame.frame_id, frame.im_name))
         # Maybe move most of the slam_mapper stuff to tracking
         # TODO: Landmark replac!
-        # self.slam_mapper.apply_landmark_replace()
+        self.slam_map.apply_landmark_replace(self.slam_mapper.last_frame.cframe)
         return self.slam_tracker.track(self.slam_mapper, frame,
                                        self.config, self.camera, data)
 
 
+# def process_frame(self, frame):
+#         """Process one single frame.
+#         Step 1: Extract multi-scale features
+#         Step 2: Init or track frame
+#         """
+#         # orb_detector.detect()
+#         keypts = list()
+#         mask = np.array([], dtype=np.uint8)
+#         chrono = reconstruction.Chronometer()
+#         # Step 1: Detect SIFT/ORB features in first image
+#         # ORB
+#         kpt, desc = self.orb_extractor.extract_orb_py(frame.image, mask)
+#         # f = orb_extractor.Frame(10)
+#         # f.print_info()
+#         # self.orb_extractor.extract_orb_py2(frame.image, mask, f)
+#         # f.print_info()
+#         up = self.camera[1].undistort_many(kpt[:, 0:2])
+#         # l = guided_matching.assign_keypoints_to_grid(self.grid_params, up.reshape(-1,2))
+#         slam_debug.draw_obs_in_image_no_norm(kpt, frame.image)
+#         frame.points = kpt
+#         frame.undist_pts = up.reshape(-1, 2)
+#         frame.keypts_in_cell = guided_matching.\
+#             assign_keypoints_to_grid(self.grid_params, frame.undist_pts)
+#         frame.descriptors = desc
+#         frame.colors = slam_utils.extract_colors_for_pts(frame.image, kpt)
+        
+#         chrono.lap('new_orb')
+#         if not self.system_initialized:
+#             return self.init_slam_system(frame)
+#         self.track_frame(frame)

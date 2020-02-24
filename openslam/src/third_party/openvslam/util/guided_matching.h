@@ -4,14 +4,14 @@
 #include <iostream>
 #include <opencv2/core.hpp>
 #include "third_party/openvslam/feature/orb_params.h"
-namespace cslam{ 
-    class Frame;
-    class Landmark;
-    class KeyFrame;
-    class BrownPerspectiveCamera;
-}
+
 namespace cslam
 {
+class Frame;
+class Landmark;
+class KeyFrame;
+class BrownPerspectiveCamera;
+class SlamReconstruction;
 struct GridParameters
 {
     GridParameters(unsigned int grid_col_, unsigned int grid_rows,
@@ -67,7 +67,7 @@ public:
 
         return dist;
     }
-    GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera);
+    GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera, SlamReconstruction* map_db);
     const GridParameters& grid_params_;
     const BrownPerspectiveCamera& camera_;
     void assign_points_to_grid(const Eigen::MatrixXf& undist_keypts, CellIndices& keypt_indices_in_cells);
@@ -78,33 +78,12 @@ public:
     void distribute_keypoints_to_grid(const std::vector<cv::KeyPoint>& undist_keypts,
                                     CellIndices& keypt_indices_in_cells);
 
-    // std::vector<size_t> 
-    // get_keypoints_in_cell(const Eigen::MatrixXf& undist_keypts,
-    //                     const CellIndices& keypt_indices_in_cells,
-    //                     const float ref_x, const float ref_y, const float margin,
-    //                     const int min_level, const int max_level);
-
     std::vector<size_t> 
     get_keypoints_in_cell(const std::vector<cv::KeyPoint>& undist_keypts,
                           const CellIndices& keypt_indices_in_cells,
                           const float ref_x, const float ref_y, const float margin,
                           const int min_level = -1, const int max_level = -1) const;
 
-    // MatchIndices 
-    // match_frame_to_frame_py(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
-    //                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
-    //                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
-    //                     const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
-    //                     const size_t margin);
-
-    // std::vector<size_t> 
-    // match_frame_to_frame_dbg(const Eigen::MatrixXf& undist_keypts_1, const Eigen::MatrixXf& undist_keypts_2,
-    //                     //  const Eigen::MatrixXi& desc_1, const Eigen::MatrixXi& desc_2, 
-    //                     //  const Eigen::MatrixX& desc_1, const Eigen::MatrixXf& desc_2, 
-    //                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_1,
-    //                     Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>& desc_2,
-    //                     const CellIndices& cell_indices_2, const Eigen::MatrixX2f& prevMatched,
-    //                     const size_t margin);
     MatchIndices 
     match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
                         const Eigen::MatrixX2f& prevMatched,
@@ -112,9 +91,6 @@ public:
 
 
     // TODO: Think about the margin. Maybe make it dynamic depending on the depth of the feature!!
-    // size_t
-    // match_frame_and_landmarks(const std::vector<float>& scale_factors,
-    //                         cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
     size_t
     match_frame_and_landmarks(cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
     std::vector<cslam::Landmark*>
@@ -155,12 +131,6 @@ public:
     }
     template<typename T> size_t 
     replace_duplication(KeyFrame* keyfrm, const T& landmarks_to_check, const float margin = 3.0) const;
+    SlamReconstruction* map_db_;
 };
-
-// Eigen::Matrix4f
-// track_to_last_frame(const GridParameters& grid_params, const Eigen::Matrix4f& T_wc_init,
-//                     const cslam::Frame& last_frame, cslam::Frame& curr_frame);
-// {
-//     Eigen::Matrix4f T_wc = T_wc_ini
-// }
 };

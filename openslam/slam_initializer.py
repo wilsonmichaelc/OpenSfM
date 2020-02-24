@@ -125,7 +125,7 @@ class SlamInitializer(object):
         #                                  self.init_frame.image,
         #                                  frame.image,
         #                                  is_normalized=False, do_show=True)
-        print(matches)
+        # print(matches)
 
         
         # test reconstructability

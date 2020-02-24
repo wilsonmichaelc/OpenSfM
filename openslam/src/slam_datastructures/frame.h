@@ -46,21 +46,20 @@ public:
     std::vector<Landmark*> get_valid_lms();
     size_t num_keypts_;
     Eigen::Vector3f get_cam_center() const { return cam_center_; }
-    Eigen::Matrix4f getPose() const { return T_wc; }
-    Eigen::Matrix4f getTcw() const { return T_cw; }
-    // sets cam to world
-    // void setPose(const Eigen::Matrix4f& pose)
-    // {
-    //     T_wc = pose;
-    //     cam_pose_cw_ = T_wc.inverse();
-    //     // cam_center_ = T_cw.block<3,1>(0,3);//-rot_wc * trans_cw;
-    // }
-    void setPose(const Eigen::Matrix4f& pose)
+    Eigen::Matrix4f get_Twc() const { return T_wc; }
+    Eigen::Matrix4f get_Tcw() const { return T_cw; }
+    void set_Tcw(const Eigen::Matrix4f& T_cw_) { 
+        T_cw = T_cw_;
+        T_wc = T_cw.inverse();
+        cam_center_ = T_wc.block<3,1>(0,3);
+    }
+    void set_Twc(const Eigen::Matrix4f& T_wc_)
     {
-        T_wc = pose;
+        T_wc = T_wc_;
         T_cw = T_wc.inverse();
         // cam_pose_cw_ = T_wc.inverse();
-        cam_center_ = T_cw.block<3,1>(0,3);//-rot_wc * trans_cw;
+        // cam_center_ = T_cw.block<3,1>(0,3);//-rot_wc * trans_cw;
+        cam_center_ = T_wc.block<3,1>(0,3);
     }
     size_t discard_outliers();
     // ORB scale pyramid information

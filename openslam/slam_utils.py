@@ -1,4 +1,5 @@
 from opensfm import features
+from opensfm import types
 import numpy as np
 
 def in_image(point, width, height):
@@ -31,3 +32,9 @@ def extract_colors_for_pts(image, points):
         image = np.dstack((image, image, image))
     return image[ys, xs]
 
+
+def mat_to_pose(mat):
+    pose = types.Pose()
+    pose.set_rotation_matrix(mat[0:3, 0:3])
+    pose.translation = mat[0:3,3]
+    return pose

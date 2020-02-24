@@ -2,6 +2,7 @@
 #include <map>
 #include <opencv2/core.hpp>
 #include <Eigen/Eigen>
+#include <iostream>
 namespace cslam
 {
 class KeyFrame;
@@ -21,9 +22,13 @@ public:
     size_t scale_level_in_tracking_;
     Eigen::Vector2f reproj_in_tracking_ = Eigen::Vector2f::Zero(); // reprojected pixel position
 
+
     //! whether this landmark will be erased shortly or not
     bool will_be_erased() { return will_be_erased_; };
-    cv::Mat get_descriptor() const { return descriptor_.clone(); }
+    cv::Mat get_descriptor() const { 
+        // std::cout << "Returning desc " << descriptor_ << " lm_id: " << lm_id_ << " ptr: " << this << std::endl;
+        return descriptor_.clone(); 
+    }
     bool has_observation() const { return num_observations_ > 0; }
     size_t num_observations() const { return num_observations_; }
     void add_observation(KeyFrame*, const size_t idx);
@@ -32,6 +37,7 @@ public:
     size_t identifier_in_local_map_update_ = 0;
     size_t identifier_in_local_lm_search_ = 0;
     Eigen::Vector3f get_pos_in_world() const { return pos_w_; }
+    void set_pos_in_world(const Eigen::Vector3f& pos_w) { pos_w_ = pos_w; }
     float get_min_valid_distance() const { return 0.7 * min_valid_dist_; }
     float get_max_valid_distance() const { return 1.3 * max_valid_dist_; }
     //! predict scale level assuming this landmark is observed in the specified frame
@@ -55,6 +61,7 @@ public:
     const size_t lm_id_;
     size_t ref_kf_id_;
     const auto& get_observations() { return observations_; }
+    Landmark* get_replaced() const { return replaced_; }
 private:
     
     size_t num_observations_ = 0;
@@ -85,9 +92,6 @@ private:
 
     //! this landmark will be erased shortly or not
     bool will_be_erased_ = false; //Note: probably always false since we don't run in parallel
-
-
-
-
+    Landmark* replaced_ = nullptr;
 };
 } // namespace cslam

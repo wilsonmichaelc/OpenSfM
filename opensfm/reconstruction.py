@@ -715,10 +715,11 @@ def bootstrap_reconstruction(data, graph, camera_priors, im1, im2, p1, p2):
     reconstruction = types.Reconstruction()
     reconstruction.reference = data.load_reference()
     reconstruction.cameras = copy.deepcopy(camera_priors)
-
+    print("reconstruction.cameras: ", reconstruction.cameras)
     shot1 = types.Shot()
     shot1.id = im1
     shot1.camera = reconstruction.cameras[camera_id1]
+    print("reconstruction.cameras[camera_id1]: ", reconstruction.cameras[camera_id1])
     shot1.pose = types.Pose()
     shot1.metadata = get_image_metadata(data, im1)
     reconstruction.add_shot(shot1)

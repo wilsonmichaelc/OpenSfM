@@ -30,8 +30,8 @@ PYBIND11_MODULE(cslam_types, m) {
     py::class_<cslam::KeyFrame>(m, "KeyFrame")
         .def(py::init<const size_t, const cslam::Frame>())
         .def_readonly("kf_id", &cslam::KeyFrame::kf_id_)
-        .def("set_pose", &cslam::KeyFrame::setPose)
-        .def("get_pose", &cslam::KeyFrame::getPose);
+        .def("set_pose", &cslam::KeyFrame::set_Twc)
+        .def("get_pose", &cslam::KeyFrame::get_Twc);
 
     // Landmark
     py::class_<cslam::Landmark>(m, "Landmark")

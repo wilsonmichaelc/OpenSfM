@@ -26,6 +26,7 @@ struct Camera
     virtual bool reproject_to_image(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                     const cslam::GridParameters& gridParams, Eigen::Vector2f& pt2D) const = 0;
 };
+
 /**
  * Define a perspective camera.
 

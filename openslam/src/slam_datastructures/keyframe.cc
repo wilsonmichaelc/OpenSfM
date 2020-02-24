@@ -14,7 +14,7 @@ KeyFrame::KeyFrame(const size_t kf_id, const Frame& frame):
     num_scale_levels_(frame.num_scale_levels_), scale_factor_(frame.scale_factor_),
     log_scale_factor_(frame.log_scale_factor_), scale_factors_(frame.scale_factors_),
     level_sigma_sq_(frame.level_sigma_sq_), inv_level_sigma_sq_(frame.inv_level_sigma_sq_),
-    keypts_indices_in_cells_(frame.keypts_indices_in_cells_)
+    keypts_indices_in_cells_(frame.keypts_indices_in_cells_), num_keypts_(landmarks_.size())
 {
 
 }
@@ -38,9 +38,9 @@ KeyFrame::compute_local_keyframes() const
     //TODO: be careful when we remove KFs!!!!
     std::vector<size_t> seen_idx;
     seen_idx.reserve(kf_id_+1);
-    for (size_t idx = 0; idx < seen.size()+1; ++idx)
+    for (size_t idx = 0; idx < seen.size(); ++idx)
     {
-        if (seen[idx]) seen_idx.push_back(idx);
+        if (seen.at(idx)) seen_idx.push_back(idx);
     }
     return seen_idx;
 }
@@ -84,6 +84,7 @@ void
 KeyFrame::add_landmark(Landmark* lm, const size_t idx)
 {
     landmarks_[idx] = lm;
+    // std::cout << "landmarks_["<< idx << "]: " <<  landmarks_[idx] << " and " << lm << " kf: " << kf_id_ << "ptr: " << this << std::endl;
 }
 
 size_t 
@@ -140,6 +141,54 @@ KeyFrame::compute_median_depth(const bool abs) const
     std::sort(depths.begin(), depths.end());
     return depths.at((depths.size() - 1) / 2);
 }
+
+std::vector<Landmark*>
+KeyFrame::get_valid_lms()
+{
+    std::vector<Landmark*> landmark;
+    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> obs; //x, y, scale
+    for (size_t i = 0; i < num_keypts_; ++i)//(auto lm : landmarks_)
+    {
+        auto lm = landmarks_[i];
+        if (lm == nullptr) continue;
+        landmark.push_back(lm);
+        const auto kp = keypts_[i];
+        obs.push_back(Eigen::Vector3f(kp.pt.x, kp.pt.y, kp.size));
+    }
+    return landmark;
+}
+py::object
+KeyFrame::get_valid_keypts() const
+{
+    const auto n_valid_pts = num_keypts_ - std::count(landmarks_.cbegin(), landmarks_.cend(),nullptr);
+    // Convert to numpy.
+    cv::Mat keys(n_valid_pts, 3, CV_32F);
+    size_t idx2{0};
+    for (size_t i = 0; i < keypts_.size(); ++i) {
+    if (landmarks_[i] != nullptr)
+        {
+            keys.at<float>(idx2, 0) = keypts_[i].pt.x;
+            keys.at<float>(idx2, 1) = keypts_[i].pt.y;
+            keys.at<float>(idx2, 2) = keypts_[i].size;
+            idx2++;
+        }
+    }
+    return csfm::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols);
+}
+
+std::vector<size_t> 
+KeyFrame::get_valid_idx() const
+{
+    std::vector<size_t> valid_idx;
+    for (size_t i = 0; i < num_keypts_; ++i)
+    {
+        auto lm = landmarks_[i];
+        if (lm == nullptr) continue;
+        valid_idx.push_back(i);
+    }
+    return valid_idx;
+}
+
 
 // std::vector<Landmark*> 
 // KeyFrame::update_lms_after_kf_insert()

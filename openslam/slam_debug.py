@@ -85,7 +85,7 @@ def draw_observations_in_image(observations, image, data, do_show=True):
         plt.show()
 
 
-def draw_obs_in_image_no_norm(obs, image, do_show=True):
+def draw_obs_in_image_no_norm(obs, image, title="observations", do_show=True):
     if disable_debug:
         return
     fig, ax = plt.subplots(1)
@@ -98,7 +98,7 @@ def draw_obs_in_image_no_norm(obs, image, do_show=True):
     
     ax.imshow(im)
     ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
-    ax.set_title("observations")
+    ax.set_title(title)
     if do_show:
         plt.show()
 def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True, title = ""):
@@ -213,8 +213,8 @@ def visualize_graph(graph, frame1: str, frame2: str, data, do_show=True):
 
 
 def visualize_tracked_lms(points2D, frame: Frame, data):
-    if disable_debug:
-        return
+    # if disable_debug:
+        # return
     im1 = data.load_image(frame.im_name)
     h1, w1, c = im1.shape
     im1 = cv2.cvtColor(im1, cv2.COLOR_RGB2BGR)

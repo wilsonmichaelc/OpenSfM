@@ -45,7 +45,7 @@ BrownPerspectiveCamera::undistKeypts(const std::vector<cv::KeyPoint>& keypts, st
         upTmp.at<float>(i,0)=keypts[i].pt.x;
         upTmp.at<float>(i,1)=keypts[i].pt.y;
     }
-        // Undistort points
+    // Undistort points
     upTmp=upTmp.reshape(2);
     cv::undistortPoints(upTmp,upTmp,K,distCoeff,cv::Mat(),K);
     upTmp=upTmp.reshape(1);

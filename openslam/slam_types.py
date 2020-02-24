@@ -94,7 +94,7 @@ class Keyframe(object):
         """Initialize a new keyframe with a frame and a kf_id
         The Keyframe holds a frame!
         """
-        print("Creating KF: ", kf_id, frame.im_name)
+        # print("Creating KF: ", kf_id, frame.im_name)
         self.kf_id = kf_id  # unique_id
         # self.frame = frame
         self.frame_id = frame.frame_id

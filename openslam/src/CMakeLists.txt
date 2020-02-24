@@ -17,7 +17,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
     -fPIC \
     -fvisibility=hidden \
     -fvisibility-inlines-hidden \
-    -std=c++11")
+    -std=c++14")
 
 # Find dependencies.
 # add_subdirectory(${opensfm_SOURCE_DIR}/third_party/pybind11)
@@ -153,6 +153,8 @@ pybind11_add_module(cslam
     ${openslam_SOURCE_DIR}/slam_debug.cc
     ${openslam_SOURCE_DIR}/slam_datastructures/local_map_cleaner.h
     ${openslam_SOURCE_DIR}/slam_datastructures/local_map_cleaner.cc
+    ${openslam_SOURCE_DIR}/slam_datastructures/slam_reconstruction.h
+    ${openslam_SOURCE_DIR}/slam_datastructures/slam_reconstruction.cc
 )
 # pybind11_add_libr
 

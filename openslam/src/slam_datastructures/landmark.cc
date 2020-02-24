@@ -10,25 +10,15 @@ Landmark::Landmark(const size_t lm_id, KeyFrame* ref_kf, const Eigen::Vector3f& 
     lm_id_(lm_id), ref_keyfrm_(ref_kf), ref_kf_id_(ref_kf->kf_id_), pos_w_(pos_w)
     {
         scale_level_in_tracking_ = 0;
-        // std::cout << "ref_kf: " << ref_kf << std::endl;
     };
 void 
 Landmark::add_observation(KeyFrame* keyfrm, size_t idx) {
-    // std::lock_guard<std::mutex> lock(mtx_observations_);
-    std::cout << "Trying to add: " << keyfrm->kf_id_ << "/" << idx << "/" << keyfrm << std::endl;
     if (observations_.count(keyfrm)) {
         return;
     }
+    // std::cout << "add obs: " << keyfrm << ", " << keyfrm->kf_id_ << " idx: " << idx <<  "lm: " << lm_id_ << " ptr: " << this << std::endl;
     observations_[keyfrm] = idx;
-    std::cout << "Added: " << keyfrm->kf_id_ << "/" << idx << std::endl;
-    // if (0 <= keyfrm->stereo_x_right_.at(idx)) {
-    //     num_observations_ += 2;
-    // }
-    // else {
-        num_observations_ += 1;
-    // }
-    // const auto class_id = keyfrm->keypts_[idx].class_id;
-    // if (class_id > 0 && class_id < 255) num_map_feature_obs_2_++;
+    num_observations_ += 1;
 }
 
 size_t 
@@ -67,6 +57,7 @@ Landmark::predict_scale_level(const float cam_to_lm_dist, const Frame& frm) cons
 void 
 Landmark::prepare_for_erasing() 
 {
+    // std::cout << "prepare_for_erasing: " << this << ", " << lm_id_ << std::endl;
     for (const auto& keyfrm_and_idx : observations_) {
         keyfrm_and_idx.first->erase_landmark_with_index(keyfrm_and_idx.second);
     }
@@ -80,19 +71,17 @@ Landmark::replace(Landmark* lm) {
     if (lm->lm_id_ == this->lm_id_) {
         return;
     }
-
+    // std::cout << "Replace " << this << " with " << lm << std::endl;
     unsigned int num_observable, num_observed;
     std::map<KeyFrame*, size_t> observations;
-    // {
-        // std::lock_guard<std::mutex> lock1(mtx_observations_);
-        // std::lock_guard<std::mutex> lock2(mtx_position_);
-        observations = observations_;
-        observations_.clear();
-        will_be_erased_ = true;
-        num_observable = num_observable_;
-        num_observed = num_observed_;
-        // replaced_ = lm;
-    // }
+    observations = observations_;
+    observations_.clear();
+    will_be_erased_ = true;
+    num_observable = num_observable_;
+    num_observed = num_observed_;
+    replaced_ = lm;
+    // std::cout << "replaced lm = " << replaced_ << std::endl;
+
     for (const auto& keyfrm_and_idx : observations) {
         KeyFrame* keyfrm = keyfrm_and_idx.first;
 
@@ -117,7 +106,6 @@ void
 Landmark::compute_descriptor()
 {
     if (observations_.empty()) return;
-
     // 対応している特徴点の特徴量を集める
     std::vector<cv::Mat> descriptors;
     descriptors.reserve(observations_.size());
@@ -136,6 +124,7 @@ Landmark::compute_descriptor()
     // まず特徴量間の距離を全組み合わせで計算
     // First, calculate the distance between features in all combinations
     const auto num_descs = descriptors.size();
+    // std::cout << "Computing: " << num_descs << std::endl;
     std::vector<std::vector<unsigned int>> hamm_dists(num_descs, std::vector<unsigned int>(num_descs));
     for (unsigned int i = 0; i < num_descs; ++i) {
         hamm_dists.at(i).at(i) = 0;
@@ -160,29 +149,11 @@ Landmark::compute_descriptor()
             best_idx = idx;
         }
     }
-
-    // {
-        // std::lock_guard<std::mutex> lock(mtx_observations_);
     descriptor_ = descriptors.at(best_idx).clone();
-    // }
 }
 void 
-Landmark::update_normal_and_depth() //const std::vector<float>& scale_factors) {
+Landmark::update_normal_and_depth()
 {
-    // std::map<keyframe*, unsigned int> observations;
-    // KeyFrame* ref_keyfrm;
-    // Eigen::Vector3f pos_w;
-    // {
-    //     std::lock_guard<std::mutex> lock1(mtx_observations_);
-    //     std::lock_guard<std::mutex> lock2(mtx_position_);
-    //     if (will_be_erased_) {
-    //         return;
-    //     }
-    //     observations = observations_;
-    //     ref_keyfrm = ref_keyfrm_;
-    //     pos_w = pos_w_;
-    // }
-
     if (observations_.empty()) {
         return;
     }
@@ -203,12 +174,9 @@ Landmark::update_normal_and_depth() //const std::vector<float>& scale_factors) {
     const auto scale_factor = ref_keyfrm_->scale_factors_.at(scale_level);
     const auto num_scale_levels = ref_keyfrm_->num_scale_levels_;
 
-    // {
-        // std::lock_guard<std::mutex> lock3(mtx_position_);
     max_valid_dist_ = dist * scale_factor;
     min_valid_dist_ = max_valid_dist_ / ref_keyfrm_->scale_factors_.at(num_scale_levels - 1);
     mean_normal_ = mean_normal / num_observations;
-    // }
 }
 
 }
