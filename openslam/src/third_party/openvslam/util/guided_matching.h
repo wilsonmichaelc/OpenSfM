@@ -1,6 +1,7 @@
 #pragma once
 #include <Eigen/Eigen>
 #include <vector>
+#include <unordered_map>
 #include <iostream>
 #include <opencv2/core.hpp>
 #include "third_party/openvslam/feature/orb_params.h"
@@ -32,7 +33,6 @@ struct GridParameters
 
 using CellIndices = std::vector<std::vector<std::vector<unsigned int>>>;
 using MatchIndices = std::vector<std::pair<size_t, size_t>>;
-using OrbFeature = Eigen::Matrix<float, 1, 5>;
 class GuidedMatcher
 {
 public:
@@ -67,6 +67,8 @@ public:
 
         return dist;
     }
+    static std::unordered_map<KeyFrame*, float>
+    compute_optical_flow(const cslam::Frame& new_frame); //, std::vector<cslam::Landmark*>& local_landmarks);
     GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera, SlamReconstruction* map_db);
     const GridParameters& grid_params_;
     const BrownPerspectiveCamera& camera_;
@@ -89,7 +91,6 @@ public:
                         const Eigen::MatrixX2f& prevMatched,
                         const size_t margin);
 
-
     // TODO: Think about the margin. Maybe make it dynamic depending on the depth of the feature!!
     size_t
     match_frame_and_landmarks(cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
@@ -105,6 +106,9 @@ public:
 
     MatchIndices
     match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12) const;
+    MatchIndices
+    match_for_triangulation_exhaustive(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12) const;
+
     
     static bool 
     check_epipolar_constraint(const Eigen::Vector3f& bearing_1, const Eigen::Vector3f& bearing_2,

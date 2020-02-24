@@ -7,6 +7,8 @@ refine_with_local_map: True
 tracker_lk: False
 match_symm: True
 
+run_local_ba_every_nth: 2
+
 # Feature parameters
 feat_cell_size: 64
 feat_cell_overlap: 6

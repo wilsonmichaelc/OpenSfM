@@ -26,7 +26,7 @@ args.dataset = "/home/fschenk/software/mapillary_repos/mapillary_sfm_evaluation/
 # args.dataset = "/home/fschenk/data/ae_sequences/single_images/blackvue20190820_235022_NF"
 slam_system = SlamSystem(args)
 data = dataset.DataSet(args.dataset)
-start_id = 0
+start_id = 80
 for idx, im_name in enumerate(sorted(data.image_list)):
     if idx < start_id:
         continue

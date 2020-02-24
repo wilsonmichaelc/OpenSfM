@@ -14,6 +14,7 @@ import slam_debug
 from collections import defaultdict
 import cv2
 import slam_utils
+from cslam import GuidedMatcher
 class SlamMapper(object):
 
     def __init__(self, guided_matcher, data, config_slam, camera, slam_map):
@@ -218,6 +219,8 @@ class SlamMapper(object):
         self.add_keyframe(new_kf)
         self.slam_map_cleaner.update_lms_after_kf_insert(new_kf.ckf)
         self.slam_map_cleaner.remove_redundant_lms(new_kf.kf_id)
+        of_vec = GuidedMatcher.compute_optical_flow(frame.cframe) #, frame.cframe.get_valid_lms())
+        print("of_vec", of_vec)
         print("create_new_landmarks_before")
         chrono = reconstruction.Chronometer()
         self.create_new_landmarks()
@@ -225,7 +228,8 @@ class SlamMapper(object):
         print("create_new_landmarks_after")
         self.update_new_keyframe()
         chrono.lap("update_keyframe")
-        self.local_bundle_adjustment()
+        if self.n_keyframes % self.config_slam["run_local_ba_every_nth"] == 0:
+            self.local_bundle_adjustment()
         chrono.lap("local_bundle_adjustment")
         slam_debug.avg_timings.addTimes(chrono.laps_dict)
 

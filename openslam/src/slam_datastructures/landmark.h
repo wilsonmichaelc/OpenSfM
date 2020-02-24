@@ -61,6 +61,7 @@ public:
     const size_t lm_id_;
     size_t ref_kf_id_;
     const auto& get_observations() { return observations_; }
+    // const auto& get_observations() const { return observations_; }
     Landmark* get_replaced() const { return replaced_; }
 private:
     
