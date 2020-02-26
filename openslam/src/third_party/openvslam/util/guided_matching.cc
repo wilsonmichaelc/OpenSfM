@@ -675,23 +675,23 @@ GuidedMatcher::get_keypoints_in_cell(const std::vector<cv::KeyPoint>& undist_key
     return indices;
 }
 
-std::vector<cslam::Landmark*>
-GuidedMatcher::update_local_landmarks(const std::vector<cslam::KeyFrame*>& local_keyframes, const size_t curr_frm_id)
-{
-    std::vector<cslam::Landmark*> local_landmarks;
-    for (auto keyframe : local_keyframes)
-    {
-        for (auto lm : keyframe->landmarks_)
-        {
-            if (lm == nullptr) continue;
-            // do not add twice
-            if (lm->identifier_in_local_map_update_ == curr_frm_id) continue;
-            lm->identifier_in_local_map_update_ = curr_frm_id;
-            local_landmarks.push_back(lm);
-        }
-    }
-    return local_landmarks;
-}
+// std::vector<cslam::Landmark*>
+// GuidedMatcher::update_local_landmarks(const std::vector<cslam::KeyFrame*>& local_keyframes, const size_t curr_frm_id)
+// {
+//     std::vector<cslam::Landmark*> local_landmarks;
+//     for (auto keyframe : local_keyframes)
+//     {
+//         for (auto lm : keyframe->landmarks_)
+//         {
+//             if (lm == nullptr) continue;
+//             // do not add twice
+//             if (lm->identifier_in_local_map_update_ == curr_frm_id) continue;
+//             lm->identifier_in_local_map_update_ = curr_frm_id;
+//             local_landmarks.push_back(lm);
+//         }
+//     }
+//     return local_landmarks;
+// }
 bool 
 GuidedMatcher::can_observe(Landmark* lm, const Frame& frame, const float ray_cos_thr,
                            Eigen::Vector2f& reproj, size_t& pred_scale_level) const 
@@ -787,6 +787,17 @@ GuidedMatcher::compute_optical_flow(const cslam::Frame& new_frame) //, std::vect
     // idea is to compute the optical flow of the landmarks to set the guess for the margin
     // in the guided matcher
     std::unordered_map<KeyFrame*, float> optical_flow;
+    std::unordered_map<KeyFrame*, float> x_l_optical_flow;
+    std::unordered_map<KeyFrame*, float> x_r_optical_flow;
+    std::unordered_map<KeyFrame*, float> y_t_optical_flow;
+    std::unordered_map<KeyFrame*, float> y_b_optical_flow;
+
+    auto insert_in_map = [&](auto* kf, auto& un_map, const auto dist){
+            auto it = un_map.find(kf);
+            if (it == un_map.end())
+                un_map[kf];
+            else if (it->second < dist) it->second = dist;
+    };
 
     // for (const auto* lm : new_frame.landmarks_)
     for (size_t idx = 0; idx < new_frame.num_keypts_; ++idx)
@@ -803,8 +814,42 @@ GuidedMatcher::compute_optical_flow(const cslam::Frame& new_frame) //, std::vect
             if (it == optical_flow.end())
                 optical_flow[kf_obs.first];
             else if (it->second < dist) it->second = dist;
+
+            const auto& pt = u_kpt.pt;
+            const auto& pt2 = kf_obs.first->undist_keypts_.at(kf_obs.second).pt;
+            const auto x_diff = pt.x - pt2.x;
+            const auto y_diff = pt.y - pt2.y;
+
+            if (x_diff < 0)
+            {
+                insert_in_map(kf_obs.first, x_l_optical_flow, std::abs(x_diff));
+            }
+            else
+            {
+                insert_in_map(kf_obs.first, x_r_optical_flow, std::abs(x_diff));
+            }
+            if (x_diff < 0)
+            {
+                insert_in_map(kf_obs.first, y_t_optical_flow, std::abs(y_diff));
+            }
+            else
+            {
+                insert_in_map(kf_obs.first, y_b_optical_flow, std::abs(y_diff));
+            }
         }
     }
+    std::cout << "x_l_optical_flow" << std::endl;
+    for (const auto& kf_pair : x_l_optical_flow)
+        std::cout << kf_pair.first->im_name_ << ": " << kf_pair.second << std::endl;
+    std::cout << "x_r_optical_flow" << std::endl;
+    for (const auto& kf_pair : x_r_optical_flow)
+        std::cout << kf_pair.first->im_name_ << ": " << kf_pair.second << std::endl;
+    std::cout << "y_t_optical_flow" << std::endl;
+    for (const auto& kf_pair : y_t_optical_flow)
+        std::cout << kf_pair.first->im_name_ << ": " << kf_pair.second << std::endl;
+    std::cout << "y_b_optical_flow" << std::endl;
+    for (const auto& kf_pair : y_b_optical_flow)
+        std::cout << kf_pair.first->im_name_ << ": " << kf_pair.second << std::endl;
     return optical_flow;
 }
 
@@ -1089,7 +1134,7 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
         const float scale_1 = u_kpt_1.octave;
         if (scale_1 < 0) continue;
         const auto indices = get_keypoints_in_cell(kf2.undist_keypts_, kf2.keypts_indices_in_cells_, 
-                                                   u_kpt_1.pt.x,  u_kpt_1.pt.y, margin, scale_1, scale_1);
+                                                   u_kpt_1.pt.x,  u_kpt_1.pt.y, margin); //, scale_1, scale_1); no scale check!
 
         if (indices.empty()) continue; //No valid match
 
@@ -1182,6 +1227,125 @@ GuidedMatcher::match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2,
         //         = keypt_1.angle - keyfrm_2->undist_keypts_.at(best_idx_2).angle;
         //     angle_checker.append_delta_angle(delta_angle, idx_1);
         // }
+    }
+    matches.reserve(num_matches);
+    //We do not check the orientation
+    for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_keyfrm_1.size(); ++idx_1) {
+        if (matched_indices_2_in_keyfrm_1.at(idx_1) < 0) {
+            continue;
+        }
+        matches.emplace_back(std::make_pair(idx_1, matched_indices_2_in_keyfrm_1.at(idx_1)));
+    }
+    // std::cout << "num_epi: " << num_epi << " num_cos: " << num_cos << " discarded!" << std::endl;
+    return matches;
+}
+
+MatchIndices
+GuidedMatcher::match_for_triangulation_with_depth(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12, const float median_depth) const
+{
+    //Typically, kf1 = current frame and kf2 = an older frame!
+    //We assume that the old frame
+    // get the already matched landmarks
+    const auto& lms1 = kf1.landmarks_;
+    const auto& lms2 = kf2.landmarks_;
+    const Eigen::Vector3f cam_center_1 = kf1.get_cam_center();
+    const Eigen::Matrix4f T_cw = kf2.get_Tcw();
+    const Eigen::Matrix3f rot_2w = T_cw.block<3,3>(0,0);
+    const Eigen::Vector3f trans_2w = T_cw.block<3,1>(0,3);
+
+    
+    //Compute relative position between the frames and project from kf1 to kf2
+    //this has the benefit that we only have to compute the median depth once
+    const Eigen::Matrix4f T_kf2_kf1 = T_cw*kf1.get_Twc();
+    const Eigen::Matrix3f R_kf2_kf1 = T_kf2_kf1.block<3,3>(0,0);
+    const Eigen::Vector3f t_kf2_kf1 = T_kf2_kf1.block<3,1>(0,3);
+    size_t num_matches{0};
+    std::vector<bool> is_already_matched_in_keyfrm_2(lms2.size(), false); // to keep track of potentially triangulated points
+    // std::vector<unsigned int> matched_dists_in_frm_2(num_pts_2, MAX_HAMMING_DIST);
+
+    // indices of KF 2 kpts in KF 1
+    std::vector<int> matched_indices_2_in_keyfrm_1(lms1.size(), -1);
+    MatchIndices matches;
+    Eigen::Vector3f epiplane_in_keyfrm_2;
+    camera_.reproject_to_bearing(rot_2w, trans_2w, cam_center_1, grid_params_, epiplane_in_keyfrm_2);
+    // for now, set to margin constant but vary 
+    constexpr auto margin{100};
+    const float inv_fx = 1.0/camera_.fx_p;
+    const float inv_fy = 1.0/camera_.fy_p;
+    const float cx = camera_.cx_p;
+    const float cy = camera_.cy_p;
+    constexpr std::array<float, 3> factors{{0.5, 1.0, 2.0}};
+    for (size_t idx_1 = 0; idx_1 < lms1.size(); ++idx_1)
+    {
+        const auto* lm_1 = lms1[idx_1];
+        if (lm_1 != nullptr) continue; // already matched to a landmark
+
+        const auto& u_kpt_1 = kf1.undist_keypts_.at(idx_1);
+        const float scale_1 = u_kpt_1.octave;
+        if (scale_1 < 0) continue;
+        const Eigen::Vector3f pt3D((u_kpt_1.pt.x-cx)*inv_fx, (u_kpt_1.pt.y-cy)*inv_fy, 1.0);
+        Eigen::Vector2f pt2D;
+        for (const auto f : factors)
+        {
+            //assume that the 3D ont is the 
+            if (!camera_.reproject_to_image(R_kf2_kf1,t_kf2_kf1,pt3D*median_depth,grid_params_, pt2D))
+                continue;
+
+
+            const auto indices = get_keypoints_in_cell(kf2.undist_keypts_, kf2.keypts_indices_in_cells_, pt2D[0], pt2D[1], margin);
+                                                    //    u_kpt_1.pt.x,  u_kpt_1.pt.y, margin);
+
+            if (indices.empty()) continue; //No valid match
+
+            
+            const Eigen::Vector3f& bearing_1 = kf1.bearings_.at(idx_1);
+            const auto& desc_1 = kf1.descriptors_.row(idx_1);
+            //use the guided matching instead of exhaustive
+            auto best_hamm_dist = MAX_HAMMING_DIST;
+            auto second_best_hamm_dist = MAX_HAMMING_DIST;
+            int best_idx_2 = -1;
+            for (const auto idx_2 : indices) 
+            {
+                const auto* lm_2 = lms2[idx_2];
+                if (lm_2 != nullptr) continue; // already matched to a lm and not compatible
+                if (is_already_matched_in_keyfrm_2.at(idx_2)) continue; //already matched to another feature
+                const auto& desc_2 = kf2.descriptors_.row(idx_2);
+                const auto hamm_dist = compute_descriptor_distance_32(desc_1, desc_2);
+
+                if (HAMMING_DIST_THR_LOW < hamm_dist || best_hamm_dist < hamm_dist) {
+                    continue;
+                }
+                const Eigen::Vector3f& bearing_2 = kf2.bearings_.at(idx_2);
+                // If both are not stereo keypoints, don't use feature points near epipole
+                const auto cos_dist = epiplane_in_keyfrm_2.dot(bearing_2);
+                // Threshold angle between epipole and bearing (= 3.0deg)
+                constexpr double cos_dist_thr = 0.99862953475;
+                // do not match if the included angle is smaller than the threshold
+                if (cos_dist_thr < cos_dist) continue; 
+
+                // E行列による整合性チェック
+                const bool is_inlier = check_epipolar_constraint(bearing_1, bearing_2, E_12,
+                                                                kf1.scale_factors_.at(u_kpt_1.octave));
+                if (is_inlier) {
+                    best_idx_2 = idx_2;
+                    best_hamm_dist = hamm_dist;
+                }
+            }
+
+            if (best_idx_2 < 0) {
+                continue;
+            }
+
+            is_already_matched_in_keyfrm_2.at(best_idx_2) = true;
+            matched_indices_2_in_keyfrm_1.at(idx_1) = best_idx_2;
+            ++num_matches;
+
+            // if (check_orientation_) {
+            //     const auto delta_angle
+            //         = keypt_1.angle - keyfrm_2->undist_keypts_.at(best_idx_2).angle;
+            //     angle_checker.append_delta_angle(delta_angle, idx_1);
+            // }
+        }
     }
     matches.reserve(num_matches);
     //We do not check the orientation

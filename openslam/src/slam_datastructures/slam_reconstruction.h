@@ -15,8 +15,7 @@ public:
      * Erase keyframe from the database
      * @param keyfrm
      */
-    void erase_keyframe(KeyFrame* keyfrm);
-
+    void erase_keyframe(KeyFrame* kf);
     /**
      * Erase landmark from the database
      * @param lm
@@ -54,7 +53,6 @@ public:
 
     void apply_landmark_replace(Frame& frame);
     void scale_map(KeyFrame* kf1, KeyFrame* kf2, const double scale) const;
-    // Frame* create_new_frame()
 private:
     //! IDs and keyframes
     std::unordered_map<unsigned int, KeyFrame*> keyframes_;
@@ -72,6 +70,11 @@ private:
      * @param keyfrm
      */
     void add_keyframe(KeyFrame* keyfrm);
+
+    // TODO: implement
+    // erase landmark with "surroundings"
+    // erase observation with "surroundings"
+    // erase keyframe with "surroundings"
 
 };
     

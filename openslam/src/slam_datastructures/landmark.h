@@ -7,6 +7,7 @@ namespace cslam
 {
 class KeyFrame;
 class Frame;
+class SlamReconstruction;
 class Landmark
 {
 public:
@@ -22,6 +23,7 @@ public:
     size_t scale_level_in_tracking_;
     Eigen::Vector2f reproj_in_tracking_ = Eigen::Vector2f::Zero(); // reprojected pixel position
 
+    void erase_observation(KeyFrame* kf, SlamReconstruction* reconstruction);
 
     //! whether this landmark will be erased shortly or not
     bool will_be_erased() { return will_be_erased_; };

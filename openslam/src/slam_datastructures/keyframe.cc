@@ -1,6 +1,7 @@
 #include "keyframe.h"
 #include "frame.h"
 #include "landmark.h"
+#include "slam_reconstruction.h"
 namespace cslam
 {
 
@@ -14,7 +15,9 @@ KeyFrame::KeyFrame(const size_t kf_id, const Frame& frame):
     num_scale_levels_(frame.num_scale_levels_), scale_factor_(frame.scale_factor_),
     log_scale_factor_(frame.log_scale_factor_), scale_factors_(frame.scale_factors_),
     level_sigma_sq_(frame.level_sigma_sq_), inv_level_sigma_sq_(frame.inv_level_sigma_sq_),
-    keypts_indices_in_cells_(frame.keypts_indices_in_cells_), num_keypts_(landmarks_.size())
+    keypts_indices_in_cells_(frame.keypts_indices_in_cells_), num_keypts_(landmarks_.size()),
+    // graph node (connections is not assigned yet)
+    graph_node_(std::make_unique<openvslam::data::graph_node>(this, false))
 {
 
 }
@@ -189,6 +192,49 @@ KeyFrame::get_valid_idx() const
     return valid_idx;
 }
 
+
+void
+KeyFrame::prepare_for_erasing(SlamReconstruction& reconstruction)
+{
+    // cannot erase the origin
+    // if (*this == *(map_db_->origin_keyfrm_)) {
+    //     return;
+    // }
+
+    // cannot erase if the frag is raised
+    if (cannot_be_erased_) {
+        return;
+    }
+
+    // 1. raise the flag which indicates it has been erased
+
+    will_be_erased_ = true;
+
+    // 2. remove associations between keypoints and landmarks
+
+
+    for (const auto lm : landmarks_) {
+        if (lm != nullptr)
+            lm->erase_observation(this, &reconstruction);
+    }
+
+    // 3. recover covisibility graph and spanning tree
+
+    // remove covisibility information
+    graph_node_->erase_all_connections();
+    // recover spanning tree
+    graph_node_->recover_spanning_connections();
+
+    // 3. update frame statistics
+    // TODO: Implement this maybe......... I don't think it is needed atm
+    // map_db_->replace_reference_keyframe(this, graph_node_->get_spanning_parent());
+
+    // 4. remove myself from the databased
+
+    // map_db_->erase_keyframe(this);
+    reconstruction.erase_keyframe(this);
+    // bow_db_->erase_keyframe(this);
+}
 
 // std::vector<Landmark*> 
 // KeyFrame::update_lms_after_kf_insert()

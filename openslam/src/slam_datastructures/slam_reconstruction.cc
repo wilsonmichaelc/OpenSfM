@@ -77,6 +77,13 @@ SlamReconstruction::scale_map(KeyFrame* init_kf, KeyFrame* curr_kf, const double
     }
 }
 
+// void
+// SlamReconstruction::erase_keyframe(KeyFrame* kf)
+// {
+//     //maybe check for nullptr!
+//     keyframes_.erase(kf->kf_id_);
+// }
+
 void
 SlamReconstruction::apply_landmark_replace(Frame& frame)
 {
@@ -93,7 +100,8 @@ SlamReconstruction::apply_landmark_replace(Frame& frame)
     }
 }
 
-void SlamReconstruction::add_keyframe(KeyFrame* keyfrm) {
+void
+SlamReconstruction::add_keyframe(KeyFrame* keyfrm) {
     keyframes_[keyfrm->kf_id_] = keyfrm;
     // keyframes_.at(keyfrm->kf_id_) = keyfrm;
     // if (keyfrm->kf_id_ > max_keyfrm_id_) {

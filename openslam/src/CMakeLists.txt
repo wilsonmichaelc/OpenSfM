@@ -134,13 +134,16 @@ pybind11_add_module(cslam
     ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_extractor_node.h
     ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_extractor_node.cc
     ${openslam_SOURCE_DIR}/third_party/openvslam/feature/orb_point_pairs.h
-    ${openslam_SOURCE_DIR}/types.h
-    ${openslam_SOURCE_DIR}/types.cc
     ${openslam_SOURCE_DIR}/third_party/openvslam/util/angle_checker.h
     ${openslam_SOURCE_DIR}/third_party/openvslam/util/guided_matching.h
     ${openslam_SOURCE_DIR}/third_party/openvslam/util/guided_matching.cc
-    # ${openslam_SOURCE_DIR}/guided_matching_utils_py.cc
-    # ${openslam_SOURCE_DIR}/cslam_types.cc
+    ${openslam_SOURCE_DIR}/third_party/openvslam/data/graph_node.cc
+    ${openslam_SOURCE_DIR}/third_party/openvslam/data/graph_node.h
+    ${openslam_SOURCE_DIR}/types.h
+    ${openslam_SOURCE_DIR}/types.cc
+    ${openslam_SOURCE_DIR}/types.h
+    ${openslam_SOURCE_DIR}/slam_utilities.h
+    ${openslam_SOURCE_DIR}/slam_utilities.cc
     ${openslam_SOURCE_DIR}/slam_datastructures/frame.h
     ${openslam_SOURCE_DIR}/slam_datastructures/frame.cc
     ${openslam_SOURCE_DIR}/slam_datastructures/keyframe.h

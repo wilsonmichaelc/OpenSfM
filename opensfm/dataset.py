@@ -112,7 +112,8 @@ class DataSet(object):
 
         mask_image = self.load_combined_mask(image)
         if mask_image is None:
-            logger.debug('No segmentation for {}, no features masked.'.format(image))
+            logger.debug('No segmentation for {}, no features masked.'.
+                        format(image))
             return np.ones((points.shape[0],), dtype=bool)
 
         exif = self.load_exif(image)

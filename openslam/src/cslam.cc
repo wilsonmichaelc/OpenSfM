@@ -1,8 +1,10 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
+// #include <pybind11/
 #include "third_party/openvslam/feature/orb_extractor.h"
 #include "third_party/openvslam/util/guided_matching.h"
+#include "third_party/openvslam/data/graph_node.h"
 #include "slam_datastructures/frame.h"
 #include "slam_datastructures/keyframe.h"
 #include "slam_datastructures/landmark.h"
@@ -11,6 +13,7 @@
 #include "slam_datastructures/slam_reconstruction.h"
 #include "slam_debug.h"
 #include "types.h"
+#include "slam_utilities.h"
 namespace py = pybind11;
 
 
@@ -51,7 +54,8 @@ py::class_<cslam::GuidedMatcher>(m, "GuidedMatcher")
     .def("match_frame_and_landmarks", &cslam::GuidedMatcher::match_frame_and_landmarks)
     .def("match_current_and_last_frame", &cslam::GuidedMatcher::match_current_and_last_frame)
     .def("match_for_triangulation", &cslam::GuidedMatcher::match_for_triangulation)
-    .def("update_local_landmarks", &cslam::GuidedMatcher::update_local_landmarks)
+    .def("match_for_triangulation_with_depth", &cslam::GuidedMatcher::match_for_triangulation_with_depth)
+    // .def("update_local_landmarks", &cslam::GuidedMatcher::update_local_landmarks)
     .def("search_local_landmarks", &cslam::GuidedMatcher::search_local_landmarks)
     .def("create_E_21", &cslam::GuidedMatcher::create_E_21)
     .def("compute_optical_flow", &cslam::GuidedMatcher::compute_optical_flow);
@@ -84,6 +88,7 @@ py::class_<cslam::KeyFrame>(m, "KeyFrame")
     .def(py::init<const size_t, const cslam::Frame>())
     .def_readonly("kf_id", &cslam::KeyFrame::kf_id_)
     .def_readonly("im_name", &cslam::KeyFrame::im_name_)
+    // .def_readonly("graph_node", &cslam::KeyFrame::graph_node_)
     .def("set_Twc", &cslam::KeyFrame::set_Twc)
     .def("get_Twc", &cslam::KeyFrame::get_Twc)
     .def("add_landmark", &cslam::KeyFrame::add_landmark)
@@ -98,7 +103,21 @@ py::class_<cslam::KeyFrame>(m, "KeyFrame")
     .def("compute_local_keyframes", &cslam::KeyFrame::compute_local_keyframes)
     .def("get_obs_by_idx", &cslam::KeyFrame::get_obs_by_idx)
     .def("get_Tcw", &cslam::KeyFrame::get_Tcw)
-    .def("set_Tcw", &cslam::KeyFrame::set_Tcw);
+    .def("set_Tcw", &cslam::KeyFrame::set_Tcw)
+    .def("get_graph_node", &cslam::KeyFrame::get_graph_node);
+
+//Slam Utilities
+py::class_<cslam::SlamUtilities>(m, "SlamUtilities")
+    .def(py::init<>())
+    .def("get_second_order_covisibilities_for_kf", &cslam::SlamUtilities::get_second_order_covisibilities_for_kf)
+    .def("update_new_keyframe", &cslam::SlamUtilities::update_new_keyframe)
+    .def("update_local_keyframes", &cslam::SlamUtilities::update_local_keyframes)
+    .def("update_local_landmarks", &cslam::SlamUtilities::update_local_landmarks);
+
+//Graph Node
+py::class_<openvslam::data::graph_node>(m, "graph_node")
+    .def("update_connections", &openvslam::data::graph_node::update_connections)
+    .def("get_top_n_covisibilities", &openvslam::data::graph_node::get_top_n_covisibilities);
 
 // Landmark
 py::class_<cslam::Landmark>(m, "Landmark")
@@ -128,9 +147,10 @@ py::class_<cslam::LocalMapCleaner>(m, "LocalMapCleaner")
     .def(py::init<const cslam::GuidedMatcher&, cslam::SlamReconstruction*>()) //, cslam::BrownPerspectiveCamera*>())
     .def("update_lms_after_kf_insert", &cslam::LocalMapCleaner::update_lms_after_kf_insert)
     .def("remove_redundant_lms", &cslam::LocalMapCleaner::remove_redundant_landmarks)
+    .def("remove_redundant_kfs", &cslam::LocalMapCleaner::remove_redundant_keyframes)
     .def("add_landmark", &cslam::LocalMapCleaner::add_landmark)
-    .def("fuse_landmark_duplication", &cslam::LocalMapCleaner::fuse_landmark_duplication)
-    .def("update_new_keyframe", &cslam::LocalMapCleaner::update_new_keyframe);
+    .def("fuse_landmark_duplication", &cslam::LocalMapCleaner::fuse_landmark_duplication);
+    // .def("update_new_keyframe", &cslam::LocalMapCleaner::update_new_keyframe);
 
 
 py::class_<cslam::SlamDebug>(m, "SlamDebug")

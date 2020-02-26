@@ -249,7 +249,12 @@ class SlamTracker(object):
         pose_tracking = self.track_motion(slam_mapper, frame,
                                           camera, config, data)
         chrono.lap("track_motion")
-        local_landmarks = self.guided_matcher.update_local_landmarks(slam_mapper.c_keyframes[-10:], frame.frame_id)
+        # Update local map!
+        local_keyframes = cslam.SlamUtilities.update_local_keyframes(frame.cframe)
+        print("new lk: ", len(local_keyframes), " old_lk: ", len(slam_mapper.c_keyframes[-10:]))
+        # local_landmarks = cslam.SlamUtilities.update_local_landmarks(slam_mapper.c_keyframes[-10:], frame.frame_id)
+        local_landmarks = cslam.SlamUtilities.update_local_landmarks(local_keyframes, frame.frame_id)
+        # print("new lms: ", len(local_lms), " old lms: ", len(local_landmarks))
         chrono.lap("update_local_landmarks")
         frame.cframe.set_Tcw(np.vstack((pose_tracking.get_Rt(), [0, 0, 0, 1])))
         n_matches = self.guided_matcher.search_local_landmarks(local_landmarks, frame.cframe)
@@ -264,9 +269,6 @@ class SlamTracker(object):
         print("n_matches: ", n_matches, " len: ", len(valid_lms))
         for idx, lm in enumerate(valid_lms):
             points3D[idx, :] = lm.get_pos_in_world()
-        # observations = valid_kps[]
-
-        # observations = valid_kps
         observations, _, _ = features.normalize_features(valid_kps, None, None, camera[1].width, camera[1].height)
 
         #TODO: Remove debug stuff

@@ -2,6 +2,7 @@
 #include "keyframe.h"
 #include "frame.h"
 #include "third_party/openvslam/util/guided_matching.h"
+#include "slam_reconstruction.h"
 #include <iostream>
 namespace cslam
 {
@@ -19,6 +20,31 @@ Landmark::add_observation(KeyFrame* keyfrm, size_t idx) {
     // std::cout << "add obs: " << keyfrm << ", " << keyfrm->kf_id_ << " idx: " << idx <<  "lm: " << lm_id_ << " ptr: " << this << std::endl;
     observations_[keyfrm] = idx;
     num_observations_ += 1;
+}
+
+void 
+Landmark::erase_observation(KeyFrame* keyfrm, SlamReconstruction* reconstruction) {
+    if (observations_.count(keyfrm)) {
+        int idx = observations_.at(keyfrm);
+        // if (0 <= keyfrm->stereo_x_right_.at(idx)) {
+        //     num_observations_ -= 2;
+        // }
+        // else {
+        num_observations_ -= 1;
+        // }
+
+        observations_.erase(keyfrm);
+
+        if (ref_keyfrm_ == keyfrm) {
+            ref_keyfrm_ = observations_.begin()->first;
+        }
+
+        // If only 2 observations or less, discard point
+        if (num_observations_ <= 2) {
+            prepare_for_erasing();
+            reconstruction->erase_landmark(this);
+        }
+    }
 }
 
 size_t 

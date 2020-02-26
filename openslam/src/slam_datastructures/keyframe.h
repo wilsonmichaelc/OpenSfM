@@ -4,11 +4,14 @@
 #include <opencv2/core.hpp>
 #include <pybind11/pybind11.h>
 #include "types.h"
+#include "third_party/openvslam/data/graph_node.h"
 namespace py = pybind11;
+
 namespace cslam
 {
 class Frame;
 class Landmark;
+class SlamReconstruction;
 class KeyFrame
 {
 public:
@@ -54,7 +57,8 @@ public:
         T_wc = T_cw_.inverse();
         cam_center_ = T_wc.block<3,1>(0,3);
     }
-
+    //! identifier for local map update
+    size_t local_map_update_identifier = 0;
     //The way it looks, this is the world pose
     Eigen::Matrix4f get_Tcw() const { return T_cw; }
     Eigen::Vector3f get_cam_center() const { return cam_center_; }
@@ -103,6 +107,11 @@ public:
     std::vector<size_t> compute_local_keyframes() const;
 
     /**
+     * Whether this keyframe will be erased shortly or not
+     */
+    bool will_be_erased() { return will_be_erased_; }
+
+    /**
      * Replace the landmark
      */
     void replace_landmark(Landmark* lm, const size_t idx)
@@ -111,10 +120,28 @@ public:
     }
 
     void apply_landmark_replace();
+    //! graph node
+    const std::unique_ptr<openvslam::data::graph_node> graph_node_ = nullptr;
+    // void set_not_to_be_erased() { cannot_be_erased_ = True; }
+        // operator overrides
+    bool operator==(const KeyFrame& keyfrm) const { return kf_id_ == keyfrm.kf_id_; }
+    bool operator!=(const KeyFrame& keyfrm) const { return !(*this == keyfrm); }
+    bool operator<(const KeyFrame& keyfrm) const { return kf_id_ < keyfrm.kf_id_; }
+    bool operator<=(const KeyFrame& keyfrm) const { return kf_id_ <= keyfrm.kf_id_; }
+    bool operator>(const KeyFrame& keyfrm) const { return kf_id_ > keyfrm.kf_id_; }
+    bool operator>=(const KeyFrame& keyfrm) const { return kf_id_ >= keyfrm.kf_id_; }
+    
+    const auto& get_graph_node() { return *graph_node_; }
+
+    void prepare_for_erasing(SlamReconstruction& reconstruction);
+    void set_cannot_be_erased(bool flag) { cannot_be_erased_ = flag; }
 private:
     Eigen::Matrix4f T_wc; // camera to world transformation, pose
     Eigen::Matrix4f T_cw; // world to camera transformation
     Eigen::Vector3f cam_center_;
+    bool will_be_erased_ = false;
+    bool cannot_be_erased_ = false;
+    // bool cannot_be_erased_ = False; // currently only for openvslam
 
 };
 }

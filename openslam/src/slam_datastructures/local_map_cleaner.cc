@@ -41,6 +41,11 @@ LocalMapCleaner::update_lms_after_kf_insert(KeyFrame* new_kf)
         lm->update_normal_and_depth();
         lm->compute_descriptor();
     }
+    std::cout << "Before update connections!" << std::endl;
+    new_kf->graph_node_->update_connections();
+    std::cout << "AFter update connections!" << std::endl;
+    const auto cov = new_kf->graph_node_->get_top_n_covisibilities(10);
+    std::cout<< "cov: " << cov.size() << std::endl;
 }
 
 void
@@ -89,23 +94,74 @@ LocalMapCleaner::fuse_landmark_duplication(KeyFrame* curr_kf, const std::vector<
 
 }
 
-
-
-
-void
-LocalMapCleaner::update_new_keyframe(KeyFrame* curr_kf) const
+void 
+LocalMapCleaner::count_redundant_observations(KeyFrame* keyfrm, size_t& num_valid_obs, size_t& num_redundant_obs) //const 
 {
-    // update the geometries
-    const auto& cur_landmarks = curr_kf->landmarks_;
-    for (const auto lm : cur_landmarks) {
+    // if the number of keyframes that observes the landmark with more reliable scale than the specified keyframe does,
+    // it is considered as redundant
+    constexpr size_t num_better_obs_thr{3};
+
+    num_valid_obs = 0;
+    num_redundant_obs = 0;
+
+    const auto landmarks = keyfrm->landmarks_;//->get_landmarks();
+    for (size_t idx = 0; idx < landmarks.size(); ++idx) {
+        auto lm = landmarks.at(idx);
         if (!lm) {
             continue;
         }
         if (lm->will_be_erased()) {
             continue;
         }
-        lm->compute_descriptor();
-        lm->update_normal_and_depth();
+
+        // if depth is within the valid range, it won't be considered
+        // const auto depth = keyfrm->depths_.at(idx);
+        // if (!is_monocular_ && (depth < 0.0 || keyfrm->depth_thr_ < depth)) {
+        //     continue;
+        // }
+
+        ++num_valid_obs;
+
+        // if the number of the obs is smaller than the threshold, cannot remote the observers
+        if (lm->num_observations() <= num_better_obs_thr) {
+            continue;
+        }
+
+        // `keyfrm` observes `lm` with the scale level `scale_level`
+        const auto scale_level = keyfrm->undist_keypts_.at(idx).octave;
+        // get observers of `lm`
+        const auto observations = lm->get_observations();
+
+        bool obs_by_keyfrm_is_redundant = false;
+
+        // the number of the keyframes that observe `lm` with the more reliable (closer) scale
+        size_t num_better_obs = 0;
+
+        for (const auto obs : observations) {
+            const auto ngh_keyfrm = obs.first;
+            if (*ngh_keyfrm == *keyfrm) {
+                continue;
+            }
+
+            // `ngh_keyfrm` observes `lm` with the scale level `ngh_scale_level`
+            const auto ngh_scale_level = ngh_keyfrm->undist_keypts_.at(obs.second).octave;
+
+            // compare the scale levels
+            if (ngh_scale_level <= scale_level + 1) {
+                // the observation by `ngh_keyfrm` is more reliable than `keyfrm`
+                ++num_better_obs;
+                if (num_better_obs_thr <= num_better_obs) {
+                    // if the number of the better observations is greater than the threshold,
+                    // consider the observation of `lm` by `keyfrm` is redundant
+                    obs_by_keyfrm_is_redundant = true;
+                    break;
+                }
+            }
+        }
+
+        if (obs_by_keyfrm_is_redundant) {
+            ++num_redundant_obs;
+        }
     }
 }
 
@@ -166,4 +222,45 @@ LocalMapCleaner::remove_redundant_landmarks(const size_t cur_keyfrm_id) {
     std::cout << "remove_redundant_landmarks: " << num_removed << std::endl;
     return num_removed;
 }
+
+
+size_t
+LocalMapCleaner::remove_redundant_keyframes(KeyFrame* cur_keyfrm, const size_t origin_kf_id) 
+{
+    // window size not to remove
+    constexpr unsigned int window_size_not_to_remove = 2;
+    // if the redundancy ratio of observations is larger than this threshold,
+    // the corresponding keyframe will be erased
+    constexpr float redundant_obs_ratio_thr = 0.9;
+
+    size_t num_removed = 0;
+    // check redundancy for each of the covisibilities
+    const auto cur_covisibilities = cur_keyfrm->graph_node_->get_covisibilities();
+    for (const auto covisibility : cur_covisibilities) {
+        // cannot remove the origin
+        if (covisibility->kf_id_ == origin_kf_id) {
+            continue;
+        }
+        // cannot remove the recent keyframe(s)
+        if (covisibility->kf_id_ <= cur_keyfrm->kf_id_
+            && cur_keyfrm->kf_id_ <= covisibility->kf_id_ + window_size_not_to_remove) {
+            continue;
+        }
+
+        // count the number of redundant observations (num_redundant_obs) and valid observations (num_valid_obs)
+        // for the covisibility
+        size_t num_redundant_obs{0}, num_valid_obs{0};
+        // unsigned int num_valid_obs = 0;
+        count_redundant_observations(covisibility, num_valid_obs, num_redundant_obs);
+        std::cout << "num_redundant_obs" << num_redundant_obs << "num_valid_obs" << num_valid_obs << std::endl;
+        // if the redundant observation ratio of `covisibility` is larger than the threshold, it will be removed
+        if (redundant_obs_ratio_thr <= static_cast<float>(num_redundant_obs) / num_valid_obs) {
+            ++num_removed;
+            covisibility->prepare_for_erasing(*map_db_);
+        }
+    }
+
+    return num_removed;
+}
+
 }

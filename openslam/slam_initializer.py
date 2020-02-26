@@ -111,8 +111,9 @@ class SlamInitializer(object):
                                                     im1, im2, norm_p1, norm_p2)
         chrono.lap("boot rec")
         print("Init timings: ", chrono.lap_times())
-        print("Created init rec from {}<->{} with {} points from {} matches"
-              .format(im1, im2, len(reconstruction_init.points), len(matches)))
+        if reconstruction_init is not None:
+            print("Created init rec from {}<->{} with {} points from {} matches"
+                  .format(im1, im2, len(reconstruction_init.points), len(matches)))
         slam_debug.visualize_graph(graph_inliers, self.init_frame.im_name, frame.im_name, self.data, do_show=True)
         return reconstruction_init, graph_inliers, matches
         

@@ -94,8 +94,8 @@ public:
     // TODO: Think about the margin. Maybe make it dynamic depending on the depth of the feature!!
     size_t
     match_frame_and_landmarks(cslam::Frame& frame, std::vector<cslam::Landmark*>& local_landmarks, const float margin);
-    std::vector<cslam::Landmark*>
-    update_local_landmarks(const std::vector<cslam::KeyFrame*>& local_keyframes, const size_t curr_frm_id);
+    // std::vector<cslam::Landmark*>
+    // update_local_landmarks(const std::vector<cslam::KeyFrame*>& local_keyframes, const size_t curr_frm_id);
 
     // size_t
     std::vector<std::pair<size_t, size_t>>
@@ -108,6 +108,8 @@ public:
     match_for_triangulation(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12) const;
     MatchIndices
     match_for_triangulation_exhaustive(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12) const;
+    MatchIndices 
+    match_for_triangulation_with_depth(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12, const float median_depth) const;
 
     
     static bool 

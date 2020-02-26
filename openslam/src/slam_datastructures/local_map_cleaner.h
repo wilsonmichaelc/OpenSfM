@@ -18,12 +18,13 @@ public:
     {
         fresh_landmarks_.push_back(new_lm);
     }
+    // in OpenVSLAM == store_new_keyframe
     void update_lms_after_kf_insert(KeyFrame* new_kf);
     size_t remove_redundant_landmarks(const size_t cur_keyfrm_id);
     //TODO: Implement
-    void remove_redundant_keyframes(KeyFrame* new_kf);
-    void count_redundant_observations(KeyFrame* keyfrm, unsigned int& num_valid_obs, unsigned int& num_redundant_obs) const;
-    void update_new_keyframe(KeyFrame* curr_kf) const;
+    size_t remove_redundant_keyframes(KeyFrame* new_kf, const size_t origin_kf_id);
+    static void count_redundant_observations(KeyFrame* keyfrm, size_t& num_valid_obs, size_t& num_redundant_obs); //const;
+    // void update_new_keyframe(KeyFrame* curr_kf) const;
     void fuse_landmark_duplication(KeyFrame* curr_kf, const std::vector<KeyFrame*>& fuse_tgt_keyfrms) const;
 private:
     std::vector<Landmark*> fresh_landmarks_;
