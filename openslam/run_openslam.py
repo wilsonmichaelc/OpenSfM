@@ -35,6 +35,8 @@ for idx, im_name in enumerate(sorted(data.image_list)):
     slam_debug.avg_timings.printAvgTimings()
     if ret:
         logger.info("Successfully tracked {}".format(im_name))
+        if idx == 4:
+            exit()
     else:
         logger.info("Trying to init with {}".format(im_name))
 

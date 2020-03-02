@@ -114,15 +114,26 @@ void graph_node::update_connections() {
         const auto weight = weight_covisibility.first;
         covisibility->graph_node_->add_connection(owner_keyfrm_, weight);
     }
-
+    for (const auto& wc : weight_covisibility_pairs)
+    {
+        std::cout << "wc: " << wc.first << " sec: " << wc.second->im_name_ << "/" << wc.second->kf_id_ << std::endl;
+    }
     // sort with weights
-    std::sort(weight_covisibility_pairs.rbegin(), weight_covisibility_pairs.rend());
-
+    std::sort(weight_covisibility_pairs.rbegin(), weight_covisibility_pairs.rend(), 
+    [](const auto &x,const auto &y) { 
+        if ( x.first < y.first) return true;
+        if (x.first == y.first) return x.second->kf_id_ < y.second->kf_id_;
+        return false;} );
+    for (const auto& wc : weight_covisibility_pairs)
+    {
+        std::cout << "wc after sort: " << wc.first << " sec: " << wc.second->im_name_ << "/" << wc.second->kf_id_ << std::endl;
+    }
     decltype(ordered_covisibilities_) ordered_covisibilities;
     ordered_covisibilities.reserve(weight_covisibility_pairs.size());
     decltype(ordered_weights_) ordered_weights;
     ordered_weights.reserve(weight_covisibility_pairs.size());
     for (const auto& weight_keyfrm_pair : weight_covisibility_pairs) {
+        std::cout << "Push ord. cov: " << weight_keyfrm_pair.second->im_name_ << std::endl;
         ordered_covisibilities.push_back(weight_keyfrm_pair.second);
         ordered_weights.push_back(weight_keyfrm_pair.first);
     }
@@ -155,13 +166,14 @@ void graph_node::update_covisibility_orders() {
     }
 
     // sort with weights
-    std::sort(weight_keyfrm_pairs.rbegin(), weight_keyfrm_pairs.rend());
+    std::sort(weight_keyfrm_pairs.rbegin(), weight_keyfrm_pairs.rend(), [](const auto &x,const auto &y) { return x.first < y.first && x.second->kf_id_ < y.second->kf_id_; } );
 
     ordered_covisibilities_.clear();
     ordered_covisibilities_.reserve(weight_keyfrm_pairs.size());
     ordered_weights_.clear();
     ordered_weights_.reserve(weight_keyfrm_pairs.size());
     for (const auto& weight_keyfrm_pair : weight_keyfrm_pairs) {
+        // std::cout << ""
         ordered_covisibilities_.push_back(weight_keyfrm_pair.second);
         ordered_weights_.push_back(weight_keyfrm_pair.first);
     }

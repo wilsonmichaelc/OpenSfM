@@ -15,7 +15,7 @@ Frame::Frame(const csfm::pyarray_uint8 image, const csfm::pyarray_uint8 mask,
     orb_extractor->extract_orb_py2(image, mask, *this);
     update_orb_info(orb_extractor);
     num_keypts_ = keypts_.size();
-    std::cout << "Allocating " << num_keypts_ << " for frame: " << img_name << std::endl;
+    // std::cout << "Allocating " << num_keypts_ << " for frame: " << img_name << std::endl;
     landmarks_ = std::vector<Landmark*>(num_keypts_, nullptr);
     outlier_flags_ = std::vector<bool>(num_keypts_, false);
     mParentKf = nullptr;
@@ -36,7 +36,6 @@ Frame::Frame(const csfm::pyarray_uint8 image, const csfm::pyarray_uint8 mask,
 void 
 Frame::add_landmark(Landmark* lm, size_t idx)
 {
-    // std::cout << "idx: " << idx << ", " << num_keypts_ << std::endl;
     // landmarks_[idx] = lm;
     // outlier_flags_[idx] = false;
     landmarks_.at(idx) = lm;

@@ -19,7 +19,8 @@ class Landmark;
 class SlamUtilities
 {
 public:
-    static std::unordered_set<KeyFrame*>
+    // static std::unordered_set<KeyFrame*>
+    static std::vector<KeyFrame*>
     get_second_order_covisibilities_for_kf(const KeyFrame* kf, const size_t first_order_thr, const size_t second_order_thr);
     
     static void

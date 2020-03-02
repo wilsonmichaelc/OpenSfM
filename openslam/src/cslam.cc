@@ -55,10 +55,14 @@ py::class_<cslam::GuidedMatcher>(m, "GuidedMatcher")
     .def("match_current_and_last_frame", &cslam::GuidedMatcher::match_current_and_last_frame)
     .def("match_for_triangulation", &cslam::GuidedMatcher::match_for_triangulation)
     .def("match_for_triangulation_with_depth", &cslam::GuidedMatcher::match_for_triangulation_with_depth)
+    .def("match_for_triangulation_epipolar", &cslam::GuidedMatcher::match_for_triangulation_epipolar)
     // .def("update_local_landmarks", &cslam::GuidedMatcher::update_local_landmarks)
     .def("search_local_landmarks", &cslam::GuidedMatcher::search_local_landmarks)
     .def("create_E_21", &cslam::GuidedMatcher::create_E_21)
-    .def("compute_optical_flow", &cslam::GuidedMatcher::compute_optical_flow);
+    .def("compute_optical_flow", &cslam::GuidedMatcher::compute_optical_flow)
+    .def("compute_min_max_depth",  &cslam::GuidedMatcher::compute_min_max_depth)
+    .def("match_frame_to_frame_exhaustive", &cslam::GuidedMatcher::match_frame_to_frame_exhaustive)
+    .def("match_keyframe_to_frame_exhaustive", &cslam::GuidedMatcher::match_keyframe_to_frame_exhaustive);
 
 // Frame
 py::class_<cslam::Frame>(m, "Frame")

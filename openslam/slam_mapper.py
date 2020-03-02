@@ -222,6 +222,7 @@ class SlamMapper(object):
         self.add_keyframe(new_kf)  
         self.slam_map_cleaner.update_lms_after_kf_insert(new_kf.ckf)
         self.slam_map_cleaner.remove_redundant_lms(new_kf.kf_id)
+        # min_d, max_d = GuidedMatcher.compute_min_max_depth(frame.cframe)
         # of_vec = GuidedMatcher.compute_optical_flow(frame.cframe)
         # print("of_vec", of_vec)
         print("create_new_landmarks_before")
@@ -259,6 +260,8 @@ class SlamMapper(object):
         # fuse_kfs = self.c_keyframes[-5:-1]
         fuse_kfs = cslam.SlamUtilities.get_second_order_covisibilities_for_kf(self.curr_kf.ckf, 20, 5)
         print("update_new_keyframe fuse")
+        for kf in fuse_kfs:
+            print("get_second_order_covisibilities_for_kf kf: ", kf.im_name)
         # slam_debug.visualize_tracked_lms(self.curr_kf.ckf.get_valid_kpts(), frame, data)
         # im = self.data.load_image(self.curr_kf.ckf.im_name)
         # slam_debug.disable_debug = False
@@ -450,6 +453,9 @@ class SlamMapper(object):
         n_baseline_reject = 0
         chrono = reconstruction.Chronometer()
         new_med_depth = new_kf.compute_median_depth(True)
+        min_d, max_d = GuidedMatcher.compute_min_max_depth(new_kf)
+        # min_d *= 0.5
+        # max_d *= 2
         for old_kf in local_keyframes:
             old_cam_center = old_kf.get_cam_center()
             baseline_vec = old_cam_center - new_cam_center
@@ -463,23 +469,60 @@ class SlamMapper(object):
             old_Tcw = old_kf.get_Tcw()
             old_R = old_Tcw[0:3, 0:3]
             old_t = old_Tcw[0:3, 3]
+            
             chrono.start()
             E_old_to_new = self.guided_matcher.create_E_21(new_R, new_t, old_R, old_t)
             chrono.lap("compute E")
-            matches_old = self.guided_matcher.match_for_triangulation(new_kf, old_kf, E_old_to_new)
-            chrono.lap("match_for_triangulation")
-            matches = self.guided_matcher.match_for_triangulation_with_depth(new_kf, old_kf, E_old_to_new, new_med_depth)
-            chrono.lap("match_for_triangulation_depth")
-            print("Matching: ", chrono.lap_time("match_for_triangulation"), "vs", chrono.lap_time("match_for_triangulation_depth"))
-            print("Matches old: ", len(matches_old), " vs ", len(matches))
+            # matches_old = self.guided_matcher.match_for_triangulation(new_kf, old_kf, E_old_to_new)
+            # chrono.lap("match_for_triangulation")
+            # matches = self.guided_matcher.match_for_triangulation_with_depth(new_kf, old_kf, E_old_to_new, new_med_depth)
+            # matches1 = self.guided_matcher.match_for_triangulation_epipolar(new_kf, old_kf, E_old_to_new, min_d, max_d, True, 10)
+            # chrono.lap("match_for_triangulation_depth")
+            matches = self.guided_matcher.match_for_triangulation_epipolar(new_kf, old_kf, E_old_to_new, min_d, max_d, False, 10)
+            chrono.lap("match_for_triangulation_line_10")
+            # matches_5 = self.guided_matcher.match_for_triangulation_epipolar(new_kf, old_kf, E_old_to_new, min_d, max_d, False, 5)
+            # matches_5_2 = self.guided_matcher.match_for_triangulation_epipolar(new_kf, old_kf, E_old_to_new, min_d, max_d, False, 5)
+            # chrono.lap("match_for_triangulation_line_5")
+            # matches_20 = self.guided_matcher.match_for_triangulation_epipolar(new_kf, old_kf, E_old_to_new, min_d, max_d, False, 20)
+            # chrono.lap("match_for_triangulation_line_20")
+            # print("Matching: old", chrono.lap_time("match_for_triangulation"), "vs depth", 
+            #       chrono.lap_time("match_for_triangulation_depth"), 
+            #       " vs match_for_triangulation_line_10 ", chrono.lap_time("match_for_triangulation_line_10"),
+            #       " vs match_for_triangulation_line_20 ", chrono.lap_time("match_for_triangulation_line_20"),
+            #       " vs match_for_triangulation_line_5 ", chrono.lap_time("match_for_triangulation_line_5"))
+            # print("Matches old: ", len(matches_old), " vs depth ", len(matches1), "vs epi10", len(matches), "vs epi5", len(matches_5), " vs epi20", len(matches_20))
             old_im = self.data.load_image(old_kf.im_name)
-            slam_debug.disable_debug = True
-            slam_debug.visualize_matches_pts(
-                new_kf.getKptsPy(), old_kf.getKptsPy(), np.array(matches),
-                new_im, old_im, do_show=True, is_normalized=False,
-                title=old_kf.im_name)
+            # slam_debug.disable_debug = False
+            # slam_debug.visualize_matches_pts(
+            #     new_kf.getKptsPy(), old_kf.getKptsPy(), np.array(matches_old),
+            #     new_im, old_im, do_show=False, is_normalized=False,
+            #     title=old_kf.im_name+"old")
+            # slam_debug.visualize_matches_pts(
+            #     new_kf.getKptsPy(), old_kf.getKptsPy(), np.array(matches1),
+            #     new_im, old_im, do_show=False, is_normalized=False,
+            #     title=old_kf.im_name+"depth")
+            # slam_debug.visualize_matches_pts(
+            #     new_kf.getKptsPy(), old_kf.getKptsPy(), np.array(matches),
+            #     new_im, old_im, do_show=False, is_normalized=False,
+            #     title=old_kf.im_name+"epi10")    
+            # slam_debug.visualize_matches_pts(
+            #     new_kf.getKptsPy(), old_kf.getKptsPy(), np.array(matches_5),
+            #     new_im, old_im, do_show=False, is_normalized=False,
+            #     title=old_kf.im_name+"epi5")
+            
+            # T_1_2 = old_kf.get_Tcw().dot(new_kf.get_Twc())
+            # K = self.camera[1].get_K_in_pixel_coordinates()
+            # # TODO: Iterate through depths, test undistorted points!
+            # # Questions: Why is the  low depth farther away from the camera??
+            
+            # slam_debug.visualize_epipolar_line(old_kf.getKptsUndist(), new_kf.getKptsUndist(),
+            #                                    old_im, new_im, T_1_2, K, min_d, max_d)
+            # slam_debug.visualize_matches_pts(
+            #     new_kf.getKptsPy(), old_kf.getKptsPy(), np.array(matches_20),
+            #     new_im, old_im, do_show=True, is_normalized=False,
+            #     title=old_kf.im_name+"epi20")
 
-            slam_debug.disable_debug = True
+            # slam_debug.disable_debug = True
             
             self.triangulate_from_two_kfs(new_kf, old_kf, matches)
             chrono.lap("triangulate_from_two_kfs")

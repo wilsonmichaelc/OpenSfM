@@ -87,12 +87,19 @@ class SlamSystem(object):
         keypts = list()
         mask = np.array([], dtype=np.uint8)
         chrono = reconstruction.Chronometer()
-    
+        # exit()
+        # for i in range(0,10):
+        #     ftmp = Frame(im_name, self.slam_mapper.n_frames, self.data)
+        #     ftmp.make_cframe(self.orb_extractor)
+        #     k, d = frame.cframe.getKptsAndDescPy()
+        #     print(i, " len(k):", len(k), " len(d):", len(d))
+
         # undistort points
         kpt2, desc2 = frame.cframe.getKptsAndDescPy()
         self.cCamera.undistKeyptsFrame(frame.cframe)
         self.cCamera.convertKeyptsToBearingsFrame(frame.cframe)
         up2 = frame.cframe.getKptsUndist()
+        print("Keypts: ", frame.cframe.im_name, ": ", kpt2.shape)
         self.guided_matcher.\
             distribute_keypoints_to_grid_frame(frame.cframe)
         slam_debug.draw_obs_in_image_no_norm(kpt2, image, True)

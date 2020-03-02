@@ -22,7 +22,8 @@ SlamUtilities::update_new_keyframe(KeyFrame& curr_kf)
         lm->update_normal_and_depth();
     }
 }
-std::unordered_set<KeyFrame*>
+// std::unordered_set<KeyFrame*>
+std::vector<KeyFrame*>
 SlamUtilities::get_second_order_covisibilities_for_kf(const KeyFrame* kf, const size_t first_order_thr, const size_t second_order_thr)
 {
     const auto cur_covisibilities = kf->graph_node_->get_top_n_covisibilities(first_order_thr);
@@ -41,6 +42,7 @@ SlamUtilities::get_second_order_covisibilities_for_kf(const KeyFrame* kf, const 
         }
 
         fuse_tgt_keyfrms.insert(first_order_covis);
+        std::cout << "fuse_tgt_keyfrms.insert(first_order_covis): " << first_order_covis->im_name_ << std::endl;
 
         // get the covisibilities of the covisibility of the current keyframe
         const auto ngh_covisibilities = first_order_covis->graph_node_->get_top_n_covisibilities(second_order_thr);
@@ -54,10 +56,20 @@ SlamUtilities::get_second_order_covisibilities_for_kf(const KeyFrame* kf, const 
             }
 
             fuse_tgt_keyfrms.insert(second_order_covis);
+            std::cout << "fuse_tgt_keyfrms.insert(second_order_covis): " << second_order_covis->im_name_ << std::endl;
         }
     }
 
-    return fuse_tgt_keyfrms;
+    for (const auto& frm: fuse_tgt_keyfrms)
+    {
+        std::cout << "frm: " << frm->im_name_ << std::endl;
+    }
+    // return fuse_tgt_keyfrms;
+    //TODO: this copy is unnecessary and only used to keep the order
+    std::vector<KeyFrame*> fuse_tgt_keyfrms_vec(fuse_tgt_keyfrms.cbegin(), fuse_tgt_keyfrms.cend());
+    // std::copy(fuse_tgt_keyfrms.cbegin(), fuse_tgt_keyfrms.cbegin(), )
+    return fuse_tgt_keyfrms_vec;
+    
 }
 
 std::vector<Landmark*>

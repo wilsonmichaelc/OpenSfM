@@ -49,9 +49,9 @@ BrownPerspectiveCamera::undistKeypts(const std::vector<cv::KeyPoint>& keypts, st
     upTmp=upTmp.reshape(2);
     cv::undistortPoints(upTmp,upTmp,K,distCoeff,cv::Mat(),K);
     upTmp=upTmp.reshape(1);
-    std::cout << "undist_keypts: " << undist_keypts.size() << std::endl;
+    // std::cout << "undist_keypts: " << undist_keypts.size() << std::endl;
     undist_keypts.resize(num_keypts);
-    std::cout << "num_keypts: " << num_keypts << " keypts: " << keypts.size() << std::endl;
+    // std::cout << "num_keypts: " << num_keypts << " keypts: " << keypts.size() << std::endl;
     for(int idx = 0; idx < num_keypts; idx++)
     {
         undist_keypts.at(idx).pt.x = upTmp.at<float>(idx, 0);
@@ -60,7 +60,7 @@ BrownPerspectiveCamera::undistKeypts(const std::vector<cv::KeyPoint>& keypts, st
         undist_keypts.at(idx).size = keypts.at(idx).size;
         undist_keypts.at(idx).octave = keypts.at(idx).octave;
     }
-    std::cout << "undist_keypts: " << undist_keypts.size() << std::endl;
+    // std::cout << "undist_keypts: " << undist_keypts.size() << std::endl;
 }
 // bool 
 // BrownPerspectiveCamera::reproject_to_image_dist(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,

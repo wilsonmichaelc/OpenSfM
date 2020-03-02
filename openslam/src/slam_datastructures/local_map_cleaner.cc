@@ -41,18 +41,18 @@ LocalMapCleaner::update_lms_after_kf_insert(KeyFrame* new_kf)
         lm->update_normal_and_depth();
         lm->compute_descriptor();
     }
-    std::cout << "Before update connections!" << std::endl;
+    // std::cout << "Before update connections!" << std::endl;
     new_kf->graph_node_->update_connections();
-    std::cout << "AFter update connections!" << std::endl;
+    // std::cout << "AFter update connections!" << std::endl;
     const auto cov = new_kf->graph_node_->get_top_n_covisibilities(10);
-    std::cout<< "cov: " << cov.size() << std::endl;
+    // std::cout<< "cov: " << cov.size() << std::endl;
 }
 
 void
 LocalMapCleaner::fuse_landmark_duplication(KeyFrame* curr_kf, const std::vector<KeyFrame*>& fuse_tgt_keyfrms) const
 {
     auto cur_landmarks = curr_kf->landmarks_;
-    std::cout << "Before first for" <<std::endl;
+    // std::cout << "Before first for" <<std::endl;
 
     // go through kfs and fuse!
     // reproject the landmarks observed in the current keyframe to each of the targets, and acquire
@@ -252,7 +252,8 @@ LocalMapCleaner::remove_redundant_keyframes(KeyFrame* cur_keyfrm, const size_t o
         size_t num_redundant_obs{0}, num_valid_obs{0};
         // unsigned int num_valid_obs = 0;
         count_redundant_observations(covisibility, num_valid_obs, num_redundant_obs);
-        std::cout << "num_redundant_obs" << num_redundant_obs << "num_valid_obs" << num_valid_obs << std::endl;
+        std::cout << covisibility->im_name_ << " num_redundant_obs" << num_redundant_obs 
+                  << "num_valid_obs" << num_valid_obs << " factor: " << static_cast<float>(num_redundant_obs) / num_valid_obs << std::endl;
         // if the redundant observation ratio of `covisibility` is larger than the threshold, it will be removed
         if (redundant_obs_ratio_thr <= static_cast<float>(num_redundant_obs) / num_valid_obs) {
             ++num_removed;

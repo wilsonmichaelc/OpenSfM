@@ -39,21 +39,13 @@ class SlamInitializer(object):
                                  frame.cframe, self.prev_pts,
                                  100)
         matches = np.array(matches)
-        
+        print("Init: ", len(matches))
         # Update pts
         self.prev_pts[matches[0, :], :] =\
             frame.cframe.getKptsUndist()[matches[1, :], 0:2]
 
         f1_points = self.init_frame.cframe.getKptsPy()
         f2_points = frame.cframe.getKptsPy()
-        
-        # slam_debug.visualize_matches_pts(f1_points[:, 0:2],
-        #                                  f2_points[:, 0:2], matches,
-        #                                  self.init_frame.image,
-        #                                  frame.image,
-        #                                  is_normalized=False, do_show=True)
-        # print(matches)
-
         
         # test reconstructability
         threshold = 4 * self.data.config['five_point_algo_threshold']

@@ -153,8 +153,8 @@ class SlamTracker(object):
         margin = 20
         init_frame = slam_mapper.pre_last
         last_frame = slam_mapper.last_frame
-        velocity = last_frame.world_pose.compose(init_frame.world_pose.inverse()) # T_c1,w * inv(T_c0,w)
-
+        velocity = last_frame.world_pose.compose(init_frame.world_pose.inverse())
+        print("velocity: ", velocity.get_Rt())
         # WORLD POSE = T_CW
         pose_init = velocity.compose(last_frame.world_pose)
         
@@ -181,9 +181,11 @@ class SlamTracker(object):
 
         matches = self.guided_matcher.\
             match_current_and_last_frame(frame.cframe, slam_mapper.last_frame.cframe, margin)
-        im1, im2 = data.load_image(last_frame.im_name), data.load_image(frame.im_name)
+        # im1, im2 = data.load_image(last_frame.im_name), data.load_image(frame.im_name)
         n_matches = len(matches)
+        print("matches: ", n_matches)
         if n_matches < 10: # not enough matches found, increase margin
+            print("matches2: ", margin)
             matches = self.guided_matcher.\
                 match_current_and_last_frame(frame.cframe, slam_mapper.last_frame.cframe, margin*2)
             if n_matches < 10:
@@ -206,7 +208,6 @@ class SlamTracker(object):
         # Set up bundle adjustment problem
         pose, valid_pts = self.bundle_tracking(points3D, points2D, pose_init, camera, config, data)
 
-
         # # test something
         # kf = slam_mapper.c_keyframes[-1]
         # lms = kf.get_valid_lms()
@@ -228,9 +229,24 @@ class SlamTracker(object):
         print("valid bef: ", len(valid_idx_dbg), " and after: ", len(valid_idx_dbg_2))
         if num_valid_matches < 10:
             logger.error("Tracking lost!!")
+            # Make previous frame to keyframe!
+            self.robust_matching(slam_mapper)
             exit()
         slam_debug.visualize_tracked_lms(points2D[valid_pts, :], frame, data)
         return pose
+
+    
+    def robust_matching(self, slam_mapper): #, curr_frame, ref_frame):
+        """Tracks the current frame with respect to ref_frame (either last frame or last kf)
+        by exhaustive matching!
+        Search for matches, estimate new pose and add this frame as KF
+        """
+        #First match to 
+        # matches = self.guided_matcher.match_frame_to_frame_exhaustive(old)
+        # Match to last KF
+        # match_keyframe_to_frame_exhaustive
+        pass
+
 
     def track(self, slam_mapper: SlamMapper, frame: Frame, config, camera,
               data):
@@ -293,7 +309,6 @@ class SlamTracker(object):
         # for 
 
         slam_debug.avg_timings.addTimes(chrono.laps_dict)  
-        # print("got: ", len(lms), " landmarks and ", len(points2D))
         chrono.start()
         self.num_tracked_lms = np.sum(valid_pts)
         frame.cframe.set_outlier(np.array(valid_ids)[np.invert(valid_pts)])

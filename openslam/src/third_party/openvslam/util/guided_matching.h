@@ -68,7 +68,10 @@ public:
         return dist;
     }
     static std::unordered_map<KeyFrame*, float>
-    compute_optical_flow(const cslam::Frame& new_frame); //, std::vector<cslam::Landmark*>& local_landmarks);
+    compute_optical_flow(const cslam::Frame& new_frame);
+    static std::pair<float, float>
+    compute_min_max_depth(const KeyFrame& new_frame);
+
     GuidedMatcher(const GridParameters& grid_params, const BrownPerspectiveCamera& camera, SlamReconstruction* map_db);
     const GridParameters& grid_params_;
     const BrownPerspectiveCamera& camera_;
@@ -78,7 +81,7 @@ public:
     void distribute_keypoints_to_grid_frame(cslam::Frame& frame);
 
     void distribute_keypoints_to_grid(const std::vector<cv::KeyPoint>& undist_keypts,
-                                    CellIndices& keypt_indices_in_cells);
+                                      CellIndices& keypt_indices_in_cells);
 
     std::vector<size_t> 
     get_keypoints_in_cell(const std::vector<cv::KeyPoint>& undist_keypts,
@@ -88,8 +91,17 @@ public:
 
     MatchIndices 
     match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
-                        const Eigen::MatrixX2f& prevMatched,
-                        const size_t margin);
+                         const Eigen::MatrixX2f& prevMatched,
+                         const size_t margin);
+
+    MatchIndices
+    match_keyframe_to_frame_exhaustive(const cslam::KeyFrame& frame1, const cslam::Frame& frame2, const size_t margin) const;
+    MatchIndices
+    match_frame_to_frame_exhaustive(const cslam::Frame& frame1, const cslam::Frame& frame2, const size_t margin) const;
+    MatchIndices
+    match_kpts_to_kpts_exhaustive(const std::vector<cv::KeyPoint>& kpts1, const cv::Mat& desc1,
+                                  const std::vector<cv::KeyPoint>& kpts2, const cv::Mat& desc2,
+                                  const size_t margin) const;
 
     // TODO: Think about the margin. Maybe make it dynamic depending on the depth of the feature!!
     size_t
@@ -111,7 +123,8 @@ public:
     MatchIndices 
     match_for_triangulation_with_depth(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12, const float median_depth) const;
 
-    
+    MatchIndices
+    match_for_triangulation_epipolar(const KeyFrame& kf1, const KeyFrame& kf2, const Eigen::Matrix3f& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin = 5) const;
     static bool 
     check_epipolar_constraint(const Eigen::Vector3f& bearing_1, const Eigen::Vector3f& bearing_2,
                               const Eigen::Matrix3f& E_12, const float bearing_1_scale_factor);

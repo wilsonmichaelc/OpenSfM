@@ -122,6 +122,69 @@ def visualize_matches_pts(pts1, pts2, matches, im1, im2, do_show=True, title = "
         plt.show()
 
 
+def visualize_epipolar_line(pts1, pts2, im1, im2, T_1_2, K, min_d, max_d):
+    # This is probably extremely slow but just for debug
+    if len(im1.shape) == 3:
+        h1, w1, c = im1.shape
+    else:
+        h1, w1 = im1.shape
+    fig, ax = plt.subplots(1)
+    im = np.vstack((im1, im2))
+    obs_d1, obs_d2 = pts1, pts2
+    ax.imshow(im)
+    ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])
+    ax.scatter(obs_d2[:, 0], h1+obs_d2[:, 1], c=[[0, 1, 0]])
+    K_inv = np.linalg.inv(K)
+    n_steps = 20
+    margin = 5
+    KRK_i = K.dot(T_1_2[0:3, 0:3].dot(K_inv))
+    Kt = K.dot(T_1_2[0:3, 3])
+    # T_1_2 = np.linalg.inv(T_1_2)
+    # Now, compute the epipolar line
+    for idx, pt2 in enumerate(pts2[:, 0:2]):
+        if idx % 50 == 0:
+            pt3D = KRK_i.dot(np.hstack((pt2, 1)))
+            start = pt3D*min_d + Kt # T_1_2[0:3, 0:3].dot(K_inv.dot(np.hstack((pt2, 1)) * min_d)) + T_1_2[0:3, 3]
+            end = pt3D*max_d + Kt # T_1_2[0:3, 0:3].dot(K_inv.dot(np.hstack((pt2, 1))* max_d)) + T_1_2[0:3, 3]
+            # end = K.dot(pt3D_h)
+            start = start[0:2] / start[2]
+            # end = K.dot(pt3D_h2)
+            end = end[0:2] / end[2]
+            plt.plot([start[0], end[0]], [start[1], end[1]], color='blue', linewidth=2)
+            plt.plot([start[0], pt2[0]], [start[1], h1 + pt2[1]], color=np.random.rand(3), linewidth=2)
+
+            # now iterate through the depth
+            for factor in np.arange(0,5,0.4):
+                start =pt3D * min_d*factor + Kt
+                # pt3D_h2 = T_1_2[0:3, 0:3].dot(K_inv.dot(np.hstack((pt2, 1))* max_d)) + T_1_2[0:3, 3]
+                # start = K.dot(pt3D_h)
+                z = start[2]
+                start = start[0:2] / start[2]
+                plt.scatter(start[0],start[1],marker='x')
+                plt.text(start[0],start[1],s=str(int(min_d*factor*100)/100.0)+"/"+str(int(z*100)/100.0), c='blue')
+            
+        continue
+        # if idx % 15 == 0:
+        #     pt3D_h = T_1_2[0:3,0:3].dot(K_inv.dot(np.hstack((pt2, 1))*depth))+T_1_2[0:3,3]
+        #     pt3D_h2 = T_1_2[0:3,0:3].dot(K_inv.dot(np.hstack((pt2, 1))*(depth+0.1)))+T_1_2[0:3,3]
+        #     start = K.dot(pt3D_h)
+        #     start = start[0:2]/start[2]
+        #     end = K.dot(pt3D_h2)
+        #     end = end[0:2]/end[2]
+        #     unit_epi = start-end
+        #     unit_epi = unit_epi/np.linalg.norm(unit_epi)
+
+        #     # draw the start
+        #     e1 = start + unit_epi*20*margin*1.5
+        #     e2 = start - unit_epi*20*margin*1.5
+        #     ax.scatter(start[0], start[1], c=[[0,1,0]])
+        #     plt.plot([e1[0], e2[0]], [e1[1], e2[1]], color='blue', linewidth=2)
+        #     plt.plot([start[0], pt2[0]], [start[1], h1+pt2[1]], color='red', linewidth=2)
+    plt.show()
+
+    
+
+
 def visualize_matches_pts(pts1, pts2, matches, im1, im2, is_normalized= True, do_show=True, title = ""):
     if disable_debug:
         return
@@ -140,7 +203,7 @@ def visualize_matches_pts(pts1, pts2, matches, im1, im2, is_normalized= True, do
     else:
         obs_d1, obs_d2 = pts1[matches[:, 0]], pts2[matches[:, 1]]
     ax.imshow(im)
-    skip = 25
+    skip = 5
     ax.scatter(obs_d1[:, 0], obs_d1[:, 1], c=[[0, 1, 0]])
     ax.scatter(w1+obs_d2[:, 0], obs_d2[:, 1], c=[[0, 1, 0]])
     for a, b in zip(obs_d1[::skip, :], obs_d2[::skip, :]):
