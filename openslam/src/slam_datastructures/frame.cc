@@ -10,7 +10,7 @@ Frame::Frame(const csfm::pyarray_uint8 image, const csfm::pyarray_uint8 mask,
              const std::string& img_name, const size_t frame_id, 
              openvslam::feature::orb_extractor* orb_extractor):
     im_name(img_name), frame_id(frame_id), //scale_factors_(orb_extractor->get_scale_factors()),
-    T_wc(Eigen::Matrix4f::Identity()), T_cw(Eigen::Matrix4f::Identity()), cam_center_(Eigen::Vector3f::Zero())
+    T_cw(Eigen::Matrix4f::Identity()), T_wc(Eigen::Matrix4f::Identity()), cam_center_(Eigen::Vector3f::Zero())
 {
     orb_extractor->extract_orb_py2(image, mask, *this);
     update_orb_info(orb_extractor);

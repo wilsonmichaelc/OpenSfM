@@ -10,16 +10,17 @@ KeyFrame::KeyFrame(const size_t kf_id, const Frame& frame):
     im_name_(frame.im_name),
     keypts_(frame.keypts_), undist_keypts_(frame.undist_keypts_),
     bearings_(frame.bearings_), descriptors_(frame.descriptors_),
-    landmarks_(frame.landmarks_), 
+    landmarks_(frame.landmarks_),
+    keypts_indices_in_cells_(frame.keypts_indices_in_cells_), num_keypts_(landmarks_.size()),
     // ORB scale pyramid
     num_scale_levels_(frame.num_scale_levels_), scale_factor_(frame.scale_factor_),
     log_scale_factor_(frame.log_scale_factor_), scale_factors_(frame.scale_factors_),
+    inv_scale_factors_(frame.inv_scale_factors_),
     level_sigma_sq_(frame.level_sigma_sq_), inv_level_sigma_sq_(frame.inv_level_sigma_sq_),
-    keypts_indices_in_cells_(frame.keypts_indices_in_cells_), num_keypts_(landmarks_.size()),
     // graph node (connections is not assigned yet)
     graph_node_(std::make_unique<openvslam::data::graph_node>(this, false))
 {
-
+    std::cout << "Create Kf: " << kf_id_ << " with " << num_keypts_ << "/" << landmarks_.size() << std::endl;
 }
 
 std::vector<size_t>
@@ -150,12 +151,13 @@ KeyFrame::get_valid_lms()
 {
     std::vector<Landmark*> landmark;
     std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> obs; //x, y, scale
+    std::cout << "num_keypts_: " << num_keypts_ << std::endl;
     for (size_t i = 0; i < num_keypts_; ++i)//(auto lm : landmarks_)
     {
         auto lm = landmarks_[i];
         if (lm == nullptr) continue;
         landmark.push_back(lm);
-        const auto kp = keypts_[i];
+        const auto& kp = keypts_[i];
         obs.push_back(Eigen::Vector3f(kp.pt.x, kp.pt.y, kp.size));
     }
     return landmark;

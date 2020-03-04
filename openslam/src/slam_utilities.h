@@ -23,6 +23,9 @@ public:
     static std::vector<KeyFrame*>
     get_second_order_covisibilities_for_kf(const KeyFrame* kf, const size_t first_order_thr, const size_t second_order_thr);
     
+
+    // static bool compare (const KeyFrame* const kf1, const KeyFrame* const kf2){ return kf1->kf_id_ < kf2->kf_id_; }
+    // = [](const KeyFrame* const kf1, const KeyFrame* const kf2) { return kf1->kf_id_ < kf2->kf_id_; }
     static void
     update_new_keyframe(KeyFrame& curr_kf);
     static std::vector<KeyFrame*> 

@@ -25,7 +25,7 @@ Landmark::add_observation(KeyFrame* keyfrm, size_t idx) {
 void 
 Landmark::erase_observation(KeyFrame* keyfrm, SlamReconstruction* reconstruction) {
     if (observations_.count(keyfrm)) {
-        int idx = observations_.at(keyfrm);
+        // int idx = observations_.at(keyfrm);
         // if (0 <= keyfrm->stereo_x_right_.at(idx)) {
         //     num_observations_ -= 2;
         // }
@@ -99,7 +99,8 @@ Landmark::replace(Landmark* lm) {
     }
     // std::cout << "Replace " << this << " with " << lm << std::endl;
     unsigned int num_observable, num_observed;
-    std::map<KeyFrame*, size_t> observations;
+    //TODO: Probably move the observations.clear() to the end and avoid copying
+    std::map<KeyFrame*, size_t, KeyFrameCompare> observations;
     observations = observations_;
     observations_.clear();
     will_be_erased_ = true;
@@ -132,6 +133,8 @@ void
 Landmark::compute_descriptor()
 {
     if (observations_.empty()) return;
+    std::cout << "compute_descriptor: " << lm_id_ << std::endl;
+
     // 対応している特徴点の特徴量を集める
     std::vector<cv::Mat> descriptors;
     descriptors.reserve(observations_.size());
@@ -141,6 +144,7 @@ Landmark::compute_descriptor()
 
         // if (!keyfrm->will_be_erased()) {
             descriptors.push_back(keyfrm->descriptors_.row(idx));
+            std::cout << "keyfrm->descriptors_.row(" << idx << "): " << keyfrm->descriptors_.row(idx) << std::endl;
         // }
     }
 
@@ -158,6 +162,7 @@ Landmark::compute_descriptor()
             const auto dist = GuidedMatcher::compute_descriptor_distance_32(descriptors.at(i), descriptors.at(j));
             hamm_dists.at(i).at(j) = dist;
             hamm_dists.at(j).at(i) = dist;
+            std::cout << "i/j: " << i << "/" << j << " dist: " << dist << std::endl;
         }
     }
 
@@ -169,12 +174,13 @@ Landmark::compute_descriptor()
         std::vector<unsigned int> partial_hamm_dists(hamm_dists.at(idx).begin(), hamm_dists.at(idx).begin() + num_descs);
         std::sort(partial_hamm_dists.begin(), partial_hamm_dists.end());
         const auto median_dist = partial_hamm_dists.at(static_cast<unsigned int>(0.5 * (num_descs - 1)));
-
+        std::cout << "median_dist: " << median_dist << "num_descs: " << num_descs << std::endl;
         if (median_dist < best_median_dist) {
             best_median_dist = median_dist;
             best_idx = idx;
         }
     }
+    std::cout << "Final descriptor at " << best_idx << " desc: " << descriptors.at(best_idx);
     descriptor_ = descriptors.at(best_idx).clone();
 }
 void 

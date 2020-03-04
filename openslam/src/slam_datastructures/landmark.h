@@ -3,9 +3,11 @@
 #include <opencv2/core.hpp>
 #include <Eigen/Eigen>
 #include <iostream>
+#include "slam_utilities.h"
+#include "keyframe.h"
 namespace cslam
 {
-class KeyFrame;
+// class KeyFrame;
 class Frame;
 class SlamReconstruction;
 class Landmark
@@ -18,10 +20,6 @@ public:
     void increase_num_observed(unsigned int num_observed = 1) { num_observed_ += num_observed; }
     float get_observed_ratio() const { return static_cast<float>(num_observed_)/num_observable_; }
 
-    // Tracking information
-    bool is_observable_in_tracking_ = false; // true if can be reprojected to current frame
-    size_t scale_level_in_tracking_;
-    Eigen::Vector2f reproj_in_tracking_ = Eigen::Vector2f::Zero(); // reprojected pixel position
 
     void erase_observation(KeyFrame* kf, SlamReconstruction* reconstruction);
 
@@ -36,8 +34,8 @@ public:
     void add_observation(KeyFrame*, const size_t idx);
     void compute_descriptor();
     void update_normal_and_depth(); //const std::vector<float>& scale_factors);
-    size_t identifier_in_local_map_update_ = 0;
-    size_t identifier_in_local_lm_search_ = 0;
+
+
     Eigen::Vector3f get_pos_in_world() const { return pos_w_; }
     void set_pos_in_world(const Eigen::Vector3f& pos_w) { pos_w_ = pos_w; }
     float get_min_valid_distance() const { return 0.7 * min_valid_dist_; }
@@ -60,11 +58,24 @@ public:
     {
         return static_cast<bool>(observations_.count(keyfrm));
     }
-    const size_t lm_id_;
-    size_t ref_kf_id_;
+
     const auto& get_observations() { return observations_; }
     // const auto& get_observations() const { return observations_; }
     Landmark* get_replaced() const { return replaced_; }
+public:
+    const size_t lm_id_;
+    //! reference keyframe
+    KeyFrame* ref_keyfrm_;
+    size_t ref_kf_id_;
+    // Tracking information
+    bool is_observable_in_tracking_ = false; // true if can be reprojected to current frame
+    size_t scale_level_in_tracking_;
+        
+    size_t identifier_in_local_map_update_ = 0;
+    size_t identifier_in_local_lm_search_ = 0;
+
+    Eigen::Vector2f reproj_in_tracking_ = Eigen::Vector2f::Zero(); // reprojected pixel position
+
 private:
     
     size_t num_observations_ = 0;
@@ -79,19 +90,20 @@ private:
     //! min valid distance between landmark and camera
     float max_valid_dist_ = 0;
 
-        //! この3次元点を観測しているkeyframeについて，keyframe->lmのベクトルの平均値(規格化されてる)
+    //! この3次元点を観測しているkeyframeについて，keyframe->lmのベクトルの平均値(規格化されてる)
     Eigen::Vector3f mean_normal_ = Eigen::Vector3f::Zero();
 
     //! representative descriptor
     cv::Mat descriptor_;
 
-    //! reference keyframe
-    KeyFrame* ref_keyfrm_;
+
     
     Eigen::Vector3f pos_w_;
 
     //! observations (keyframe and keypoint index)
-    std::map<KeyFrame*, size_t> observations_;
+    std::map<KeyFrame*, size_t, KeyFrameCompare> observations_;
+    // std::map<KeyFrame*, size_t, decltype(SlamUtilities::compare)> observations_(SlamUtilities::compare);
+
 
     //! this landmark will be erased shortly or not
     bool will_be_erased_ = false; //Note: probably always false since we don't run in parallel

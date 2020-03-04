@@ -122,7 +122,7 @@ class SlamSystem(object):
 
     def init_slam_system(self, frame: Frame):
         """Find the initial depth estimates for the slam map"""
-        print("init_slam_system: ", frame)
+        print("init_slam_system: ", frame.im_name)
         data = self.data
         if self.slam_init.init_frame is None:
             self.slam_init.set_initial_frame(frame)

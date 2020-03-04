@@ -25,7 +25,7 @@ std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>>& bearing
     for (unsigned long idx = 0; idx < undist_keypts.size(); ++idx) {
         const auto x_normalized = (undist_keypts.at(idx).pt.x - cx_p) / fx_p;
         const auto y_normalized = (undist_keypts.at(idx).pt.y - cy_p) / fy_p;
-        const auto l2_norm = std::sqrt(x_normalized * x_normalized + y_normalized * y_normalized + 1.0);
+        // const auto l2_norm = std::sqrt(x_normalized * x_normalized + y_normalized * y_normalized + 1.0);
         // bearings.at(idx) = Eigen::Vector3f{x_normalized / l2_norm, y_normalized / l2_norm, 1.0 / l2_norm};
         // std::cout << "oslam: " <<  bearings.at(idx) << " my: " << Eigen::Vector3f(x_normalized, y_normalized, 1.0).normalized() << std::endl;
         bearings.at(idx) = Eigen::Vector3f(x_normalized, y_normalized, 1.0).normalized();
@@ -40,7 +40,7 @@ BrownPerspectiveCamera::undistKeypts(const std::vector<cv::KeyPoint>& keypts, st
     const auto num_keypts = keypts.size();
     // Fill matrix with points
     cv::Mat upTmp(num_keypts,2,CV_32F);
-    for(int i=0; i<num_keypts; i++)
+    for(size_t i=0; i<num_keypts; i++)
     {
         upTmp.at<float>(i,0)=keypts[i].pt.x;
         upTmp.at<float>(i,1)=keypts[i].pt.y;
@@ -52,7 +52,7 @@ BrownPerspectiveCamera::undistKeypts(const std::vector<cv::KeyPoint>& keypts, st
     // std::cout << "undist_keypts: " << undist_keypts.size() << std::endl;
     undist_keypts.resize(num_keypts);
     // std::cout << "num_keypts: " << num_keypts << " keypts: " << keypts.size() << std::endl;
-    for(int idx = 0; idx < num_keypts; idx++)
+    for(size_t idx = 0; idx < num_keypts; idx++)
     {
         undist_keypts.at(idx).pt.x = upTmp.at<float>(idx, 0);
         undist_keypts.at(idx).pt.y = upTmp.at<float>(idx, 1);
