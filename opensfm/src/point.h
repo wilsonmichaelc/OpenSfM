@@ -6,23 +6,67 @@
 #include <unordered_map>
 #include <memory>
 
-using ShotId = int;
-using PointId = int;
-using FeatureId = int;
+using ShotId = size_t;
+using PointId = size_t;
+using FeatureId = size_t;
+using CameraId = size_t;
 
+
+
+
+struct KeyCompare
+{
+    template<typename T>
+    bool operator()(T* lhs, T* rhs) const { return lhs->kf_id_ < rhs->kf_id_; }
+    bool operator()(T const* lhs, T const * rhs) const { return lhs->kf_id_ < rhs->kf_id_; }
+};
+struct SLAMPointData{
+};
 class Point {
  public:
+  Point(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "")
+  Eigen::Vector3d GetGlobalPos() const { return global_pos_; }
+  void SetGlobalPos(const Eigen::Vector3d& global_pos) const { global_pos_ = global_pos; }
+
+  bool isObservedInShot(Shot* shot) const;
+  void addObservation(Shot* shot, const FeatureId feat_id);
+  void removeObservation(Shot* shot);
+  void hasObservations() const
  private:
+  //We could set the const values to public, to avoid writing a getter.
   const std::string point_name_;
   const int id_;
 
-  Eigen::Vector3d coordinates_;
-  std::map<Shot *, FeatureId> observations_;
+  Eigen::Vector3d global_pos_; // point in global
+  std::map<Shot *, FeatureId, KeyCompare<Shot>> observations_;
+  SLAMPointData slam_data_;
 };
 
+struct SLAMShotData{
+};
 class Shot {
  public:
+  Shot(const ShotId shot_id, const camera* camera, const Pose& pose, const std::string& name = "");
+  cv::Mat getDescriptor(const FeatureId id) const { return descriptors_.row(id); }
+  cv::KeyPoint getKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
+  //No reason to set individual keypoints or descriptors
+
+  //read-only access
+  const std::vector<cv::KeyPoint>& getKeyPoints() const { return keypoints_; }
+  const cv::Mat& getDescriptors() const { return descriptors_; }
+  
+  size_t computeNumValidPoints() const;
+  
+  const std::vector<Point*>& getPoints() const { return points_; }
+  std::vector<Point*>& getPoints() { return points_; }
+  void removePointObservation(const FeatureId id);
+  void addPointObservation(const Point* point, const FeatureId feat_id);
+  void setPose(const Pose& pose);
+  SLAMShotData slam_data_;
+
+
  private:
+  //We could set the const values to public, to avoid writing a getter.
   const std::string image_name_;
   const int id_;
 
@@ -31,15 +75,13 @@ class Shot {
   cv::Mat descriptors_;
   std::map<FeatureId, PointId> observations_;
 
-  ShotCamera *camera_;
+  const ShotCamera *camera_;
   Pose pose_;
 
   ShotMeasurements shot_measurements_;
-  SLAMData slam_data_;
+
 };
 
-struct SLAMData{
-};
 
 struct ShotMeasurements{
   Eigen::Vector3d gps_;
@@ -54,47 +96,67 @@ class ShotCamera {
 
 class Pose {
 public:
-  Eigen::Vector3d GetOrigin() const;
-  Eigen::Matrix3d WorldToCamera() const;
-  Eigen::Matrix3d CameraToWorld() const;
+  //4x4 Transformation
+  Eigen::Matrix4d WorldToCamera() const { return worldToCam; }
+  Eigen::Matrix4d CameraToWorld() const { return camToWorld; }
+
+  // 3x3 Rotation
+  Eigen::Matrix3d RotationWorldToCamera() const { return worldToCam.block<3,3>(0,0); }
+  Eigen::Matrix3d RotationCameraToWorld() const { return camToWorld.block<3,3>(0,0); }
+  
+  // 3x1 Translation
+  Eigen::Vector3d TranslationWorldToCamera() const { return worldToCam.block<3,1>(0,3); }
+  Eigen::Vector3d TranslationCameraToWorld() const { return camToWorld.block<3,1>(0,3); };
+  Eigen::Vector3d GetOrigin() const { return TranslationCameraToWorld(); }
+
+  void setPose(const Pose& pose);
 private:
-  Eigen::Vector3d translation_;
-  Eigen::Vector3d rotation_;
+  // Eigen::Vector3d translation_;
+  // Eigen::Vector3d rotation_;
+  Eigen::Matrix4d worldToCam_;
+  Eigen::Matrix4d camToWorld_;
+  //Maybe use Sophus to store the minimum representation
 };
 
 class ReconstructionManager {
 public:
 
   // Should belong to the manager
-  int GetShotIdFromName(const std::string& name)const;
-  int GetPointIdFromName(const std::string& name)const;
+  ShotId GetShotIdFromName(const std::string& name) const { return shot_names_[name]; }
+  PointId GetPointIdFromName(const std::string& name) const { return point_names_[name]; };
 
-  ShotCamera* CreateCamera(const int id, const Camera& camera);
+  ShotCamera* CreateCamera(const CameraId cam_id, const Camera& camera);
+  bool UpdateCamera(const CameraId cam_id, const Camera& camera);
 
-  bool UpdateCamera(const int id, const Camera& camera);
+  Shot* CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose, const std::string& name = "");
+                  //  const Eigen::Vector3d& origin,
+                  //  const Eigen::Vector3d& rotation);
+  bool UpdateShotPose(const ShotId shot_id, const Pose& pose);
+                      // const Eigen::Vector3d& origin,
+                      // const Eigen::Vector3d& rotation);
 
-  Shot* CreateShot(const int id, const int camera_id,
-                   const Eigen::Vector3d& origin,
-                   const Eigen::Vector3d& rotation);
-  bool UpdateShotPose(const int id, const Eigen::Vector3d& origin,
-                      const Eigen::Vector3d& rotation);
-
-  Point* CreatePoint(const int id, const Eigen::Vector3d& position);
-  bool UpdatePoint(const int id, const Eigen::Vector3d& position);
-
-  bool AddObservation(const Shot* shot, const Point* point);
-  bool RemoveObservation(const Shot* shot, const Point* point);
+  Point* CreatePoint(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
+  bool UpdatePoint(const PointId point_id, const Eigen::Vector3d& global_pos);
+  bool AddObservation(const Shot* shot, const Point* point, const FeatureId feat_id);
+  bool RemoveObservation(const Shot* shot, const Point* point, const FeatureId feat_id);
 
   std::map<Point*, FeatureId> GetObservationsOfShot(const Shot* shot);
   std::map<Shot*, FeatureId> GetObservationsOfPoint(const Point* point);  
 
-  const std::unordered_map<ShotId, Shot>& GetAllShots() const;
-  const std::unordered_map<int, ShotCamera>& GetAllCameras() const;
-  const std::unordered_map<PointId, Point>& GetAllPoints() const;
+  const std::unordered_map<ShotId, Shot>& GetAllShots() const { return shots_; }
+  const std::unordered_map<int, ShotCamera>& GetAllCameras() const { return cameras_; };
+  const std::unordered_map<PointId, Point>& GetAllPoints() const { return points_; };
 private:
-  std::unordered_map<int, ShotCamera > cameras_;
+  //why no ponters?
+  std::unordered_map<CameraId, ShotCamera > cameras_;
   std::unordered_map<ShotId, Shot > shots_;
   std::unordered_map<PointId, Point > points_;
+
+  std::unordered_map<std::string, ShotId> shot_names_;
+  std::unordered_map< std::string, PointId> point_names;
+  // Alternatively, store pointer
+  // std::unordered_map<std::string, Shot*> shot_names_;
+  // std::unordered_map< std::string, Point*> point_names_;
 };
 
 
