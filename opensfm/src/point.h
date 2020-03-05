@@ -11,9 +11,6 @@ using PointId = size_t;
 using FeatureId = size_t;
 using CameraId = size_t;
 
-
-
-
 struct KeyCompare
 {
     template<typename T>
@@ -24,19 +21,21 @@ struct SLAMPointData{
 };
 class Point {
  public:
-  Point(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "")
+  Point(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
+
   Eigen::Vector3d GetGlobalPos() const { return global_pos_; }
   void SetGlobalPos(const Eigen::Vector3d& global_pos) const { global_pos_ = global_pos; }
 
-  bool isObservedInShot(Shot* shot) const;
-  void addObservation(Shot* shot, const FeatureId feat_id);
-  void removeObservation(Shot* shot);
-  void hasObservations() const
- private:
+  bool IsObservedInShot(Shot* shot) const;
+  void AddObservation(Shot* shot, const FeatureId feat_id);
+  void RemoveObservation(Shot* shot);
+  void HasObservations() const
+
+public:
   //We could set the const values to public, to avoid writing a getter.
   const std::string point_name_;
-  const int id_;
-
+  const PointId id_;
+private:
   Eigen::Vector3d global_pos_; // point in global
   std::map<Shot *, FeatureId, KeyCompare<Shot>> observations_;
   SLAMPointData slam_data_;
@@ -44,31 +43,32 @@ class Point {
 
 struct SLAMShotData{
 };
+
 class Shot {
  public:
   Shot(const ShotId shot_id, const camera* camera, const Pose& pose, const std::string& name = "");
-  cv::Mat getDescriptor(const FeatureId id) const { return descriptors_.row(id); }
-  cv::KeyPoint getKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
+  const cv::Mat& GetDescriptor(const FeatureId id) const { return descriptors_.row(id); }
+  const cv::KeyPoint& GetKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
   //No reason to set individual keypoints or descriptors
 
   //read-only access
-  const std::vector<cv::KeyPoint>& getKeyPoints() const { return keypoints_; }
-  const cv::Mat& getDescriptors() const { return descriptors_; }
+  const std::vector<cv::KeyPoint>& GetKeyPoints() const { return keypoints_; }
+  const cv::Mat& GetDescriptors() const { return descriptors_; }
   
-  size_t computeNumValidPoints() const;
+  size_t ComputeNumValidPoints() const;
   
-  const std::vector<Point*>& getPoints() const { return points_; }
-  std::vector<Point*>& getPoints() { return points_; }
-  void removePointObservation(const FeatureId id);
-  void addPointObservation(const Point* point, const FeatureId feat_id);
-  void setPose(const Pose& pose);
+  const std::vector<Point*>& GetPoints() const { return points_; }
+  std::vector<Point*>& GetPoints() { return points_; }
+  void RemovePointObservation(const FeatureId id);
+  void AddPointObservation(const Point* point, const FeatureId feat_id);
+  void SetPose(const Pose& pose);
   SLAMShotData slam_data_;
 
 
  private:
   //We could set the const values to public, to avoid writing a getter.
   const std::string image_name_;
-  const int id_;
+  const ShotId id_;
 
   std::vector<Point*> points_;
   std::vector<cv::KeyPoint> keypoints_;
@@ -109,7 +109,7 @@ public:
   Eigen::Vector3d TranslationCameraToWorld() const { return camToWorld.block<3,1>(0,3); };
   Eigen::Vector3d GetOrigin() const { return TranslationCameraToWorld(); }
 
-  void setPose(const Pose& pose);
+  void SetPose(const Pose& pose);
 private:
   // Eigen::Vector3d translation_;
   // Eigen::Vector3d rotation_;
@@ -126,31 +126,27 @@ public:
   PointId GetPointIdFromName(const std::string& name) const { return point_names_[name]; };
 
   ShotCamera* CreateCamera(const CameraId cam_id, const Camera& camera);
-  bool UpdateCamera(const CameraId cam_id, const Camera& camera);
+  void UpdateCamera(const CameraId cam_id, const Camera& camera);
 
   Shot* CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose, const std::string& name = "");
-                  //  const Eigen::Vector3d& origin,
-                  //  const Eigen::Vector3d& rotation);
-  bool UpdateShotPose(const ShotId shot_id, const Pose& pose);
-                      // const Eigen::Vector3d& origin,
-                      // const Eigen::Vector3d& rotation);
+  void UpdateShotPose(const ShotId shot_id, const Pose& pose);
 
   Point* CreatePoint(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
-  bool UpdatePoint(const PointId point_id, const Eigen::Vector3d& global_pos);
+  void UpdatePoint(const PointId point_id, const Eigen::Vector3d& global_pos);
   bool AddObservation(const Shot* shot, const Point* point, const FeatureId feat_id);
   bool RemoveObservation(const Shot* shot, const Point* point, const FeatureId feat_id);
 
   std::map<Point*, FeatureId> GetObservationsOfShot(const Shot* shot);
   std::map<Shot*, FeatureId> GetObservationsOfPoint(const Point* point);  
 
-  const std::unordered_map<ShotId, Shot>& GetAllShots() const { return shots_; }
-  const std::unordered_map<int, ShotCamera>& GetAllCameras() const { return cameras_; };
-  const std::unordered_map<PointId, Point>& GetAllPoints() const { return points_; };
+  const std::unordered_map<ShotId, std::unique_ptr<Shot>>& GetAllShots() const { return shots_; }
+  const std::unordered_map<int, std::unique_ptr<ShotCamera>>& GetAllCameras() const { return cameras_; };
+  const std::unordered_map<PointId, std::unique_ptr<Point>>& GetAllPoints() const { return points_; };
 private:
   //why no ponters?
-  std::unordered_map<CameraId, ShotCamera > cameras_;
-  std::unordered_map<ShotId, Shot > shots_;
-  std::unordered_map<PointId, Point > points_;
+  std::unordered_map<CameraId, std::unique_ptr<ShotCamera> > cameras_;
+  std::unordered_map<ShotId, std::unique_ptr<Shot> > shots_;
+  std::unordered_map<PointId, std::unique_ptr<Point> > points_;
 
   std::unordered_map<std::string, ShotId> shot_names_;
   std::unordered_map< std::string, PointId> point_names;

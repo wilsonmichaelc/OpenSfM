@@ -2,31 +2,10 @@
 #include "point.h"
 
 void
-Pose::setPose(const Pose& pose)
+Pose::SetPose(const Pose& pose)
 {
   worldToCam_ = pose.WorldToCamera();
   camToWorld_ = pose.CameraToWorld();
-}
-
-bool 
-Point::isObservedInShot(Shot* shot) const
-{
-  return observations_.count(shot);
-}
-void 
-Point::addObservation(Shot* shot, const FeatureId feat_id)
-{
-  observations_.emplace(shot, feat_id);
-}
-void
-Point::hasObservations() const
-{
-  return !observations_.empty();
-}
-void
-Point::removeObservation(Shot* shot)
-{
-  observations_.erase(shot);
 }
 
 Point::Point(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name):
@@ -35,21 +14,41 @@ Point::Point(const PointId point_id, const Eigen::Vector3d& global_pos, const st
 
 }
 
+bool 
+Point::IsObservedInShot(Shot* shot) const
+{
+  return observations_.count(shot);
+}
+void 
+Point::AddObservation(Shot* shot, const FeatureId feat_id)
+{
+  observations_.emplace(shot, feat_id);
+}
+void
+Point::HasObservations() const
+{
+  return !observations_.empty();
+}
+void
+Point::RemoveObservation(Shot* shot)
+{
+  observations_.erase(shot);
+}
 
-Shot::Shot(const ShotId shot_id, const std::string& name, const camera* camera, const Pose& pose):
+Shot::Shot(const ShotId shot_id, const camera* camera, const Pose& pose, const std::string& name):
             id_(shot_id), image_name(name), camera_(camera), pose_(pose)
 {
   
 }
 
 void
-Shot::removePointObservation(const FeatureId id)
+Shot::RemovePointObservation(const FeatureId id)
 {
   points_.at(id) = nullptr;
 }
 
 size_t
-Shot::computeNumValidPoints() const
+Shot::ComputeNumValidPoints() const
 {
   return points_.size() - std::count(points_.cbegin(), points_.cend(), nullptr);
 }
@@ -58,72 +57,65 @@ Shot*
 ReconstructionManager::CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose, const std::string& name)
 {
   const auto* shot_cam = cameras_.at(camera_id);
-  //Create a unique ptr and move it into the object?
-  auto new_shot = std::make_unique<Shot>(shot_id, shot_cam, pose, name);
-  auto new_shot_raw = new_shot.get();
-  shots_.emplace(shot_id, std::move(new_shot));
+  auto it = shots_.emplace(shot_id, std::make_unique<Shot>(shot_id, shot_cam, pose, name));
+  
+  // Insert failed
+  if (!it.second)
+  {
+    return nullptr;
+
+  }
+
   if (!name.empty())
+  {  
     shot_names_.emplace(name, shot_id);
-  return new_shot_raw;
+  }
+  return it.second->get();
 }
 
-bool
+void
 ReconstructionManager::UpdateShotPose(const ShotId shot_id, const Pose& pose)
 {
-  auto shot = shots_.find(shot_id)
-  if (shot == shots_.end())
-    return false;
-  
-  shot.setPose(pose);
+  shots_.at(shot_id).SetPose(pose);
   return true;
 }
 
 Point*
 ReconstructionManager::CreatePoint(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "")
 {
-  //Create a unique ptr and move it into the object?
-  auto new_point = std::make_unique<Point>(point_id, global_pos, name);
-  auto new_point_raw = new_point.get();
-  shots_.emplace(point_id, std::move(new_shot));
+
+  auto it = points.emplace(point_id, std::make_unique<Point>(point_id, global_pos, name));
+  
+  // Insert failed
+  if (!it.second)
+  {
+    return nullptr;
+
+  }
+
   if (!name.empty())
-    points_.emplace(name, point_id);
-  return new_point_raw;
+  {  
+    point_names_.emplace(name, point_id);
+  }
+  return it.second->get();
 }
 
-bool
+void
 ReconstructionManager::UpdatePoint(const PointId point_id, const Eigen::Vector3d& global_pos)
 {
-  auto point = points.find(point_id)
-  if (point == shots_.end())
-    return false;
-  
-  point.SetPointInGlobal(pose);
-  return true;
+  points.at(point_id).setPointInGlobal(pose);
 }
 
-bool 
-AddObservation(const Shot* shot, const Point* point, const FeatureId feat_id)
+void 
+ReconstructionManager::AddObservation(const Shot* shot, const Point* point, const FeatureId feat_id)
 {
-  // 1) Check that shot and point exist
-  if (shots_.at(shot->id_) == shots_.end() || points_.at(point->id_) == points_.end())
-    return false
-  
-  // 2) add observations
-  shot->addPointObservation(point, feat_id);
-  point->addObservation(shot, feat_id);
-
-  return true;
+  shot->AddPointObservation(point, feat_id);
+  point->AddObservation(shot, feat_id);
 }
 
-bool
-RemoveObservation(const Shot* shot, const Point* point, const FeatureId feat_id)
+void
+ReconstructionManager::RemoveObservation(const Shot* shot, const Point* point, const FeatureId feat_id)
 {
-  // 1) Check that shot and point exist
-  if (shots_.at(shot->id_) == shots_.end() || points_.at(point->id_) == points_.end())
-    return false
-
-  // 2) remove observations
-  shot->removePointObservation(feat_id);
-  point->removeObservation(shot);
-  return true;
+  shot->RemovePointObservation(feat_id);
+  point->RemoveObservation(shot);
 }
