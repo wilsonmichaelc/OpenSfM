@@ -19,9 +19,13 @@ set(CMAKE_CXX_VISIBILITY_INLINES ON)
 # fPIC
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# C++11
-set(CMAKE_CXX_STANDARD 11)
+# C++14
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Enable all warnings
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
 # For compiling VLFeat
 add_definitions(-DVL_DISABLE_AVX)
@@ -62,6 +66,7 @@ add_subdirectory(dense)
 add_subdirectory(features)
 add_subdirectory(geometry)
 add_subdirectory(robust)
+add_subdirectory(reconstruction)
 
 ####### Debugging #######
 if (CMAKE_BUILD_TYPE MATCHES DEBUG)
