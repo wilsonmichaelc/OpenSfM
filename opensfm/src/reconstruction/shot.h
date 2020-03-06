@@ -9,7 +9,7 @@ namespace reconstruction
 {
 class Pose;
 class Camera;
-class Point;
+class Landmark;
 
 class ShotCamera {
   
@@ -45,10 +45,10 @@ class Shot {
   
   size_t ComputeNumValidPoints() const;
   
-  const std::vector<Point*>& GetPoints() const { return points_; }
-  std::vector<Point*>& GetPoints() { return points_; }
+  const std::vector<Landmark*>& GetPoints() const { return points_; }
+  std::vector<Landmark*>& GetPoints() { return points_; }
   void RemovePointObservation(const FeatureId id);
-  void AddPointObservation(const Point* point, const FeatureId feat_id);
+  void AddPointObservation(const Landmark* point, const FeatureId feat_id);
   void SetPose(const Pose& pose);
   SLAMShotData slam_data_;
   void InitAndTakeDatastructures(std::vector<cv::KeyPoint> keypts, cv::Mat descriptors);
@@ -67,7 +67,7 @@ public:
   Pose pose_;
   size_t num_keypts_;
 
-  std::vector<Point*> points_;
+  std::vector<Landmark*> points_;
   std::vector<cv::KeyPoint> keypoints_;
   cv::Mat descriptors_;
 

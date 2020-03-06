@@ -1,9 +1,9 @@
 set(RECONSTRUCTION_FILES
   shot.h
-  point.h
+  landmark.h
   manager.h
   defines.h
-  src/point.cc
+  src/landmark.cc
   src/manager.cc
   src/shot.cc
 )

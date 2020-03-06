@@ -11,11 +11,11 @@ class Shot;
 
 struct SLAMPointData{
 };
-class Point {
+class Landmark {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  Point(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
+  Landmark(const LandmarkId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
 
   Eigen::Vector3d GetGlobalPos() const { return global_pos_; }
   void SetGlobalPos(const Eigen::Vector3d& global_pos) { global_pos_ = global_pos; }
@@ -27,7 +27,7 @@ class Point {
   const auto& GetObservations() const { return observations_; }
 public:
   //We could set the const values to public, to avoid writing a getter.
-  const PointId id_;
+  const LandmarkId id_;
   const std::string point_name_;
 private:
   Eigen::Vector3d global_pos_; // point in global

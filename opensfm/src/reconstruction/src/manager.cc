@@ -1,5 +1,5 @@
 #include "reconstruction/manager.h"
-#include "reconstruction/point.h"
+#include "reconstruction/landmark.h"
 #include "reconstruction/camera.h"
 #include "reconstruction/shot.h"
 #include "reconstruction/pose.h"
@@ -8,17 +8,17 @@ namespace reconstruction
 {
 
 void 
-ReconstructionManager::AddObservation(Shot *const shot,  Point *const point, const FeatureId feat_id) const
+ReconstructionManager::AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
 {
-  shot->AddPointObservation(point, feat_id);
-  point->AddObservation(shot, feat_id);
+  shot->AddPointObservation(lm, feat_id);
+  lm->AddObservation(shot, feat_id);
 }
 
 void
-ReconstructionManager::RemoveObservation(Shot *const shot,  Point *const point, const FeatureId feat_id) const
+ReconstructionManager::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
 {
   shot->RemovePointObservation(feat_id);
-  point->RemoveObservation(shot);
+  lm->RemoveObservation(shot);
 }
 
 Shot*
@@ -72,11 +72,11 @@ ReconstructionManager::RemoveShot(const ShotId shot_id)
   }
 }
 
-Point*
-ReconstructionManager::CreatePoint(const PointId point_id, const Eigen::Vector3d& global_pos, const std::string& name)
+Landmark*
+ReconstructionManager::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name)
 {
 
-  auto it = points_.emplace(point_id, std::make_unique<Point>(point_id, global_pos, name));
+  auto it = landmarks_.emplace(lm_id, std::make_unique<Landmark>(lm_id, global_pos, name));
   
   // Insert failed
   if (!it.second)
@@ -86,24 +86,24 @@ ReconstructionManager::CreatePoint(const PointId point_id, const Eigen::Vector3d
 
   if (!name.empty())
   {  
-    point_names_.emplace(name, point_id);
+    landmark_names_.emplace(name, lm_id);
   }
   
   return it.first->second.get(); //the raw pointer
 }
 
 void
-ReconstructionManager::UpdatePoint(const PointId point_id, const Eigen::Vector3d& global_pos)
+ReconstructionManager::UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos)
 {
-  points_.at(point_id)->SetGlobalPos(global_pos);
+  landmarks_.at(lm_id)->SetGlobalPos(global_pos);
 }
 
 void 
-ReconstructionManager::RemovePoint(const PointId point_id)
+ReconstructionManager::RemoveLandmark(const LandmarkId lm_id)
 {
   //1) Find the point
-  const auto& point_it = points_.find(point_id);
-  if (point_it != points_.end())
+  const auto& point_it = landmarks_.find(lm_id);
+  if (point_it != landmarks_.end())
   {
     const auto& point = point_it->second;
     //2) Remove all its observation
@@ -116,10 +116,10 @@ ReconstructionManager::RemovePoint(const PointId point_id)
     }
 
     //3) Remove from point_names
-    point_names_.erase(point->point_name_);
+    landmark_names_.erase(point->point_name_);
 
     //4) Remove from points
-    points_.erase(point_it);
+    landmarks_.erase(point_it);
   }
 }
 };

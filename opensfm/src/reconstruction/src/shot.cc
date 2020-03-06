@@ -1,6 +1,6 @@
 #include "reconstruction/shot.h"
 #include "reconstruction/camera.h"
-#include "reconstruction/point.h"
+#include "reconstruction/landmark.h"
 #include <algorithm>
 namespace reconstruction
 {
