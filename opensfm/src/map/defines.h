@@ -1,5 +1,5 @@
 #pragma once
-namespace reconstruction
+namespace map
 {
 struct KeyCompare
 {

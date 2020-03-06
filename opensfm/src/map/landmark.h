@@ -3,9 +3,9 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <map>
 #include <memory>
-#include "reconstruction/defines.h"
+#include <map/defines.h>
 
-namespace reconstruction
+namespace map
 {
 class Shot;
 

@@ -66,7 +66,7 @@ add_subdirectory(dense)
 add_subdirectory(features)
 add_subdirectory(geometry)
 add_subdirectory(robust)
-add_subdirectory(reconstruction)
+add_subdirectory(map)
 
 ####### Debugging #######
 if (CMAKE_BUILD_TYPE MATCHES DEBUG)

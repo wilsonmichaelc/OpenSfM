@@ -2,22 +2,22 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <Eigen/Eigen>
 
-#include "reconstruction/defines.h"
-#include "reconstruction/pose.h"
+#include <map/defines.h>
+#include <map/pose.h>
 
-namespace reconstruction
+namespace map
 {
 class Pose;
 class Camera;
 class Landmark;
 
-class ShotCamera {
-  
-  const Camera& camera_;
-  ShotCamera(const Camera& camera, const CameraId cam_id, std::string cam_name = ""):
+struct ShotCamera {
+  ShotCamera(const Camera& camera, const CameraId cam_id, const std::string cam_name = ""):
     camera_(camera), id_(cam_id), camera_name_(cam_name){}
-  const int id_;
-  const std::string camera_name_;
+    const Camera& camera_;
+
+    const int id_;
+    const std::string camera_name_;
 };
 struct SLAMShotData
 {
@@ -43,13 +43,13 @@ class Shot {
   const std::vector<cv::KeyPoint>& GetKeyPoints() const { return keypoints_; }
   const cv::Mat& GetDescriptors() const { return descriptors_; }
   
-  size_t ComputeNumValidPoints() const;
+  size_t ComputeNumValidLandmarks() const;
   
-  const std::vector<Landmark*>& GetPoints() const { return points_; }
-  std::vector<Landmark*>& GetPoints() { return points_; }
-  void RemovePointObservation(const FeatureId id);
-  void AddPointObservation(const Landmark* point, const FeatureId feat_id);
-  void SetPose(const Pose& pose);
+  const std::vector<Landmark*>& GetPoints() const { return landmarks_; }
+  std::vector<Landmark*>& GetPoints() { return landmarks_; }
+  void RemoveLandmarkObservation(const FeatureId id);
+  void AddPointObservation(Landmark* lm, const FeatureId feat_id) { landmarks_.at(feat_id) = lm; }
+  void SetPose(const Pose& pose) { pose_ = pose; }
   SLAMShotData slam_data_;
   void InitAndTakeDatastructures(std::vector<cv::KeyPoint> keypts, cv::Mat descriptors);
 
@@ -67,7 +67,7 @@ public:
   Pose pose_;
   size_t num_keypts_;
 
-  std::vector<Landmark*> points_;
+  std::vector<Landmark*> landmarks_;
   std::vector<cv::KeyPoint> keypoints_;
   cv::Mat descriptors_;
 

@@ -1,8 +1,8 @@
-#include "reconstruction/shot.h"
-#include "reconstruction/camera.h"
-#include "reconstruction/landmark.h"
+#include <map/shot.h>
+#include <map/camera.h>
+#include <map/landmark.h>
 #include <algorithm>
-namespace reconstruction
+namespace map
 {
 Shot::Shot(const ShotId shot_id, const ShotCamera& camera, const Pose& pose, const std::string& name):
             id_(shot_id), shot_name_(name), camera_(camera), pose_(pose)
@@ -11,15 +11,15 @@ Shot::Shot(const ShotId shot_id, const ShotCamera& camera, const Pose& pose, con
 }
 
 void
-Shot::RemovePointObservation(const FeatureId id)
+Shot::RemoveLandmarkObservation(const FeatureId id)
 {
-  points_.at(id) = nullptr;
+  landmarks_.at(id) = nullptr;
 }
 
 size_t
-Shot::ComputeNumValidPoints() const
+Shot::ComputeNumValidLandmarks() const
 {
-  return points_.size() - std::count(points_.cbegin(), points_.cend(), nullptr);
+  return landmarks_.size() - std::count(landmarks_.cbegin(), landmarks_.cend(), nullptr);
 }
 
 
@@ -31,8 +31,8 @@ Shot::InitAndTakeDatastructures(std::vector<cv::KeyPoint> keypts, cv::Mat descri
   std::swap(keypts, keypoints_);
   std::swap(descriptors, descriptors_);
   num_keypts_ = keypoints_.size();
-  points_.resize(num_keypts_, nullptr);
+  landmarks_.resize(num_keypts_, nullptr);
 }
 
-} //namespace reconstruction
+} //namespace map
 
