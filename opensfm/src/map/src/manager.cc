@@ -21,29 +21,36 @@ Manager::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureI
   lm->RemoveObservation(shot);
 }
 
-Shot*
-Manager::CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose, const std::string& name)
-{
-  return CreateShot(shot_id, *cameras_.at(camera_id), pose, name);
-}
 
+/**
+ * Creates a shot and returns a pointer to it
+ * 
+ * @param shot_id       unique id of the shot
+ * @param camera_id     unique id of EXISTING camera
+ * @param global_pos    pose in the 3D world
+ * @param name          name of the shot
+ * 
+ * @returns             returns pointer to created or existing shot
+ */
 Shot*
 Manager::CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const Pose& pose, const std::string& name)
 {
+  // auto test = aligned_unique<Shot>(shot_id, shot_cam, pose, name);
   auto it = shots_.emplace(shot_id, std::make_unique<Shot>(shot_id, shot_cam, pose, name));
-  
-  // Insert failed
-  if (!it.second)
-  {
-    return nullptr;
-
-  }
+  // auto it = shots_.emplace(shot_id, aligned_unique<Shot>(shot_id, shot_cam, pose, name));
 
   if (!name.empty())
   {  
     shot_names_.emplace(name, shot_id);
   }
+  // return it.first->second.type;
   return it.first->second.get();
+}
+
+Shot*
+Manager::CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose, const std::string& name)
+{
+  return CreateShot(shot_id, *cameras_.at(camera_id), pose, name);
 }
 
 void
@@ -61,34 +68,36 @@ Manager::RemoveShot(const ShotId shot_id)
   {
     const auto& shot = shot_it->second;
     //2) Remove it from all the points
-    for (const auto& point : shot->GetPoints())
+    for (const auto& lm : shot->GetLandmarks())
     {
-      if (point != nullptr)
+      if (lm != nullptr)
       {
-        point->RemoveObservation(shot.get());
+        lm->RemoveObservation(shot.get());
       }
     }
 
     //3) Remove from shot_names
-    shot_names_.erase(shot->shot_name_);
+    shot_names_.erase(shot->name_);
 
     //4) Remove from shots
     shots_.erase(shot_it);
   }
 }
 
+
+/**
+ * Creates a landmark and returns a pointer to it
+ * 
+ * @param lm_Id       unique id of the landmark
+ * @param global_pos  3D position of the landmark
+ * @param name        name of the landmark
+ * 
+ * @returns           pointer to the created or already existing lm
+ */
 Landmark*
 Manager::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name)
 {
-
   auto it = landmarks_.emplace(lm_id, std::make_unique<Landmark>(lm_id, global_pos, name));
-  
-  // Insert failed
-  if (!it.second)
-  {
-    return nullptr;
-  }
-
   if (!name.empty())
   {  
     landmark_names_.emplace(name, lm_id);
@@ -102,17 +111,13 @@ Manager::UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_po
 {
   landmarks_.at(lm_id)->SetGlobalPos(global_pos);
 }
-
 void 
-Manager::RemoveLandmark(const LandmarkId lm_id)
+Manager::RemoveLandmark(const Landmark* const lm)
 {
-  //1) Find the point
-  const auto& point_it = landmarks_.find(lm_id);
-  if (point_it != landmarks_.end())
+  if (lm != nullptr)
   {
-    const auto& point = point_it->second;
     //2) Remove all its observation
-    const auto& observations = point->GetObservations();
+    const auto& observations = lm->GetObservations();
     for (const auto& obs : observations)
     {
       Shot* shot = obs.first;
@@ -120,26 +125,63 @@ Manager::RemoveLandmark(const LandmarkId lm_id)
       shot->RemoveLandmarkObservation(feat_id);
     }
 
-    //3) Remove from point_names
-    landmark_names_.erase(point->point_name_);
+        //3) Remove from landmark_names_
+    landmark_names_.erase(lm->name_);
 
-    //4) Remove from points
-    landmarks_.erase(point_it);
+    //4) Remove from landmarks
+    landmarks_.erase(lm->id_);
   }
 }
+void 
+Manager::RemoveLandmark(const LandmarkId lm_id)
+{
+  //1) Find the landmark
+  const auto& lm_it = landmarks_.find(lm_id);
+  if (lm_it != landmarks_.end())
+  {
+    const auto& landmark = lm_it->second;
+    //2) Remove all its observation
+    const auto& observations = landmark->GetObservations();
+    for (const auto& obs : observations)
+    {
+      Shot* shot = obs.first;
+      const auto feat_id = obs.second;
+      shot->RemoveLandmarkObservation(feat_id);
+    }
 
+    //3) Remove from landmark_names_
+    landmark_names_.erase(landmark->name_);
+
+    //4) Remove from landmarks
+    landmarks_.erase(lm_it);
+  }
+}
+// void
+// Manager::CreateShotCameraNoReturn(const CameraId cam_id, const Camera* const camera, const std::string& name)
+// {
+//   CreateShotCamera(cam_id, camera, name);
+// }
+
+/**
+ * Creates a shot camera and returns a pointer to it
+ * 
+ * @param cam_id       unique id of the shot camera
+ * @param Camera  3D position of the landmark
+ * @param name        name of the landmark
+ * 
+ * @returns           pointer to the created or already existing lm
+ */
 ShotCamera* 
 Manager::CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name)
 {
-  // const auto& shot_cam = cameras_.at(camera_id);
   auto it = cameras_.emplace(cam_id, std::make_unique<ShotCamera>(camera, cam_id, name));
   
   // Insert failed
-  if (!it.second)
-  {
-    return nullptr;
-
-  }
+  // Return existing one?
+  // if (!it.second)
+  // {
+    // return it.first->second.get();;
+  // }
 
   if (!name.empty())
   {  
