@@ -14,12 +14,12 @@ class Landmark;
 class ShotCamera;
 class Camera;
 
-class Manager 
+class Map 
 {
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  // Should belong to the manager
+  // Should belong to the Map
   ShotId GetShotIdFromName(const std::string& name) const { return shot_names_.at(name); }
   LandmarkId GetPointIdFromName(const std::string& name) const { return landmark_names_.at(name); };
 
@@ -33,20 +33,22 @@ public:
   // Camera
   ShotCamera* CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name = "");
   // void CreateShotCameraNoReturn(const CameraId cam_id, const Camera& camera, const std::string& name = "");
-  void UpdateCamera(const CameraId cam_id, const Camera& camera);
+  void UpdateShotCamera(const CameraId cam_id, const Camera& camera);
   void RemoveShotCamera(const CameraId cam_id);
 
   // Shots
-  Shot* CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose = Pose(), const std::string& name = "");
-  Shot* CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const Pose& pose = Pose(), const std::string& name = "");
+  Shot* CreateShot(const ShotId shot_id, const CameraId camera_id, const std::string& name = "", const Pose& pose = Pose());
+  Shot* CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const std::string& name = "", const Pose& pose = Pose());
   void UpdateShotPose(const ShotId shot_id, const Pose& pose);
   void RemoveShot(const ShotId shot_id);
-  
-  // Point
+  auto GetNextUniqueShotId() const { return shots_.size(); }
+
+  // Landmark
   Landmark* CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
   void UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos);
   void RemoveLandmark(const Landmark* const lm);
   void RemoveLandmark(const LandmarkId lm_id);
+  auto GetNextUniqueLandmarkId() const { return landmarks_.size(); }
 
   void AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
   // (Shot* const shot, const Landmark* point, const FeatureId feat_id);

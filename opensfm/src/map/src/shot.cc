@@ -10,12 +10,6 @@ Shot::Shot(const ShotId shot_id, const ShotCamera& camera, const Pose& pose, con
   
 }
 
-// void
-// Shot::RemoveLandmarkObservation(const FeatureId id)
-// {
-//   landmarks_.at(id) = nullptr;
-// }
-
 size_t
 Shot::ComputeNumValidLandmarks() const
 {

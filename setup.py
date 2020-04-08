@@ -75,6 +75,7 @@ setuptools.setup(
             'pyfoundation.*',
             'pyreconstruction.*',
             'pymap.*',
+            'pyslam.*',
             'data/sensor_data.json',
             'data/bow/bow_hahog_root_uchar_10000.npz',
             'data/bow/bow_hahog_root_uchar_64.npz',

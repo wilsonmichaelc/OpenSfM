@@ -1,4 +1,4 @@
-#include <map/manager.h>
+#include <map/map.h>
 #include <map/landmark.h>
 #include <map/camera.h>
 #include <map/shot.h>

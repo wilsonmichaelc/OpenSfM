@@ -1,4 +1,4 @@
-#include <map/manager.h>
+#include <map/map.h>
 #include <map/landmark.h>
 #include <map/camera.h>
 #include <map/shot.h>
@@ -8,14 +8,14 @@ namespace map
 {
 
 void 
-Manager::AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
+Map::AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
 {
   shot->AddPointObservation(lm, feat_id);
   lm->AddObservation(shot, feat_id);
 }
 
 void
-Manager::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
+Map::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
 {
   shot->RemoveLandmarkObservation(feat_id);
   lm->RemoveObservation(shot);
@@ -33,7 +33,7 @@ Manager::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureI
  * @returns             returns pointer to created or existing shot
  */
 Shot*
-Manager::CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const Pose& pose, const std::string& name)
+Map::CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const std::string& name, const Pose& pose)
 {
   // auto test = aligned_unique<Shot>(shot_id, shot_cam, pose, name);
   auto it = shots_.emplace(shot_id, std::make_unique<Shot>(shot_id, shot_cam, pose, name));
@@ -48,19 +48,19 @@ Manager::CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const Pose
 }
 
 Shot*
-Manager::CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose, const std::string& name)
+Map::CreateShot(const ShotId shot_id, const CameraId camera_id, const std::string& name, const Pose& pose)
 {
-  return CreateShot(shot_id, *cameras_.at(camera_id), pose, name);
+  return CreateShot(shot_id, *cameras_.at(camera_id), name, pose);
 }
 
 void
-Manager::UpdateShotPose(const ShotId shot_id, const Pose& pose)
+Map::UpdateShotPose(const ShotId shot_id, const Pose& pose)
 {
   shots_.at(shot_id)->SetPose(pose);
 }
 
 void 
-Manager::RemoveShot(const ShotId shot_id)
+Map::RemoveShot(const ShotId shot_id)
 {
     //1) Find the point
   const auto& shot_it = shots_.find(shot_id);
@@ -95,7 +95,7 @@ Manager::RemoveShot(const ShotId shot_id)
  * @returns           pointer to the created or already existing lm
  */
 Landmark*
-Manager::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name)
+Map::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name)
 {
   auto it = landmarks_.emplace(lm_id, std::make_unique<Landmark>(lm_id, global_pos, name));
   if (!name.empty())
@@ -107,12 +107,12 @@ Manager::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_po
 }
 
 void
-Manager::UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos)
+Map::UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos)
 {
   landmarks_.at(lm_id)->SetGlobalPos(global_pos);
 }
 void 
-Manager::RemoveLandmark(const Landmark* const lm)
+Map::RemoveLandmark(const Landmark* const lm)
 {
   if (lm != nullptr)
   {
@@ -133,7 +133,7 @@ Manager::RemoveLandmark(const Landmark* const lm)
   }
 }
 void 
-Manager::RemoveLandmark(const LandmarkId lm_id)
+Map::RemoveLandmark(const LandmarkId lm_id)
 {
   //1) Find the landmark
   const auto& lm_it = landmarks_.find(lm_id);
@@ -157,7 +157,7 @@ Manager::RemoveLandmark(const LandmarkId lm_id)
   }
 }
 // void
-// Manager::CreateShotCameraNoReturn(const CameraId cam_id, const Camera* const camera, const std::string& name)
+// Map::CreateShotCameraNoReturn(const CameraId cam_id, const Camera* const camera, const std::string& name)
 // {
 //   CreateShotCamera(cam_id, camera, name);
 // }
@@ -172,7 +172,7 @@ Manager::RemoveLandmark(const LandmarkId lm_id)
  * @returns           pointer to the created or already existing lm
  */
 ShotCamera* 
-Manager::CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name)
+Map::CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name)
 {
   auto it = cameras_.emplace(cam_id, std::make_unique<ShotCamera>(camera, cam_id, name));
   
@@ -192,7 +192,7 @@ Manager::CreateShotCamera(const CameraId cam_id, const Camera& camera, const std
 
 
 void
-Manager::RemoveShotCamera(const CameraId cam_id)
+Map::RemoveShotCamera(const CameraId cam_id)
 {
   const auto& cam_it = cameras_.find(cam_id);
   if (cam_it != cameras_.end())

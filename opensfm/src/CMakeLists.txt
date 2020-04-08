@@ -67,6 +67,7 @@ add_subdirectory(features)
 add_subdirectory(geometry)
 add_subdirectory(robust)
 add_subdirectory(map)
+add_subdirectory(slam)
 
 ####### Debugging #######
 if (CMAKE_BUILD_TYPE MATCHES DEBUG)

@@ -1,10 +1,10 @@
 set(MAP_FILES
   shot.h
   landmark.h
-  manager.h
+  map.h
   defines.h
   src/landmark.cc
-  src/manager.cc
+  src/map.cc
   src/shot.cc
 )
 add_library(map ${MAP_FILES})
