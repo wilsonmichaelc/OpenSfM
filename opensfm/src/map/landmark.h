@@ -16,10 +16,6 @@ class Landmark {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   Landmark(const LandmarkId point_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
-  ~Landmark()
-  {
-    std::cout << "Deleting lm: " << id_ << std::endl;
-  }
   const Eigen::Vector3d& GetGlobalPos() const { return global_pos_; }
   void SetGlobalPos(const Eigen::Vector3d& global_pos) { global_pos_ = global_pos; }
 
@@ -36,8 +32,6 @@ public:
 private:
   Eigen::Vector3d global_pos_; // point in global
   std::map<Shot*, FeatureId, KeyCompare> observations_;
-  // ,
-          //  Eigen::aligned_allocator<std::pair<Shot*, FeatureId>>> observations_;
   SLAMPointData slam_data_;
 };
 }

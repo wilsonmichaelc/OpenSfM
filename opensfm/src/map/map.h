@@ -41,14 +41,14 @@ public:
   Shot* CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const std::string& name = "", const Pose& pose = Pose());
   void UpdateShotPose(const ShotId shot_id, const Pose& pose);
   void RemoveShot(const ShotId shot_id);
-  auto GetNextUniqueShotId() const { return shots_.size(); }
+  auto GetNextUniqueShotId() const { return unique_shot_id_; }
 
   // Landmark
   Landmark* CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
   void UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos);
   void RemoveLandmark(const Landmark* const lm);
   void RemoveLandmark(const LandmarkId lm_id);
-  auto GetNextUniqueLandmarkId() const { return landmarks_.size(); }
+  auto GetNextUniqueLandmarkId() const { return unique_landmark_id_; }
 
   void AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
   // (Shot* const shot, const Landmark* point, const FeatureId feat_id);
@@ -94,6 +94,10 @@ private:
   std::unordered_map<std::string, ShotId> shot_names_;
   std::unordered_map< std::string, LandmarkId> landmark_names_;
   std::unordered_map<std::string, CameraId> camera_names_;
+
+  size_t unique_shot_id_ = 0;
+  size_t unique_landmark_id_ = 0;
+  
 };
 
 } // namespace map

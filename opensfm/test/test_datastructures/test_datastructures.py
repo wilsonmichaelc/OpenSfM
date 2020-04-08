@@ -155,10 +155,10 @@ def test_landmarks():
     assert len(remaining_ids) + 1 == map_mgn.number_of_landmarks()
 
 
-test_landmarks()
-test_shot_cameras()
-test_pose()
-test_shots()
+# test_landmarks()
+# test_shot_cameras()
+# test_pose()
+# test_shots()
 
 
 

@@ -35,15 +35,18 @@ Map::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId fe
 Shot*
 Map::CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const std::string& name, const Pose& pose)
 {
-  // auto test = aligned_unique<Shot>(shot_id, shot_cam, pose, name);
   auto it = shots_.emplace(shot_id, std::make_unique<Shot>(shot_id, shot_cam, pose, name));
-  // auto it = shots_.emplace(shot_id, aligned_unique<Shot>(shot_id, shot_cam, pose, name));
 
   if (!name.empty())
   {  
     shot_names_.emplace(name, shot_id);
   }
-  // return it.first->second.type;
+  if (it.second) //only if insert really happened
+  {
+    // prevent problems when, e.g. [1,2,3] are present 
+    // and id 1000 comes in!
+    unique_shot_id_ = std::max(shot_id+1, unique_shot_id_);
+  } 
   return it.first->second.get();
 }
 
@@ -102,7 +105,12 @@ Map::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, c
   {  
     landmark_names_.emplace(name, lm_id);
   }
-  
+  if (it.second) //only if insert really happened
+  {
+    // prevent problems when, e.g. [1,2,3] are present 
+    // and id 1000 comes in!
+    unique_landmark_id_ = std::max(lm_id+1, unique_landmark_id_);
+  }
   return it.first->second.get(); //the raw pointer
 }
 
@@ -176,13 +184,6 @@ Map::CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::st
 {
   auto it = cameras_.emplace(cam_id, std::make_unique<ShotCamera>(camera, cam_id, name));
   
-  // Insert failed
-  // Return existing one?
-  // if (!it.second)
-  // {
-    // return it.first->second.get();;
-  // }
-
   if (!name.empty())
   {  
     camera_names_.emplace(name, cam_id);
