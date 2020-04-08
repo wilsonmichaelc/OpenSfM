@@ -521,16 +521,19 @@ void DepthmapCleaner::Clean(cv::Mat *clean_depth) {
   for (int i = 0; i < depths_[0].rows; ++i) {
     for (int j = 0; j < depths_[0].cols; ++j) {
       float depth = depths_[0].at<float>(i, j);
+      if (depth == 0) {
+        continue;
+      }
       cv::Vec3f point = Backproject(j, i, depth, Ks_[0], Rs_[0], ts_[0]);
       cv::Vec3f v1 = point - origin;
       int consistent_views = 1;
       for (int other = 1; other < depths_.size(); ++other) {
 
-        // Ignore this view if the viewing angle is smaller than 2 degrees
+        // Ignore this view if the viewing angle is smaller than 1 degree
         cv::Vec3f origin_other = -Rs_[other].t() * cv::Mat(ts_[other]);
         cv::Vec3f v2 = point - origin_other;
         float viewing_angle = acos(v1.dot(v2) / (norm(v1) * norm(v2)));
-        if (viewing_angle < 0.03 or depth == 0) {
+        if (viewing_angle < 1*M_PI/180) {
           continue;
         }
 
@@ -539,10 +542,17 @@ void DepthmapCleaner::Clean(cv::Mat *clean_depth) {
         float v = reprojection(1) / reprojection(2);
         float depth_of_point = reprojection(2);
 
+        // We require that the reprojected depth is consistent
+        float depth_at_reprojection = LinearInterpolation<float>(depths_[other], v, u);
+        if (fabs(depth_at_reprojection - depth_of_point) > depth_of_point * same_depth_threshold_) {
+          continue;
+        }
+
+        // We also require that the reprojected depth in a window is consistent
         int depth_support = 0;
         for (int du = -hpz; du <= hpz; ++du) {
           for (int dv = -hpz; dv <= hpz; ++dv) {
-            float depth_at_reprojection = LinearInterpolation<float>(depths_[other], v+dv, u+du);
+            depth_at_reprojection = LinearInterpolation<float>(depths_[other], v+dv, u+du);
             if (fabs(depth_at_reprojection - depth_of_point) < depth_of_point * same_depth_threshold_) {
               depth_support++;
             }
