@@ -70,7 +70,11 @@ def test_shots():
     for shot_id in range(n_shots):
         # Test next_id function
         assert shot_id == map_mgn.next_unique_shot_id()
-        shot = map_mgn.create_shot(shot_id, cam, "shot" + str(shot_id), pose)
+        #Create with cam object
+        if shot_id < 5:
+            shot = map_mgn.create_shot(shot_id, cam, "shot" + str(shot_id), pose)
+        else: #and id
+            shot = map_mgn.create_shot(shot_id, 0, "shot" + str(shot_id), pose)
         shots.append(shot)
 
     # Create again and test if the already created pointer is returned
@@ -105,9 +109,7 @@ def test_shots():
     for shot_id in shot_ids:
         map_mgn.remove_shot(shot_id)
     assert map_mgn.number_of_shots() == 0
-
     assert map_mgn.next_unique_shot_id() == n_shots + 2
-    
     map_mgn.create_shot(0, cam, "shot" + str(shot_id), pose)
     assert map_mgn.next_unique_shot_id() == n_shots + 2
     map_mgn.create_shot(1, cam, "shot" + str(shot_id), pose)
@@ -155,6 +157,54 @@ def test_landmarks():
     assert len(remaining_ids) + 1 == map_mgn.number_of_landmarks()
 
 
+def test_larger_problem():
+    map_mgn = pymap.Map()
+    # Create 2 cameras
+    cam1 = pymap.Camera(640, 480, "perspective")
+    cam2 = pymap.Camera(640, 480, "perspective")
+    # Create 2 shot cameras
+    shot_cam1 = map_mgn.create_shot_camera(0, cam1, "shot_cam1")
+    shot_cam2 = map_mgn.create_shot_camera(1, cam2, "shot_cam2")
+    # Create 10 shots, 5 with each shot camera
+    shots = []
+    for shot_id in range(0,5):
+        shots.append(map_mgn.create_shot(shot_id, shot_cam1))
+    for shot_id in range(5, 10):
+        shots.append(map_mgn.create_shot(shot_id, shot_cam2))
+    assert len(shots) == map_mgn.number_of_shots()
+
+    n_kpts = 100
+    # init shot with keypts and desc
+    for shot in shots:
+        assert shot.number_of_keypoints() == 0
+        shot.init_keypts_and_descriptors(n_kpts)
+        assert shot.number_of_keypoints() == n_kpts
+
+    n_lms = 200
+    # Create 200 landmarks
+    landmarks = []
+    for lm_id in range(0, n_lms):
+        pos = np.random.rand(3)
+        lm = map_mgn.create_landmark(lm_id, pos, "lm" + str(lm_id))
+        landmarks.append(lm)
+    assert map_mgn.number_of_landmarks() == n_lms
+
+    # assign 100 to each shot (observations)
+    for shot in shots:
+        lm_obs = np.asarray(np.random.rand(n_kpts) * 1000 % n_lms,
+                            dtype=np.int)
+        feat_obs = np.asarray(np.random.rand(n_kpts) * 1000 % n_kpts,
+                              dtype=np.int)
+        # Add observations between a shot and a landmark
+        # with duplicates!
+        for f_idx, lm_id in zip(feat_obs, lm_obs):
+            lm = landmarks[lm_id]
+            map_mgn.add_observation(shot, lm, f_idx)
+            assert lm.is_observed_in_shot(shot)
+        assert len(np.unique(feat_obs)) == shot.compute_num_valid_pts()
+
+
+test_larger_problem()
 # test_landmarks()
 # test_shot_cameras()
 # test_pose()

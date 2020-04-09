@@ -76,6 +76,7 @@ PYBIND11_MODULE(pymap, m) {
                   const map::Pose&, const std::string&>())
     .def_readonly("id", &map::Shot::id_)
     .def_readonly("name", &map::Shot::name_)
+    .def_readonly("slam_data", &map::Shot::slam_data_, py::return_value_policy::reference_internal)
     .def("get_descriptor", &map::Shot::GetDescriptor, py::return_value_policy::reference_internal)
     .def("get_descriptors", &map::Shot::GetDescriptors, py::return_value_policy::reference_internal)
     .def("get_keypoint", &map::Shot::GetKeyPoint, py::return_value_policy::reference_internal)
@@ -84,6 +85,14 @@ PYBIND11_MODULE(pymap, m) {
     .def("number_of_keypoints", &map::Shot::NumberOfKeyPoints)
     .def("init_and_take_datastructures", &map::Shot::InitAndTakeDatastructures)
     .def("init_keypts_and_descriptors", &map::Shot::InitKeyptsAndDescriptors)
+    .def("undistort_keypts", &map::Shot::UndistortKeypts)
+    .def("undistorted_keypts_to_bearings", &map::Shot::UndistortedKeyptsToBearings)
+    .def("set_pose", &map::Shot::SetPose)
+    .def("get_pose", &map::Shot::GetPose, py::return_value_policy::reference_internal)
+  ;
+
+  py::class_<map::SLAMShotData>(m, "SlamShotData")
+    .def_readonly("undist_keypts", &map::SLAMShotData::undist_keypts_)
   ;
 
   py::class_<map::Landmark>(m, "Landmark")
@@ -92,7 +101,7 @@ PYBIND11_MODULE(pymap, m) {
     .def_readonly("name", &map::Landmark::name_)
     .def("get_global_pos", &map::Landmark::GetGlobalPos)
     .def("set_global_pos", &map::Landmark::SetGlobalPos)
-    .def("is_observed_in_Shot", &map::Landmark::IsObservedInShot)
+    .def("is_observed_in_shot", &map::Landmark::IsObservedInShot)
     .def("add_observation", &map::Landmark::AddObservation)
     .def("remove_observation", &map::Landmark::RemoveObservation)
     .def("has_observations", &map::Landmark::HasObservations)
@@ -107,6 +116,16 @@ PYBIND11_MODULE(pymap, m) {
   ;
 
   py::class_<map::Camera>(m, "Camera")
-    .def(py::init())
+    .def(py::init<const size_t, const size_t, const std::string&>(),
+         py::arg("width"), py::arg("height"), py::arg("projection_type"))
+  ;
+
+  py::class_<map::BrownPerspectiveCamera, map::Camera>(m, "BrownPerspectiveCamera")
+    .def(py::init<const size_t, const size_t, const std::string&,
+                  const float, const float, const float, const float,
+                  const float, const float, const float, const float, const float>(),
+                  py::arg("width"), py::arg("height"), py::arg("projection_type"),
+                  py::arg("fx"), py::arg("fy"), py::arg("cx"), py::arg("cy"),
+                  py::arg("k1"), py::arg("k2"), py::arg("p1"), py::arg("p2"), py::arg("k3"))
   ;
 }

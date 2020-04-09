@@ -14,14 +14,16 @@ class Landmark;
 struct ShotCamera {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ShotCamera(const Camera& camera, const CameraId cam_id, const std::string cam_name = ""):
-    camera_(camera), id_(cam_id), camera_name_(cam_name){}
-  const Camera& camera_;
+    camera_model_(camera), id_(cam_id), camera_name_(cam_name){}
+  const Camera& camera_model_;
   const int id_;
   const std::string camera_name_;
 };
 struct SLAMShotData
 {
-
+  std::vector<cv::KeyPoint> undist_keypts_; // undistorted keypoints
+  std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings_;
+  std::vector<std::vector<std::vector<size_t>>> keypt_indices_in_cells_;
 };
 
 struct ShotMeasurements
@@ -35,7 +37,7 @@ class Shot {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  Shot(const ShotId shot_id, const ShotCamera& camera, const Pose& pose, const std::string& name = "");
+  Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose, const std::string& name = "");
   const cv::Mat GetDescriptor(const FeatureId id) const { return descriptors_.row(id); }
   const cv::KeyPoint& GetKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
   
@@ -52,26 +54,30 @@ class Shot {
   void RemoveLandmarkObservation(const FeatureId id) { landmarks_.at(id) = nullptr; }
   void AddPointObservation(Landmark* lm, const FeatureId feat_id) { landmarks_.at(feat_id) = lm; }
   void SetPose(const Pose& pose) { pose_ = pose; }
-  SLAMShotData slam_data_;
+  const Pose& GetPose() const { return pose_; }
   void InitAndTakeDatastructures(std::vector<cv::KeyPoint> keypts, cv::Mat descriptors);
   void InitKeyptsAndDescriptors(const size_t n_keypts);
-  // void SetAndTakeKeyPoints(std::vector<cv::KeyPoint> keypts){ std::swap(keypts, keypoints_); }
-  // void SetAndTakeDescriptors(cv::Mat descriptors) { std::swap(descriptors, descriptors_); }
+  
+  // SLAM stuff
+  void UndistortedKeyptsToBearings();
+  void UndistortKeypts();
 
 public:
+  SLAMShotData slam_data_;
   //We could set the const values to public, to avoid writing a getter.
   const ShotId id_;
   const std::string name_;
 
 private:
-  const ShotCamera& camera_;
+  const ShotCamera& shot_camera_;
   Pose pose_;
   size_t num_keypts_;
   std::vector<Landmark*> landmarks_;
   std::vector<cv::KeyPoint> keypoints_;
   cv::Mat descriptors_;
-
+  
   ShotMeasurements shot_measurements_;
+  // std::unique_ptr<SLAMShotData> slam_shot_data_; 
 
 };
 }

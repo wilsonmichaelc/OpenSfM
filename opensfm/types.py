@@ -286,6 +286,12 @@ class PerspectiveCamera(Camera):
                          [0, f, 0.5 * (h - 1)],
                          [0, 0, 1.0]])
 
+    def undistort_many(self, pixels):
+        """Unit vectors pointing to the pixel viewing directions."""
+        points = pixels.reshape((-1, 1, 2)).astype(np.float64)
+        distortion = np.array([self.k1, self.k2, 0., 0.])
+        return cv2.undistortPoints(points, self.get_K(), distortion)
+
 
 class BrownPerspectiveCamera(Camera):
     """Define a perspective camera.
@@ -407,6 +413,13 @@ class BrownPerspectiveCamera(Camera):
         ])
         return np.dot(normalized_to_pixel, self.get_K())
 
+    def undistort_many(self, pixels):
+        """Unit vectors pointing to the pixel viewing directions."""
+        points = pixels.reshape((-1, 1, 2)).astype(np.float64)
+        distortion = np.array([self.k1, self.k2, 0., 0.])
+        K = self.get_K_in_pixel_coordinates()
+        return cv2.undistortPoints(points, K, distortion, P=K)
+
 
 class FisheyeCamera(Camera):
     """Define a fisheye camera.
@@ -502,6 +515,13 @@ class FisheyeCamera(Camera):
         return np.array([[f, 0, 0.5 * (w - 1)],
                          [0, f, 0.5 * (h - 1)],
                          [0, 0, 1.0]])
+
+    def undistort_many(self, pixels):
+        """Unit vectors pointing to the pixel viewing directions."""
+        points = pixels.reshape((-1, 1, 2)).astype(np.float64)
+        distortion = np.array([self.k1, self.k2, 0., 0.])
+        K = self.get_K_in_pixel_coordinates()
+        return cv2.fisheye.undistortPoints(points, K, distortion, P=K)
 
 
 class DualCamera(Camera):

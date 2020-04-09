@@ -16,7 +16,7 @@ logger.setLevel(logging.DEBUG)
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', help='dataset to process')
 args = parser.parse_args()
-args.dataset = "/home/fschenk/software/mapillary_repos/mapillary_sfm_evaluation/sfm_evaluation_workspace/kitti_00"
+args.dataset = "/home/fschenk/software/mapillary_repos/mapillary_sfm_evaluation/sfm_evaluation_workspace/kitti_05"
 # args.dataset = "/home/fschenk/data/ae_sequences/single_images/blackvue20190820_235022_NF"
 slam_system = SlamSystem(args)
 data = dataset.DataSet(args.dataset)

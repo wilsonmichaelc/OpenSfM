@@ -1,18 +1,28 @@
 from opensfm import pymap
 from opensfm import dataset
 from opensfm import pyslam
+from slam_initializer import SlamInitializer
 import numpy as np
 import slam_config
+import slam_debug
+from slam_mapper import SlamMapper
+
 class SlamSystem(object):
+
     def __init__(self, args):
         self.data = dataset.DataSet(args.dataset)
         self.config = self.data.config
         self.config_slam = slam_config.default_config()
         self.camera = next(iter(self.data.load_camera_models().items()))
-
         self.map = pymap.Map()
+        self.slam_mapper = SlamMapper(self.data, self.config_slam, self.camera, self.map)
+
         # Create the camera model
-        self.cam = pymap.Camera()
+        c = self.camera[1]
+        self.cam = pymap.BrownPerspectiveCamera(
+            c.width, c.height, c.projection_type,
+            c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3
+        )
         # Create the matching shot camera
         self.shot_cam = self.map.create_shot_camera(0, self.cam)
 
@@ -24,10 +34,72 @@ class SlamSystem(object):
             self.config_slam['feat_fast_min_th']
         )
 
+        corner_pts = np.array([[0, 0],  # left top
+                               [self.camera[1].width, 0],  # right top
+                               [0, self.camera[1].height],  # left bottom
+                               [self.camera[1].width, self.camera[1].height]])  # right bottom
+
+        corners = self.camera[1].undistort_many(corner_pts).reshape((4, 2))
+        print(corners)
+        bounds = np.array([np.min((corners[0, 0], corners[2, 0])),
+                           np.max((corners[1, 0], corners[3, 0])),
+                           np.min((corners[0, 1], corners[2, 1])),
+                           np.max((corners[1, 1], corners[3, 1]))])
+        # ])
+        print(bounds)
+        inv_cell_w = self.config_slam['grid_n_cols'] / (bounds[1] - bounds[0])
+        inv_cell_h = self.config_slam['grid_n_rows'] / (bounds[3] - bounds[2])
+        self.grid_params =\
+            pyslam.\
+            GridParameters(self.config_slam['grid_n_cols'],
+                           self.config_slam['grid_n_rows'],
+                           bounds[0], bounds[2], bounds[1], bounds[3],
+                           inv_cell_w, inv_cell_h)
+        self.matcher = pyslam.GuidedMatcher(self.grid_params)
+        self.slam_init =\
+            SlamInitializer(self.data, self.camera, self.matcher, self.slam_mapper)
+        self.system_initialized = False
+    
     def process_frame(self, im_name, gray_scale_img):
         shot_id = self.map.next_unique_shot_id()
-        curr_shot: pymap.Shot = self.map.create_shot(shot_id, self.shot_cam, im_name)
+        curr_shot: pymap.Shot = self.map.create_shot(
+            shot_id, self.shot_cam, im_name)
         print("Created shot: ", curr_shot.name, curr_shot.id)
         self.extractor.extract_to_shot(curr_shot, gray_scale_img, np.array([]))
         print("Extracted: ", curr_shot.number_of_keypoints())
-        pass
+        curr_shot.undistort_keypts()
+        curr_shot.undistorted_keypts_to_bearings()
+        self.matcher.distribute_undist_keypts_to_grid(curr_shot)
+        if not self.system_initialized:
+            return self.init_slam_system(curr_shot)
+
+    def init_slam_system(self, shot: pymap.Shot):
+        """Find the initial depth estimates for the slam map"""
+        print("init_slam_system: ", shot.name)
+        chrono = slam_debug.Chronometer()
+        if (not self.system_initialized):
+            self.system_initialized = self.slam_init.initialize(shot)
+            if self.system_initialized:
+                print("Initialized with ", shot.name)
+
+
+        # if self.slam_init.init_frame is None:
+        #     self.slam_init.set_initial_frame(frame)
+        #     self.system_initialized = False
+        # else:
+        #     chrono = slam_debug.Chronometer()
+        #     rec_init, graph, matches = \
+        #         self.slam_init.initialize(frame)
+        #     chrono.lap("slam_init")
+        #     self.system_initialized = (rec_init is not None)
+        #     if self.system_initialized:
+        #         self.slam_mapper.create_init_map(graph, rec_init,
+        #                                          self.slam_init.init_frame,
+        #                                          frame)
+        #         chrono.lap("create_init_map")
+        #     slam_debug.avg_timings.addTimes(chrono.laps_dict)
+        # if self.system_initialized:
+        #     logger.debug("Initialized system with {}".format(frame.im_name))
+        # else:
+        #     logger.debug("Failed to initialize with {}".format(frame.im_name))
+        return self.system_initialized

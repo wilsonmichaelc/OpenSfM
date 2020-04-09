@@ -3,9 +3,11 @@ set(MAP_FILES
   landmark.h
   map.h
   defines.h
+  camera.h
   src/landmark.cc
   src/map.cc
   src/shot.cc
+  src/camera.cc
 )
 add_library(map ${MAP_FILES})
 target_link_libraries(map

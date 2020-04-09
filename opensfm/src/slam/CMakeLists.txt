@@ -9,13 +9,16 @@ set(ORB_FILES
   third_party/orb_extractor/orb_point_pairs.h
 )
 set(SLAM_FILES
-
+  slam_utilities.h
+  src/slam_utilities.cc
+  guided_matching_bind.h
+  guided_matching.h
+  src/guided_matching.cc
 )
 add_library(slam ${SLAM_FILES} ${ORB_FILES})
 target_link_libraries(slam
   PUBLIC
     map
-    # pybind11
     ${OpenCV_LIBS}
     
 )
@@ -31,8 +34,6 @@ target_link_libraries(pyslam
   PRIVATE
     map
     slam
-    # pybind11
-    # ${OpenCV_LIBS}
 )
 set_target_properties(pyslam PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${opensfm_SOURCE_DIR}/.."

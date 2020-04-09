@@ -3,6 +3,10 @@
 #include <pybind11/eigen.h>
 #include <glog/logging.h>
 #include <slam/orb_extractor_bind.h>
+#include <slam/guided_matching_bind.h>
+// #include <slam/guided_matching.h>
+#include <slam/slam_utilities.h>
+#include <slam/pyslam_utilities.h>
 namespace py = pybind11;
 
 PYBIND11_MODULE(pyslam, m) {
@@ -19,4 +23,26 @@ PYBIND11_MODULE(pyslam, m) {
     .def("extract", &slam::OrbExtractorWrapper::extract)
   ;
   
+  py::class_<slam::GuidedMatchingWrapper>(m, "GuidedMatcher")
+    .def(py::init<const slam::GridParameters&>(), py::arg("grid_parameters"))
+    .def("distribute_undist_keypts_to_grid", &slam::GuidedMatchingWrapper::DistributeUndistKeyptsToGrid,
+         py::arg("shot"))
+    .def("match_shot_to_shot", &slam::GuidedMatchingWrapper::MatchShotToShot,
+         py::arg("shot1"), py::arg("shot2"), py::arg("prev_matched"), py::arg("margin"))
+  ;
+
+  // Helper class
+  py::class_<slam::GridParameters>(m, "GridParameters")
+    .def(py::init<unsigned int, unsigned int, float, float, float, float, float, float>())
+  ;
+  
+  // py::class_<slam::SlamUtilities>(m, "SlamUtilities")
+  //   .def("convert_keypts_to_eigen", &slam::SlamUtilities::convertOpenCVKptsToEigen)
+  // ;
+
+  py::class_<slam::PySlamUtilities>(m, "SlamUtilities")
+    .def("undist_keypts_from_shot", &slam::PySlamUtilities::GetUndistortedKeyptsFromShot)
+    .def("keypts_from_shot", &slam::PySlamUtilities::GetKeyptsFromShot)
+  ;
+
 }
