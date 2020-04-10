@@ -47,7 +47,8 @@ class Shot {
   const cv::Mat& GetDescriptors() const { return descriptors_; }
   
   size_t NumberOfKeyPoints() const { return keypoints_.size(); }
-  size_t ComputeNumValidLandmarks() const;
+  size_t ComputeNumValidLandmarks(const int min_obs_thr) const;
+  float ComputeMedianDepthOfLandmarks(const bool take_abs) const;
   
   const std::vector<Landmark*>& GetLandmarks() const { return landmarks_; }
   std::vector<Landmark*>& GetLandmarks() { return landmarks_; }
@@ -61,6 +62,9 @@ class Shot {
   // SLAM stuff
   void UndistortedKeyptsToBearings();
   void UndistortKeypts();
+
+  void ScalePose(const float scale);
+  void ScaleLandmarks(const float scale);
 
 public:
   SLAMShotData slam_data_;

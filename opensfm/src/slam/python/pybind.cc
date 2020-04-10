@@ -21,6 +21,7 @@ PYBIND11_MODULE(pyslam, m) {
         py::arg("min_fast_thr"))
     .def("extract_to_shot", &slam::OrbExtractorWrapper::extract_to_shot)
     .def("extract", &slam::OrbExtractorWrapper::extract)
+    .def("get_scale_levels", &slam::OrbExtractorWrapper::GetScaleLevels)//, py::return_value_policy::reference_internal)
   ;
   
   py::class_<slam::GuidedMatchingWrapper>(m, "GuidedMatcher")
@@ -37,12 +38,14 @@ PYBIND11_MODULE(pyslam, m) {
   ;
   
   // py::class_<slam::SlamUtilities>(m, "SlamUtilities")
-  //   .def("convert_keypts_to_eigen", &slam::SlamUtilities::convertOpenCVKptsToEigen)
+  //   .def("convert_keypts_to_eigen", &slam::SlamUtilities::ConvertOpenCVKptsToEigen)
   // ;
 
   py::class_<slam::PySlamUtilities>(m, "SlamUtilities")
     .def("undist_keypts_from_shot", &slam::PySlamUtilities::GetUndistortedKeyptsFromShot)
     .def("keypts_from_shot", &slam::PySlamUtilities::GetKeyptsFromShot)
+    .def("compute_descriptor", &slam::PySlamUtilities::SetDescriptorFromObservations)
+    .def("compute_normal_and_depth", &slam::PySlamUtilities::SetNormalAndDepthFromObservations)
   ;
 
 }

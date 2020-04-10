@@ -15,7 +15,6 @@ class SlamSystem(object):
         self.config_slam = slam_config.default_config()
         self.camera = next(iter(self.data.load_camera_models().items()))
         self.map = pymap.Map()
-        self.slam_mapper = SlamMapper(self.data, self.config_slam, self.camera, self.map)
 
         # Create the camera model
         c = self.camera[1]
@@ -56,9 +55,13 @@ class SlamSystem(object):
                            bounds[0], bounds[2], bounds[1], bounds[3],
                            inv_cell_w, inv_cell_h)
         self.matcher = pyslam.GuidedMatcher(self.grid_params)
+        self.slam_mapper = SlamMapper(
+            self.data, self.config_slam, self.camera, self.map, self.extractor)
         self.slam_init =\
             SlamInitializer(self.data, self.camera, self.matcher, self.slam_mapper)
         self.system_initialized = False
+
+
     
     def process_frame(self, im_name, gray_scale_img):
         shot_id = self.map.next_unique_shot_id()

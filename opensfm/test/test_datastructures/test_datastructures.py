@@ -201,7 +201,7 @@ def test_larger_problem():
             lm = landmarks[lm_id]
             map_mgn.add_observation(shot, lm, f_idx)
             assert lm.is_observed_in_shot(shot)
-        assert len(np.unique(feat_obs)) == shot.compute_num_valid_pts()
+        assert len(np.unique(feat_obs)) == shot.compute_num_valid_pts(1)
 
 
 test_larger_problem()

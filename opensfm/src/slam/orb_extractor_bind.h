@@ -49,6 +49,8 @@ public:
     return retn;
   }
 
+  const auto
+  GetScaleLevels() const { return extractor_.get_scale_factors(); }
 private:
   openvslam::feature::orb_extractor extractor_;
   // std::unique_ptr<openvslam::feature::orb_extractor> extractor_;

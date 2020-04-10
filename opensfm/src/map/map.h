@@ -51,20 +51,11 @@ public:
   auto GetNextUniqueLandmarkId() const { return unique_landmark_id_; }
 
   void AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
-  // (Shot* const shot, const Landmark* point, const FeatureId feat_id);
   void RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
-  // (const Shot* shot, const Landmark* point, const FeatureId feat_id);
 
   std::map<Landmark*, FeatureId> GetObservationsOfShot(const Shot* shot);
   std::map<Shot*, FeatureId> GetObservationsOfPoint(const Landmark* point);  
 
-  // const std::unordered_map<ShotId, std::unique_ptr<Shot>>& GetAllShots() const { return shots_; }
-  // const std::unordered_map<CameraId, std::unique_ptr<ShotCamera>>& GetAllCameras() const { return cameras_; };
-  // const std::unordered_map<LandmarkId, std::unique_ptr<Landmark>>& GetAllLandmarks() const { return landmarks_; };
-  // const auto& GetAllShots() const { return shots_; }
-  // const auto& GetAllCameras() const { return cameras_; };
-  // const auto& GetAllLandmarks() const { return landmarks_; };
-  
   auto& GetAllShots() { return shots_; }
   auto& GetAllCameras() { return cameras_; };
   auto& GetAllLandmarks() { return landmarks_; };

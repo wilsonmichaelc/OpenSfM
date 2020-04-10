@@ -93,6 +93,9 @@ public:
                        const float ref_x, const float ref_y, const float margin,
                        const int min_level = -1, const int max_level = -1) const;
 
+    static size_t
+    ComputeMedianDescriptorIdx(const std::vector<cv::Mat>& descriptors);
+
     /*MatchIndices 
     match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
                          const Eigen::MatrixX2f& prevMatched,

@@ -17,6 +17,7 @@ public:
   static Eigen::Matrix3f create_E_21(const Eigen::Matrix3f& rot_1w, const Eigen::Vector3f& trans_1w,
                                      const Eigen::Matrix3f& rot_2w, const Eigen::Vector3f& trans_2w);
 
-  static Eigen::MatrixXf convertOpenCVKptsToEigen(const std::vector<cv::KeyPoint>& keypts);
+  static Eigen::MatrixXf ConvertOpenCVKptsToEigen(const std::vector<cv::KeyPoint>& keypts);
+  // static void SlamUtilities::ComputeDescriptor(Landmark& landmark);
 };
 } // namespace map

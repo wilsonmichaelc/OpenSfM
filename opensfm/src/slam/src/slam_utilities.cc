@@ -46,7 +46,7 @@ SlamUtilities::check_epipolar_constraint(const Eigen::Vector3f &bearing_1, const
 }
 
 Eigen::MatrixXf 
-SlamUtilities::convertOpenCVKptsToEigen(const std::vector<cv::KeyPoint>& keypts)
+SlamUtilities::ConvertOpenCVKptsToEigen(const std::vector<cv::KeyPoint>& keypts)
 {
   if (!keypts.empty())
   {
@@ -61,6 +61,16 @@ SlamUtilities::convertOpenCVKptsToEigen(const std::vector<cv::KeyPoint>& keypts)
   }
   return Eigen::MatrixXf();
 }
+// void
+// SlamUtilities::ComputeDescriptor(Landmark& landmark)
+// {
+//   const auto& observations = landmark.GetObservations();
+
+//   for (const auto& obs : observations)
+//   {
+
+//   }
+// }
 
 
 } // namespace map

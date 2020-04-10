@@ -89,6 +89,9 @@ PYBIND11_MODULE(pymap, m) {
     .def("undistorted_keypts_to_bearings", &map::Shot::UndistortedKeyptsToBearings)
     .def("set_pose", &map::Shot::SetPose)
     .def("get_pose", &map::Shot::GetPose, py::return_value_policy::reference_internal)
+    .def("compute_median_depth", &map::Shot::ComputeMedianDepthOfLandmarks)
+    .def("scale_landmarks", &map::Shot::ScaleLandmarks)
+    .def("scale_pose", &map::Shot::ScalePose)
   ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")
@@ -107,6 +110,9 @@ PYBIND11_MODULE(pymap, m) {
     .def("has_observations", &map::Landmark::HasObservations)
     .def("get_observations", &map::Landmark::GetObservations, py::return_value_policy::reference_internal)
     .def("number_of_observations", &map::Landmark::NumberOfObservations)
+    .def("get_ref_shot", &map::Landmark::GetRefShot)
+    .def("set_ref_shot", &map::Landmark::SetRefShot)
+
   ;
 
   py::class_<map::ShotCamera>(m, "ShotCamera")
