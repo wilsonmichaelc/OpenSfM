@@ -5,7 +5,7 @@ from opensfm import pymap
 def test_shot_cameras():
     """Test that shot cameras are created and deleted correctly"""
     map_mgn = pymap.Map()
-    cam_model = pymap.Camera()
+    cam_model = pymap.Camera(640, 480, "")
     n_cams = 10
     cams = []
     for i in range(0, n_cams):
@@ -63,7 +63,7 @@ def test_pose():
 def test_shots():
     shots = []
     map_mgn = pymap.Map()
-    cam_model = pymap.Camera()
+    cam_model = pymap.Camera(640, 480, "")
     cam = map_mgn.create_shot_camera(0, cam_model, "cam" + str(0))
     pose = pymap.Pose()
     n_shots = 10
@@ -205,10 +205,10 @@ def test_larger_problem():
 
 
 test_larger_problem()
-# test_landmarks()
-# test_shot_cameras()
-# test_pose()
-# test_shots()
+test_landmarks()
+test_shot_cameras()
+test_pose()
+test_shots()
 
 
 
