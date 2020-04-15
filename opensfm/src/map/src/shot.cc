@@ -6,7 +6,7 @@
 namespace map
 {
 Shot::Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose, const std::string& name):
-            id_(shot_id), name_(name), shot_camera_(shot_camera), pose_(pose)
+            id_(shot_id), name_(name), shot_camera_(shot_camera), slam_data_(this), pose_(pose)
 {
   
 }

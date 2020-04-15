@@ -567,7 +567,7 @@ def motion_from_plane_homography(H):
 
     return solutions
 
-in_house_multiview = False
+in_house_multiview = True
 
 def absolute_pose_known_rotation_ransac(bs, Xs, method, threshold, iterations, probabilty):
     # in-house estimation
@@ -624,7 +624,6 @@ def relative_pose_ransac(b1, b2, method, threshold, iterations, probability):
         params = pyrobust.RobustEstimatorParams()
         params.iterations = 1000
         result = pyrobust.ransac_relative_pose(b1, b2, threshold, params, pyrobust.RansacType.RANSAC)
-
         Rt = result.lo_model.copy()
         R, t = Rt[:3, :3].copy(), Rt[:, 3].copy()
         Rt[:3, :3] = R.T

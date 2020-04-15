@@ -82,6 +82,9 @@ PYBIND11_MODULE(pymap, m) {
     .def("get_keypoint", &map::Shot::GetKeyPoint, py::return_value_policy::reference_internal)
     .def("get_keypoints", &map::Shot::GetKeyPoints, py::return_value_policy::reference_internal)
     .def("compute_num_valid_pts", &map::Shot::ComputeNumValidLandmarks)
+    .def("get_valid_landmarks", &map::Shot::ComputeValidLandmarks, py::return_value_policy::reference_internal)
+    .def("get_valid_landmarks_indices", &map::Shot::ComputeValidLandmarksIndices, py::return_value_policy::reference_internal)
+
     .def("number_of_keypoints", &map::Shot::NumberOfKeyPoints)
     .def("init_and_take_datastructures", &map::Shot::InitAndTakeDatastructures)
     .def("init_keypts_and_descriptors", &map::Shot::InitKeyptsAndDescriptors)
@@ -92,6 +95,7 @@ PYBIND11_MODULE(pymap, m) {
     .def("compute_median_depth", &map::Shot::ComputeMedianDepthOfLandmarks)
     .def("scale_landmarks", &map::Shot::ScaleLandmarks)
     .def("scale_pose", &map::Shot::ScalePose)
+    .def("remove_observation", &map::Shot::RemoveLandmarkObservation)
   ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")

@@ -10,7 +10,7 @@ namespace map
 void 
 Map::AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
 {
-  shot->AddPointObservation(lm, feat_id);
+  shot->AddLandmarkObservation(lm, feat_id);
   lm->AddObservation(shot, feat_id);
 }
 

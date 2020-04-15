@@ -6,17 +6,17 @@
 
 namespace map
 {
-void
-Camera::UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint> &undist_keypts,
-                                                    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const
-{
+// void
+// Camera::UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint> &undist_keypts,
+//                                                     std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const
+// {
 
-}
-void
-Camera::UndistortKeypts(const std::vector<cv::KeyPoint> &keypts, std::vector<cv::KeyPoint> &undist_keypts) const
-{
+// }
+// void
+// Camera::UndistortKeypts(const std::vector<cv::KeyPoint> &keypts, std::vector<cv::KeyPoint> &undist_keypts) const
+// {
 
-}
+// }
 
 BrownPerspectiveCamera::BrownPerspectiveCamera(const size_t width_, const size_t height_, const std::string& projection_type_,
                                                const float fx_, const float fy_, const float cx_, const float cy_,
@@ -80,4 +80,35 @@ BrownPerspectiveCamera::UndistortKeypts(const std::vector<cv::KeyPoint> &keypts,
       undist_keypts.at(idx).octave = keypts.at(idx).octave;
   }
 }
+bool 
+BrownPerspectiveCamera::ReprojectToImage(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
+                                         Eigen::Vector2d& pt2D) const 
+{
+    const Eigen::Vector3d ptCam = R_cw*ptWorld + t_cw;
+    //check z coordinate
+    if (ptCam[2] < 0.0) return false;
+    // //now reproject to image
+    pt2D = (K_pixel_eig.cast<double>()*ptCam).hnormalized();
+    return true;
+};
+
+bool 
+BrownPerspectiveCamera::ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                         Eigen::Vector2f& pt2D) const
+{
+    //first, transform pt3D into cam
+    const Eigen::Vector3f ptCam = R_cw*ptWorld + t_cw;
+    //check z coordinate
+    if (ptCam[2] < 0.0) return false;
+    // //now reproject to image
+    pt2D = (K_pixel_eig*ptCam).hnormalized();
+    return true;
+    // return (K_pixel_eig*ptCam).hnormalized();
+    // bearing.normalized();
+    //check boundaries
+    // TODO: think about different cameras and what the boundaries are actually! 
+    // return (pt2D[0] >= 0 && pt2D[1] >= 0 && pt2D[0] < width && pt2D[1] < height);
+    // return gridParams.in_grid(pt2D);
+}
+
 } // namespace map

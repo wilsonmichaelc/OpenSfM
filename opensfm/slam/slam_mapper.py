@@ -34,8 +34,8 @@ class SlamMapper(object):
         """Updates the last frame and the related variables in slam mapper
         """
         if self.n_frames > 0:  # we alread have frames
-            self.velocity = shot.get_pose().get_world_to_cam() *\
-                self.last_shot.get_pose().get_cam_to_world()
+            self.velocity = shot.get_pose().get_world_to_cam().dot(
+                self.last_shot.get_pose().get_cam_to_world())
             # self.velocity = frame.world_pose.compose(self.last_frame.world_pose.inverse())
             self.pre_last = self.last_shot
         self.n_frames += 1
@@ -59,12 +59,6 @@ class SlamMapper(object):
                        np.array([0, 0, 0, 1]))))
         kf1.set_pose(pose1)
         kf2.set_pose(pose2)
-        # print(np.vstack((rec_init.shots[kf2.name].pose.get_Rt(),
-        #                np.array([0, 0, 0, 1]))))
-        # print(np.vstack((rec_init.shots[kf1.name].pose.get_Rt(),
-        #                np.array([0, 0, 0, 1]))))
-        # print(kf2.get_pose().get_world_to_cam())
-        # exit(0)
         # Add to data and covisibility
         self.add_keyframe(kf1)
         self.add_keyframe(kf2)

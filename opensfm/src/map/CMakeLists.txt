@@ -8,6 +8,9 @@ set(MAP_FILES
   src/map.cc
   src/shot.cc
   src/camera.cc
+  third_party/data/graph_node.cc
+  third_party/data/graph_node.h
+  slam_shot_data.h
 )
 add_library(map ${MAP_FILES})
 target_link_libraries(map

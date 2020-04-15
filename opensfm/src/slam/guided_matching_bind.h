@@ -6,7 +6,8 @@ namespace slam
 class GuidedMatchingWrapper
 {
 public:
-  GuidedMatchingWrapper(const GridParameters& grid_params):matcher_(grid_params) {}
+  GuidedMatchingWrapper(const GridParameters& grid_params, const float scale_factor, const size_t num_scale_levels):
+    matcher_(grid_params, scale_factor, num_scale_levels) {}
   void DistributeUndistKeyptsToGrid(map::Shot& shot)
   {
     matcher_.DistributeUndistKeyptsToGrid(shot.slam_data_.undist_keypts_, shot.slam_data_.keypt_indices_in_cells_);
@@ -23,7 +24,13 @@ public:
                                     shot2.slam_data_.keypt_indices_in_cells_,
                                     prev_matched, margin);
   }
-private:
-  GuidedMatcher matcher_;
+
+  size_t
+  AssignShot1LandmarksToShot2Kpts(const map::Shot& shot1, map::Shot& shot2, const float margin) const
+  {
+    return matcher_.AssignShot1LandmarksToShot2Kpts(shot1, shot2, margin);
+  }
+
+GuidedMatcher matcher_;
 };
 } // namespace slam

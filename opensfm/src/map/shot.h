@@ -4,6 +4,7 @@
 
 #include <map/defines.h>
 #include <map/pose.h>
+#include <map/slam_shot_data.h>
 
 namespace map
 {
@@ -18,12 +19,6 @@ struct ShotCamera {
   const Camera& camera_model_;
   const int id_;
   const std::string camera_name_;
-};
-struct SLAMShotData
-{
-  std::vector<cv::KeyPoint> undist_keypts_; // undistorted keypoints
-  std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings_;
-  std::vector<std::vector<std::vector<size_t>>> keypt_indices_in_cells_;
 };
 
 struct ShotMeasurements
@@ -52,10 +47,36 @@ class Shot {
   
   const std::vector<Landmark*>& GetLandmarks() const { return landmarks_; }
   std::vector<Landmark*>& GetLandmarks() { return landmarks_; }
+  std::vector<Landmark*> ComputeValidLandmarks()
+  {
+    std::vector<Landmark*> valid_landmarks;
+    valid_landmarks.reserve(landmarks_.size());
+    std::copy_if(landmarks_.begin(), landmarks_.end(),
+              std::back_inserter(valid_landmarks), [](const auto* lm){ return lm != nullptr; });
+    return valid_landmarks;
+  }
+  std::vector<FeatureId> ComputeValidLandmarksIndices() const
+  {
+    std::vector<FeatureId> valid_landmarks;
+    valid_landmarks.reserve(landmarks_.size());
+    for (size_t idx = 0; idx < landmarks_.size(); ++idx)
+    {
+      if (landmarks_[idx] != nullptr)
+      {
+        valid_landmarks.push_back(idx);
+      }
+    }
+    return valid_landmarks;
+  }
+
+  Landmark* GetLandmark(const FeatureId id) { return landmarks_.at(id);}
   void RemoveLandmarkObservation(const FeatureId id) { landmarks_.at(id) = nullptr; }
-  void AddPointObservation(Landmark* lm, const FeatureId feat_id) { landmarks_.at(feat_id) = lm; }
+  void AddLandmarkObservation(Landmark* lm, const FeatureId feat_id) { landmarks_.at(feat_id) = lm; }
   void SetPose(const Pose& pose) { pose_ = pose; }
   const Pose& GetPose() const { return pose_; }
+  Eigen::Matrix4d GetWorldToCam() const { return pose_.WorldToCamera(); }
+  Eigen::Matrix4d GetCamToWorld() const { return pose_.CameraToWorld(); }
+
   void InitAndTakeDatastructures(std::vector<cv::KeyPoint> keypts, cv::Mat descriptors);
   void InitKeyptsAndDescriptors(const size_t n_keypts);
   
@@ -65,21 +86,27 @@ class Shot {
 
   void ScalePose(const float scale);
   void ScaleLandmarks(const float scale);
+  //Comparisons
+  bool operator==(const Shot& shot) const { return id_ == shot.id_; }
+  bool operator!=(const Shot& shot) const { return !(*this == shot); }
+  bool operator<(const Shot& shot) const { return id_ < shot.id_; }
+  bool operator<=(const Shot& shot) const { return id_ <= shot.id_; }
+  bool operator>(const Shot& shot) const { return id_ > shot.id_; }
+  bool operator>=(const Shot& shot) const { return id_ >= shot.id_; }
 
 public:
   SLAMShotData slam_data_;
   //We could set the const values to public, to avoid writing a getter.
   const ShotId id_;
   const std::string name_;
+  const ShotCamera& shot_camera_;
 
 private:
-  const ShotCamera& shot_camera_;
   Pose pose_;
   size_t num_keypts_;
   std::vector<Landmark*> landmarks_;
   std::vector<cv::KeyPoint> keypoints_;
   cv::Mat descriptors_;
-  
   ShotMeasurements shot_measurements_;
   // std::unique_ptr<SLAMShotData> slam_shot_data_; 
 

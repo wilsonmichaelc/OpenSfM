@@ -1,11 +1,11 @@
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
+
 from timeit import default_timer as timer
 from collections import defaultdict
-
-
 from opensfm import features
+from opensfm import types
 
 logger = logging.getLogger(__name__)
 
@@ -88,5 +88,44 @@ def visualize_graph(graph, frame1: str, frame2: str, data, do_show=True):
     ax.scatter(w1+obs_d2[:, 0], obs_d2[:, 1], c=[[0, 1, 0]])
     ax.set_title(frame1 + "<->" + frame2)
 
+    if do_show:
+        plt.show()
+
+def reproject_landmarks(points3D, observations, T_world_to_cam,
+                        im, camera, title="", obs_normalized=True, do_show=True):
+    """Draw observations and reprojects observations into image"""
+    if disable_debug:
+        return
+
+    if points3D is None:  # or observations is None:
+        return
+    if len(points3D) == 0:  # or len(observations) == 0:
+        return
+    print("T_world_to_cam reproject_landmarks: ", T_world_to_cam)
+    pose_world_to_cam = types.Pose()
+    pose_world_to_cam.set_rotation_matrix(T_world_to_cam[0:3, 0:3])
+    pose_world_to_cam.set_origin(T_world_to_cam[0:3, 3])
+
+    camera_point = pose_world_to_cam.transform_many(points3D)
+    points2D = camera.project_many(camera_point)
+    fig, ax = plt.subplots(1)
+    # im = data.load_image(image)
+    # print("Show image ", image)
+    if len(im.shape) == 3:
+        h1, w1, c = im.shape
+    else:
+        h1, w1 = im.shape
+    pt = features.denormalized_image_coordinates(points2D, w1, h1)
+    # print("obs:", obs)
+    # print("points2D: ", points2D)
+    ax.imshow(im)
+    ax.scatter(pt[:, 0], pt[:, 1], c=[[1, 0, 0]])
+    if observations is not None:
+        if obs_normalized:
+            obs = features.denormalized_image_coordinates(observations, w1, h1)
+        else:
+            obs = observations
+        ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
+    ax.set_title(title)
     if do_show:
         plt.show()

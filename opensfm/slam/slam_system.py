@@ -6,6 +6,10 @@ import numpy as np
 import slam_config
 import slam_debug
 from slam_mapper import SlamMapper
+from slam_tracker import SlamTracker
+import logging
+logger = logging.getLogger(__name__)
+
 
 class SlamSystem(object):
 
@@ -54,14 +58,15 @@ class SlamSystem(object):
                            self.config_slam['grid_n_rows'],
                            bounds[0], bounds[2], bounds[1], bounds[3],
                            inv_cell_w, inv_cell_h)
-        self.matcher = pyslam.GuidedMatcher(self.grid_params)
+        self.matcher = pyslam.GuidedMatcher(self.grid_params,
+                                            self.config_slam['feat_scale'],
+                                            self.config_slam['feat_pyr_levels'])
         self.slam_mapper = SlamMapper(
             self.data, self.config_slam, self.camera, self.map, self.extractor)
         self.slam_init =\
-            SlamInitializer(self.data, self.camera, self.matcher, self.slam_mapper)
+            SlamInitializer(self.data, self.camera, self.matcher)
+        self.slam_tracker = SlamTracker(self.matcher)
         self.system_initialized = False
-
-
     
     def process_frame(self, im_name, gray_scale_img):
         shot_id = self.map.next_unique_shot_id()
@@ -73,18 +78,53 @@ class SlamSystem(object):
         curr_shot.undistort_keypts()
         curr_shot.undistorted_keypts_to_bearings()
         self.matcher.distribute_undist_keypts_to_grid(curr_shot)
-        if not self.system_initialized:
-            return self.init_slam_system(curr_shot)
-
-    def init_slam_system(self, shot: pymap.Shot):
-        """Find the initial depth estimates for the slam map"""
-        print("init_slam_system: ", shot.name)
         chrono = slam_debug.Chronometer()
-        if (not self.system_initialized):
-            self.system_initialized = self.slam_init.initialize(shot)
-            if self.system_initialized:
-                print("Initialized with ", shot.name)
+        if not self.system_initialized:
+            self.system_initialized = self.init_slam_system(curr_shot)
+            chrono.lap("init_slam_system_all")
+            
+            return self.system_initialized
+        
+        # Tracking
+        pose = self.track_frame(curr_shot)
+        chrono.lap("track")
+        if pose is not None:
+            curr_shot.world_pose = pose
+        self.slam_mapper.update_with_last_frame(curr_shot)
+        self.slam_mapper.num_tracked_lms = self.slam_tracker.num_tracked_lms
+        if self.slam_mapper.new_keyframe_is_needed(curr_shot):
+            self.slam_mapper.insert_new_keyframe(curr_shot)
+        slam_debug.avg_timings.addTimes(chrono.laps_dict)
+        return pose is not None
 
+    def init_slam_system(self, curr_shot: pymap.Shot):
+        """Find the initial depth estimates for the slam map"""
+        print("init_slam_system: ", curr_shot.name)
+        # chrono = slam_debug.Chronometer()
+        if (not self.system_initialized):
+            
+            rec_init, graph, matches = self.slam_init.initialize(curr_shot)
+            self.system_initialized = (rec_init is not None)
+            if self.system_initialized:
+                self.slam_mapper.create_init_map(graph, rec_init,
+                                                 self.slam_init.init_shot,
+                                                 curr_shot)
+                self.slam_mapper.velocity = np.eye(4)
+            if self.system_initialized:
+                print("Initialized with ", curr_shot.name)
+                return True
+
+    def track_frame(self, curr_shot: pymap.Shot):
+        """ Tracks a frame
+        """
+        data = self.data
+        logger.debug("Tracking: {}, {}".format(curr_shot.id, curr_shot.name))
+        # Maybe move most of the slam_mapper stuff to tracking
+        # TODO: Landmark replac!
+        # Maybe not even necessary!
+        # self.map.apply_landmark_replace(self.slam_mapper.last_shot)
+        return self.slam_tracker.track(self.slam_mapper, curr_shot,
+                                       self.config, self.camera, data)
 
         # if self.slam_init.init_frame is None:
         #     self.slam_init.set_initial_frame(frame)

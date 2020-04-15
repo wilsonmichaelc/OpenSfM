@@ -8,34 +8,33 @@ from opensfm import features
 from opensfm import reconstruction
 class SlamInitializer(object):
 
-    def __init__(self, data, camera, matcher, slam_mapper):
+    def __init__(self, data, camera, matcher):
         print("initializer")
-        # self.init_type = "OpenVSlam"
         self.init_shot = None
         self.prev_pts = None
         self.data = data
         self.camera = camera
         self.matcher = matcher
         self.system_initialized = False
-        self.slam_mapper = slam_mapper
 
     def initialize(self, curr_shot):
-        if self.init_shot is None and self.system_initialized is False:
+        if self.init_shot is None: # and self.system_initialized is False:
             self.init_shot = curr_shot
             self.prev_pts =\
                 pyslam.SlamUtilities.undist_keypts_from_shot(curr_shot)[:, 0:2]
-            return False
+            return None, None, None
         else:
-            chrono = slam_debug.Chronometer()
-            rec_init, graph, matches = self.initialize_openvslam(curr_shot)
-            chrono.lap("slam_init")
-            self.system_initialized = (rec_init is not None)
-            if self.system_initialized:
-                self.slam_mapper.create_init_map(graph, rec_init,
-                                                 self.init_shot, curr_shot)
-            chrono.lap("create_init_map")
-            slam_debug.avg_timings.addTimes(chrono.laps_dict)
-            return self.system_initialized
+            # chrono = slam_debug.Chronometer()
+            return self.initialize_openvslam(curr_shot)
+            # rec_init, graph, matches = self.initialize_openvslam(curr_shot)
+            # chrono.lap("slam_init")
+            # self.system_initialized = (rec_init is not None)
+            # if self.system_initialized:
+            #     self.slam_mapper.create_init_map(graph, rec_init,
+            #                                      self.init_shot, curr_shot)
+            # chrono.lap("create_init_map")
+            # slam_debug.avg_timings.addTimes(chrono.laps_dict)
+            # return self.system_initialized
 
     def initialize_openvslam(self, curr_shot):
         """Initialize similar to ORB-SLAM and Openvslam"""
@@ -44,15 +43,14 @@ class SlamInitializer(object):
         matches = self.matcher.match_shot_to_shot(self.init_shot, curr_shot, self.prev_pts, 100)
         matches = np.array(matches)
         if (len(matches) < 100):
-            return False
+            return None, None, None
+        print("Matches: ", len(matches), self.init_shot.name,"<->", curr_shot.name)
         # Update pts
         self.prev_pts[matches[0, :], :] =\
             pyslam.SlamUtilities.undist_keypts_from_shot(curr_shot)[matches[1, :], 0:2]
 
         f1_points = pyslam.SlamUtilities.keypts_from_shot(self.init_shot)
         f2_points = pyslam.SlamUtilities.keypts_from_shot(curr_shot)
-        # f1_points = self.init_shot.cframe.getKptsPy()
-        # f2_points = frame.cframe.getKptsPy()
         
         # test reconstructability
         threshold = 4 * self.data.config['five_point_algo_threshold']
@@ -64,7 +62,6 @@ class SlamInitializer(object):
         norm_p2 = features.\
             normalized_image_coordinates(f2_points[matches[:, 1], 0:2], self.camera[1].width, self.camera[1].height)
         norm_size = max(self.camera[1].width, self.camera[1].height)
-
         # slam_debug.visualize_matches_pts(norm_p1, norm_p2, np.column_stack((np.arange(0,len(norm_p1)), np.arange(0,len(norm_p1)))),
         #                                  self.init_frame.image,
         #                                  frame.image, is_normalized=True, do_show=True)

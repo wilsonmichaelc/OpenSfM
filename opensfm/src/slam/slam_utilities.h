@@ -2,6 +2,12 @@
 #include <Eigen/Core>
 #include <vector>
 #include <opencv2/core.hpp>
+#include <slam/guided_matching.h>
+namespace map
+{
+  class Shot;
+  class Landmark;
+}
 
 namespace slam
 {
@@ -18,6 +24,11 @@ public:
                                      const Eigen::Matrix3f& rot_2w, const Eigen::Vector3f& trans_2w);
 
   static Eigen::MatrixXf ConvertOpenCVKptsToEigen(const std::vector<cv::KeyPoint>& keypts);
-  // static void SlamUtilities::ComputeDescriptor(Landmark& landmark);
+
+  static std::vector<map::Landmark*> update_local_landmarks(const std::vector<map::Shot*>& local_keyframes); //, const size_t curr_frm_id);
+
+  static std::vector<map::Shot*> update_local_keyframes(const map::Shot& curr_shot);
+
+  static size_t MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatcher& matcher);
 };
 } // namespace map

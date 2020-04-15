@@ -8,17 +8,21 @@ namespace map
 class Camera
 {
 public:
-    Camera(const size_t width_, const size_t height_, const std::string& projection_type_):
-           width(width_), height(height_), projectionType(projection_type_)
-    {}
+  Camera(const size_t width_, const size_t height_, const std::string& projection_type_):
+          width(width_), height(height_), projectionType(projection_type_)
+  {}
+  virtual ~Camera() = default;
 
-    const size_t width;
-    const size_t height;
-    const std::string projectionType;
+  const size_t width;
+  const size_t height;
+  const std::string projectionType;
   virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
-                                      std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const;
-  virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const;
-
+                                      std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const {};
+  virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const {};
+  virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                Eigen::Vector2f& pt2D) const {return true;};
+  virtual bool ReprojectToImage(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
+                                Eigen::Vector2d& pt2D) const {return true;};
 };
 
 class BrownPerspectiveCamera : public Camera
@@ -30,7 +34,10 @@ public:
   virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
                                       std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const;
   virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const;
-
+  virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                Eigen::Vector2f& pt2D) const;
+  virtual bool ReprojectToImage(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
+                                Eigen::Vector2d& pt2D) const;
   float fx_p, fy_p; // focal lengths in pixels
   float cx_p, cy_p; // principal points in pixels
   
