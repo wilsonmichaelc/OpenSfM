@@ -55,17 +55,59 @@ GuidedMatcher::ComputeMedianDescriptorIdx(const std::vector<cv::Mat> &descriptor
   return best_idx;
 }
 
+// size_t 
+// GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot& curr_shot,
+//                                         const float reproj_x, const float reproj_y,
+//                                         const int last_scale_level, const float scaled_margin) const
+// {
+
+//   // std::cout << "idx_last: " << idx_last << "lm id: " << lm->lm_id_ << "in pt2D: " << curr_frm.im_name << std::fixed << pt2D << ", " << last_scale_level << " rot_cw: " << rot_cw << " t_cw: " << trans_cw << std::endl;
+//   const auto indices = GetKeypointsInCell(curr_shot.slam_data_.undist_keypts_,
+//                                           curr_shot.slam_data_.keypt_indices_in_cells_, reproj_x, reproj_y,
+//                                           scaled_margin ,
+//                                           last_scale_level - 1, last_scale_level + 1);
+                                        
+//   if (indices.empty())
+//   {
+//     return NO_MATCH;
+//   }
+
+//   const auto lm_desc = lm->slam_data_.descriptor_;
+//   unsigned int best_hamm_dist = MAX_HAMMING_DIST;
+//   int best_idx = -1;
+
+//   for (const auto curr_idx : indices)
+//   {
+//     const auto* curr_lm = curr_shot.GetLandmark(curr_idx);
+//     //prevent adding to already set landmarks
+//     // if (!( curr_lm != nullptr && curr_lm->HasObservations()))
+//     if (curr_lm == nullptr || (curr_lm != nullptr && !curr_lm->HasObservations()))
+//     {
+//       const auto& desc = curr_shot.GetDescriptor(curr_idx);
+//       const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
+//       if (hamm_dist < best_hamm_dist)
+//       {
+//         best_hamm_dist = hamm_dist;
+//         best_idx = curr_idx;
+//       }
+//     }
+//   }
+//   return HAMMING_DIST_THR_HIGH < best_hamm_dist ? NO_MATCH : best_idx;
+// }
+
 size_t 
 GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot& curr_shot,
                                         const float reproj_x, const float reproj_y,
-                                        const int last_scale_level, const float scaled_margin) const
+                                        const int scale_level, const float margin,
+                                        const float lowe_ratio) const //lowe ratio == 0.0 if no test
 {
 
   // std::cout << "idx_last: " << idx_last << "lm id: " << lm->lm_id_ << "in pt2D: " << curr_frm.im_name << std::fixed << pt2D << ", " << last_scale_level << " rot_cw: " << rot_cw << " t_cw: " << trans_cw << std::endl;
   const auto indices = GetKeypointsInCell(curr_shot.slam_data_.undist_keypts_,
-                                          curr_shot.slam_data_.keypt_indices_in_cells_, reproj_x, reproj_y,
-                                          scaled_margin ,
-                                          last_scale_level - 1, last_scale_level + 1);
+                                          curr_shot.slam_data_.keypt_indices_in_cells_, 
+                                          reproj_x, reproj_y,
+                                          scale_factors_.at(scale_level)*margin ,
+                                          scale_level - 1, scale_level + 1);
                                         
   if (indices.empty())
   {
@@ -74,25 +116,48 @@ GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot
 
   const auto lm_desc = lm->slam_data_.descriptor_;
   unsigned int best_hamm_dist = MAX_HAMMING_DIST;
+  int best_scale_level = -1;
   int best_idx = -1;
+  //for lowe test
+  unsigned int second_best_hamm_dist = MAX_HAMMING_DIST;
+  int second_best_scale_level = -1;
+  const auto& undist_kpts = curr_shot.slam_data_.undist_keypts_;
 
-  for (const auto curr_idx : indices)
+  for (const auto match_idx : indices)
   {
-    const auto* curr_lm = curr_shot.GetLandmark(curr_idx);
+    const auto* curr_lm = curr_shot.GetLandmark(match_idx);
     //prevent adding to already set landmarks
     // if (!( curr_lm != nullptr && curr_lm->HasObservations()))
     if (curr_lm == nullptr || (curr_lm != nullptr && !curr_lm->HasObservations()))
     {
-      const auto& desc = curr_shot.GetDescriptor(curr_idx);
+      const auto& desc = curr_shot.GetDescriptor(match_idx);
       const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
-      if (hamm_dist < best_hamm_dist)
-      {
+      if (hamm_dist < best_hamm_dist) {
+        second_best_hamm_dist = best_hamm_dist;
         best_hamm_dist = hamm_dist;
-        best_idx = curr_idx;
+        second_best_scale_level = best_scale_level;
+        best_scale_level = undist_kpts.at(match_idx).octave;
+        best_idx = match_idx;
       }
+      else 
+        if (hamm_dist < second_best_hamm_dist) {
+          second_best_scale_level = undist_kpts.at(match_idx).octave;
+          second_best_hamm_dist = hamm_dist;
+        }
     }
   }
-  return HAMMING_DIST_THR_HIGH < best_hamm_dist ? NO_MATCH : best_idx;
+  if (best_hamm_dist <= HAMMING_DIST_THR_HIGH)
+  {
+    //preform loew ratio test
+    if (lowe_ratio > 0.0f && best_scale_level == second_best_scale_level && best_hamm_dist > lowe_ratio * second_best_hamm_dist) 
+    {
+      return NO_MATCH;
+    }
+    return best_idx;
+  }
+
+  return NO_MATCH;
+  // return HAMMING_DIST_THR_HIGH < best_hamm_dist ? NO_MATCH : best_idx;
 }
 
 MatchIndices
@@ -311,89 +376,362 @@ GuidedMatcher::GetKeypointsInCell(const std::vector<cv::KeyPoint> &undist_keypts
   return indices;
 }
 
+
+
+
 size_t
-GuidedMatcher::AssignShot1LandmarksToShot2Kpts(const map::Shot &last_shot, map::Shot &curr_shot, const float margin) const
+// MatchIndices
+GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Landmark*>& landmarks, const float margin,
+                                     const std::vector<cv::KeyPoint>& other_undist_kpts, bool check_orientation, const float lowe_ratio) const
 {
-  size_t num_matches = 0;
-  constexpr auto check_orientation_{true};
-  constexpr float lowe_ratio_{0.9};
-  openvslam::match::angle_checker<int> angle_checker;
+  size_t num_matches{0};
+  // MatchIndices matches;
+  std::unique_ptr<openvslam::match::angle_checker<int>> angle_checker;
 
-  const auto &cam_pose = curr_shot.GetPose();
-  const Eigen::Matrix3f rot_cw = cam_pose.RotationWorldToCamera().cast<float>(); //  cam_pose_cw.block<3, 3>(0, 0);
-  const Eigen::Vector3f trans_cw = cam_pose.TranslationWorldToCamera().cast<float>();
-
-  std::cout << "last_frm: " << last_shot.name_ << " nK: " << last_shot.NumberOfKeyPoints() << std::endl;
-  MatchIndices matches;
-  auto &landmarks = last_shot.GetLandmarks();
-  const auto num_keypts = landmarks.size();
-  const auto& cam = last_shot.shot_camera_.camera_model_;
-  std::cout << "N valid: " << last_shot.ComputeNumValidLandmarks(1) << " for " << last_shot.name_ << std::endl;
-  for (unsigned int idx_last = 0; idx_last < num_keypts; ++idx_last)
+  std::cout << "AssignLandmarksToShot: " << shot.name_ << " local_lm: " << landmarks.size() << std::endl;
+  if (landmarks.empty())
   {
-    auto lm = landmarks.at(idx_last);
-    std::cout << "lm: " << lm << "idx_last: " << idx_last <<","<< landmarks.size() << std::endl;
+    return 0;
+  }
+  // bool have_keypts = true;
+  if (other_undist_kpts.empty())
+  {
+    check_orientation = false;
+    // have_keypts = false;
+  }
+  else
+  {
+    angle_checker = std::make_unique<openvslam::match::angle_checker<int>>();
+  }
+  
+  const auto &cam_pose = shot.GetPose();
+  const Eigen::Matrix3d rot_cw = cam_pose.RotationWorldToCamera(); //  cam_pose_cw.block<3, 3>(0, 0);
+  const Eigen::Vector3d trans_cw = cam_pose.TranslationWorldToCamera();
+  const Eigen::Vector3d origin = cam_pose.GetOrigin();
+  const auto& cam = shot.shot_camera_.camera_model_;
+  const auto n_landmarks{landmarks.size()};
+  Eigen::Vector2d pt2D; // stores the reprojected position
+  const auto& undist_kpts = shot.slam_data_.undist_keypts_;
 
+  for (size_t idx = 0; idx < n_landmarks; ++idx)
+  {
+    auto lm = landmarks[idx];
     if (lm != nullptr)
     {
-      // Global standard 3D point coordinates
-      const Eigen::Vector3f pos_w = lm->GetGlobalPos().cast<float>();
-      // Reproject to find visibility
-      Eigen::Vector2f pt2D;
-      
-      if (cam.ReprojectToImage(rot_cw, trans_cw, pos_w, pt2D))
+      // Reproject
+      const Eigen::Vector3d& global_pos = lm->GetGlobalPos();
+      if (cam.ReprojectToImage(rot_cw, trans_cw, global_pos, pt2D))
       {
         //check if it is within our grid
-        if (grid_params_.in_grid(pt2D))
+        if (grid_params_.in_grid(pt2D[0], pt2D[1]))
         {
-          std::cout << "Getting KP!" << std::endl;
-          const auto last_scale_level = last_shot.GetKeyPoint(idx_last).octave;
-          std::cout << "Got KP!" << std::endl;
-          const auto scaled_margin = margin * scale_factors_.at(last_scale_level);
-          std::cout << "scale_factors_:" << scale_factors_.size() << std::endl;
-          const auto best_idx = FindBestMatchForLandmark(lm, curr_shot, pt2D[0], pt2D[1], last_scale_level, scaled_margin);
-          if (best_idx != NO_MATCH)
+          auto& lm_data = lm->slam_data_;
+          int scale_lvl = -1;
+          if (!other_undist_kpts.empty()) //take the scale level from there
           {
-            std::cout << "Trigger: " << best_idx << "/" << curr_shot.NumberOfKeyPoints() << std::endl;
-            // Valid matching
-            curr_shot.AddLandmarkObservation(lm, best_idx);
-            std::cout << "Triggered: " << best_idx << std::endl;
-            ++num_matches;
-            // std::cout << "num_matches: " << num_matches << std::endl;
-            if (check_orientation_)
+            scale_lvl = other_undist_kpts.at(idx).octave;
+          }
+          else //predict
+          {
+            constexpr auto ray_cos_thr{0.5};
+            const Eigen::Vector3d cam_to_lm_vec = global_pos - origin;
+            const auto cam_to_lm_dist = cam_to_lm_vec.norm();
+            // check if inside orb sale
+            if (lm_data.GetMinValidDistance()  <= cam_to_lm_dist && 
+                lm_data.GetMaxValidDistance() >= cam_to_lm_dist)
             {
-              const auto delta_angle = last_shot.slam_data_.undist_keypts_.at(idx_last).angle -
-                                       curr_shot.slam_data_.undist_keypts_.at(best_idx).angle;
-              angle_checker.append_delta_angle(delta_angle, best_idx);
+              const Eigen::Vector3d obs_mean_normal = lm_data.mean_normal_;
+              const auto ray_cos = cam_to_lm_vec.dot(obs_mean_normal) / cam_to_lm_dist;
+              if (ray_cos > ray_cos_thr)
+              {
+                scale_lvl = PredScaleLevel(lm_data.GetMaxValidDistance(), cam_to_lm_dist);
+              }
+            }
+          }
+          if (scale_lvl >= 0)
+          {
+            lm_data.IncreaseNumObservable();
+            const auto best_idx = FindBestMatchForLandmark(lm, shot, float(pt2D[0]), float(pt2D[1]), scale_lvl, margin, lowe_ratio);
+            if (best_idx != NO_MATCH)
+            {
+              if (check_orientation)
+              {
+                const auto delta_angle = other_undist_kpts.at(idx).angle - undist_kpts.at(best_idx).angle;
+                angle_checker->append_delta_angle(delta_angle, best_idx);
+              }
+              num_matches++;
+              shot.AddLandmarkObservation(lm, best_idx);
             }
           }
         }
-        else
-        {
-          std::cout << "Not in grid" << pt2D.transpose() << std::endl;
-        }
-      }
-      else
-      {
-        std::cout << "Reprojection failed: " << pt2D.transpose() << std::endl;
       }
     }
   }
-
-  // Clean-up step
-
-  if (check_orientation_)
+  if (check_orientation) 
   {
-    const auto invalid_matches = angle_checker.get_invalid_matches();
-    for (const auto invalid_idx : invalid_matches)
-    {
-      // curr_frm.landmarks_.at(invalid_idx) = nullptr;
-      curr_shot.RemoveLandmarkObservation(invalid_idx);
-      --num_matches;
+    const auto invalid_matches = angle_checker->get_invalid_matches();
+    for (const auto invalid_idx : invalid_matches) {
+        shot.RemoveLandmarkObservation(invalid_idx);
+        --num_matches;
     }
   }
   return num_matches;
 }
+
+
+
+MatchIndices
+GuidedMatcher::MatchingForTriangulationEpipolar(const map::Shot& kf1, const map::Shot& kf2, const Eigen::Matrix3d& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin) const
+{
+  MatchIndices matches;
+  //Typically, kf1 = current frame and kf2 = an older frame!
+  //We assume that the old frame
+  // get the already matched landmarks
+  const auto& lms1 = kf1.GetLandmarks();
+  const auto& lms2 = kf2.GetLandmarks();
+  const auto& kf1_pose = kf1.GetPose();
+  const auto& kf2_pose = kf2.GetPose();
+  const Eigen::Vector3d cam_center_1 = kf1_pose.GetOrigin();
+  const Eigen::Matrix4d T_cw = kf2_pose.WorldToCamera();
+  const Eigen::Matrix3d rot_2w = kf2_pose.RotationWorldToCamera();
+  const Eigen::Vector3d trans_2w = kf2_pose.TranslationWorldToCamera();
+  //Compute relative position between the frames and project from kf1 to kf2
+  //this has the benefit that we only have to compute the median depth once
+  const Eigen::Matrix4d T_kf2_kf1 = T_cw*kf1_pose.CameraToWorld();
+  const Eigen::Matrix3d R_kf2_kf1 = T_kf2_kf1.block<3,3>(0,0);
+  const Eigen::Vector3d t_kf2_kf1 = T_kf2_kf1.block<3,1>(0,3);
+  size_t num_matches{0};
+  std::vector<bool> is_already_matched_in_keyfrm_2(lms2.size(), false);
+  // indices of KF 2 kpts in KF 1
+  std::vector<int> matched_indices_2_in_keyfrm_1(lms1.size(), -1);
+  Eigen::Vector3d epiplane_in_keyfrm_2;
+  // TODO: Think about the problem, when the shots have different cameras!
+  const map::BrownPerspectiveCamera* cam = (map::BrownPerspectiveCamera*)&kf1.shot_camera_.camera_model_;
+  Eigen::Vector2d reproj;
+  cam->ReprojectToBearing(rot_2w, trans_2w, cam_center_1, epiplane_in_keyfrm_2, reproj);
+  // for now, set to margin constant but vary 
+  // constexpr auto smargin{5}; //Experiment
+  const float inv_fx = 1.0/cam->fx_p;
+  const float inv_fy = 1.0/cam->fy_p;
+  const float cx = cam->cx_p;
+  const float cy = cam->cy_p;
+
+  //Now, we draw the original points, then the matches in the other image
+  //Then, we the reprojection and serach!
+  // const float median_depth = (max_depth+min_depth)*0.5;
+  const Eigen::Matrix3d KRK_i = cam->K_pixel_eig.cast<double>()*R_kf2_kf1*cam->K_pixel_eig.cast<double>().inverse();
+  const Eigen::Vector3d Kt = cam->K_pixel_eig.cast<double>()*t_kf2_kf1;
+  const auto inv_min_depth  = 1.0f/min_depth;
+  const auto inv_max_depth  = 1.0f/max_depth;
+  const auto& undist_kpts1 = kf1.slam_data_.undist_keypts_;
+  const auto& undist_kpts2 = kf2.slam_data_.undist_keypts_;
+  for (size_t idx_1 = 0; idx_1 < lms1.size(); ++idx_1)
+  {
+    const auto* lm_1 = lms1[idx_1];
+    if (lm_1 != nullptr) continue; // already matched to a landmark
+
+    const auto& u_kpt_1 = undist_kpts1.at(idx_1);
+    const float scale_1 = u_kpt_1.octave;
+    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> pts2D;
+    if (scale_1 >= 0)
+    {
+      const Eigen::Vector3d pt3D((u_kpt_1.pt.x-cx)*inv_fx, (u_kpt_1.pt.y-cy)*inv_fy, 1.0);
+      const Eigen::Vector3d ptTrans = KRK_i * Eigen::Vector3d(u_kpt_1.pt.x, u_kpt_1.pt.y,1.0);
+      const Eigen::Vector2d start_pt = (ptTrans + Kt*inv_min_depth).hnormalized();
+      // const Eigen::Vector2f end_pt = (KRK_i * Eigen::Vector2f(u_kpt_1.pt.x, u_kpt_1.pt.y,1.0) * max_depth + Kt).hnormalized();
+      const Eigen::Vector2d end_pt = (ptTrans + Kt*inv_max_depth).hnormalized();
+      const Eigen::Vector2d epi_step = (end_pt-start_pt).normalized();
+
+      //now, go through the epipolar line
+      constexpr auto max_steps{50};
+      Eigen::Vector2d ptStep = start_pt; //+1.5*margin*step*epi_step;
+
+      for (size_t step = 0; step < max_steps; ++step)
+      {
+          ptStep += epi_step*margin*1.5;
+          if (grid_params_.in_grid(ptStep[0], ptStep[1]))
+              pts2D.push_back(ptStep);
+          else
+              break; //Stop, once it's out of bounds!
+          // if (start_pt[0] < end_pt[1])
+          bool contFlag = (start_pt[0] < end_pt[0] ? ptStep[0] < end_pt[0] : ptStep[0] > end_pt[0]);
+          contFlag = contFlag && (start_pt[1] < end_pt[1] ? ptStep[1] < end_pt[1] : ptStep[1] > end_pt[1]);
+          // if (start_pt[0] > end_pt[1] && start_pt[1] > end_pt[1])
+          //     break;
+      }
+    }
+    std::unordered_set<size_t> unique_indices;
+    // size_t total{0};
+    //assemble the indices
+    for (const auto& pt2D : pts2D)
+    {
+        const auto indices = GetKeypointsInCell(undist_kpts2, kf2.slam_data_.keypt_indices_in_cells_, pt2D[0], pt2D[1], margin);
+        std::copy(indices.cbegin(), indices.cend(), std::inserter(unique_indices, unique_indices.end()));
+        // total+=indices.size();
+    }
+    const Eigen::Vector3d& bearing_1 = kf1.slam_data_.bearings_.at(idx_1);
+    const auto& desc_1 = kf1.GetDescriptor(idx_1);
+    //use the guided matching instead of exhaustive
+    auto best_hamm_dist = MAX_HAMMING_DIST;
+    auto second_best_hamm_dist = MAX_HAMMING_DIST;
+    int best_idx_2 = -1;
+    auto n_epi_check_disc{0}, n_cos_disc{0};
+    for (const auto idx_2 : unique_indices) 
+    {
+        const auto* lm_2 = lms2[idx_2];
+        if (lm_2 != nullptr) continue; // already matched to a lm and not compatible
+        if (is_already_matched_in_keyfrm_2.at(idx_2)) continue; //already matched to another feature
+        const auto& desc_2 = kf2.GetDescriptor(idx_2);
+        const auto hamm_dist = compute_descriptor_distance_32(desc_1, desc_2);
+
+        if (HAMMING_DIST_THR_LOW < hamm_dist || best_hamm_dist < hamm_dist) {
+            continue;
+        }
+        const Eigen::Vector3d& bearing_2 = kf2.slam_data_.bearings_.at(idx_2);
+        // If both are not stereo keypoints, don't use feature points near epipole
+        const auto cos_dist = epiplane_in_keyfrm_2.dot(bearing_2);
+        // Threshold angle between epipole and bearing (= 3.0deg)
+        constexpr double cos_dist_thr = 0.99862953475;
+        // do not match if the included angle is smaller than the threshold
+        if (cos_dist_thr < cos_dist) continue; 
+        else n_cos_disc++;
+
+        // E行列による整合性チェック
+        const bool is_inlier = CheckEpipolarConstraint(bearing_1, bearing_2, E_12,
+                                                       scale_factors_.at(u_kpt_1.octave));
+        if (is_inlier) {
+            best_idx_2 = idx_2;
+            best_hamm_dist = hamm_dist;
+        }
+        else
+        {
+            n_epi_check_disc++;
+        }
+    }
+    if (best_idx_2 < 0) {
+        continue;
+    }
+
+    is_already_matched_in_keyfrm_2.at(best_idx_2) = true;
+    matched_indices_2_in_keyfrm_1.at(idx_1) = best_idx_2;
+    ++num_matches;
+  }
+  matches.reserve(num_matches);
+  //We do not check the orientation
+  for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_keyfrm_1.size(); ++idx_1) {
+      if (matched_indices_2_in_keyfrm_1.at(idx_1) < 0) {
+          continue;
+      }
+      matches.emplace_back(std::make_pair(idx_1, matched_indices_2_in_keyfrm_1.at(idx_1)));
+  }
+  return matches;
+}
+bool 
+CheckEpipolarConstraint(const Eigen::Vector3d& bearing_1, const Eigen::Vector3d& bearing_2,
+                        const Eigen::Matrix3d& E_12, const float bearing_1_scale_factor)
+{
+    // keyframe1上のtエピポーラ平面の法線ベクトル
+  const Eigen::Vector3d epiplane_in_1 = E_12 * bearing_2;
+
+  // 法線ベクトルとbearingのなす角を求める
+  const auto cos_residual = epiplane_in_1.dot(bearing_1) / epiplane_in_1.norm();
+  const auto residual_rad = M_PI / 2.0 - std::abs(std::acos(cos_residual));
+
+  // inlierの閾値(=0.2deg)
+  // (e.g. FOV=90deg,横900pixのカメラにおいて,0.2degは横方向の2pixに相当)
+  // TODO: 閾値のパラメータ化
+  constexpr double residual_deg_thr = 0.2;
+  constexpr double residual_rad_thr = residual_deg_thr * M_PI / 180.0;
+
+  // 特徴点スケールが大きいほど閾値を緩くする
+  // TODO: thresholdの重み付けの検討
+  return residual_rad < residual_rad_thr * bearing_1_scale_factor;
+}
+
+
+// size_t
+// GuidedMatcher::AssignShot1LandmarksToShot2Kpts(const map::Shot &last_shot, map::Shot &curr_shot, const float margin) const
+// {
+//   size_t num_matches = 0;
+//   constexpr auto check_orientation_{true};
+//   openvslam::match::angle_checker<int> angle_checker;
+
+//   const auto &cam_pose = curr_shot.GetPose();
+//   const Eigen::Matrix3f rot_cw = cam_pose.RotationWorldToCamera().cast<float>(); //  cam_pose_cw.block<3, 3>(0, 0);
+//   const Eigen::Vector3f trans_cw = cam_pose.TranslationWorldToCamera().cast<float>();
+
+//   std::cout << "last_frm: " << last_shot.name_ << " nK: " << last_shot.NumberOfKeyPoints() << std::endl;
+//   MatchIndices matches;
+//   auto &landmarks = last_shot.GetLandmarks();
+//   const auto num_keypts = landmarks.size();
+//   const auto& cam = last_shot.shot_camera_.camera_model_;
+//   std::cout << "N valid: " << last_shot.ComputeNumValidLandmarks(1) << " for " << last_shot.name_ << std::endl;
+//   for (unsigned int idx_last = 0; idx_last < num_keypts; ++idx_last)
+//   {
+//     auto lm = landmarks.at(idx_last);
+//     std::cout << "lm: " << lm << "idx_last: " << idx_last <<","<< landmarks.size() << std::endl;
+
+//     if (lm != nullptr)
+//     {
+//       // Global standard 3D point coordinates
+//       const Eigen::Vector3f pos_w = lm->GetGlobalPos().cast<float>();
+//       // Reproject to find visibility
+//       Eigen::Vector2f pt2D;
+      
+//       if (cam.ReprojectToImage(rot_cw, trans_cw, pos_w, pt2D))
+//       {
+//         //check if it is within our grid
+//         if (grid_params_.in_grid(pt2D[0], pt2D[1]))
+//         {
+//           std::cout << "Getting KP!" << std::endl;
+//           const auto last_scale_level = last_shot.GetKeyPoint(idx_last).octave;
+//           std::cout << "Got KP!" << std::endl;
+//           const auto scaled_margin = margin * scale_factors_.at(last_scale_level);
+//           std::cout << "scale_factors_:" << scale_factors_.size() << std::endl;
+          
+//           const auto best_idx = FindBestMatchForLandmark(lm, curr_shot, pt2D[0], pt2D[1], last_scale_level, margin, NO_LOWE_TEST);
+//           if (best_idx != NO_MATCH)
+//           {
+//             std::cout << "Trigger: " << best_idx << "/" << curr_shot.NumberOfKeyPoints() << std::endl;
+//             // Valid matching
+//             curr_shot.AddLandmarkObservation(lm, best_idx);
+//             std::cout << "Triggered: " << best_idx << std::endl;
+//             ++num_matches;
+//             // std::cout << "num_matches: " << num_matches << std::endl;
+//             if (check_orientation_)
+//             {
+//               const auto delta_angle = last_shot.slam_data_.undist_keypts_.at(idx_last).angle -
+//                                        curr_shot.slam_data_.undist_keypts_.at(best_idx).angle;
+//               angle_checker.append_delta_angle(delta_angle, best_idx);
+//             }
+//           }
+//         }
+//         else
+//         {
+//           std::cout << "Not in grid" << pt2D.transpose() << std::endl;
+//         }
+//       }
+//       else
+//       {
+//         std::cout << "Reprojection failed: " << pt2D.transpose() << std::endl;
+//       }
+//     }
+//   }
+
+//   // Clean-up step
+
+//   if (check_orientation_)
+//   {
+//     const auto invalid_matches = angle_checker.get_invalid_matches();
+//     for (const auto invalid_idx : invalid_matches)
+//     {
+//       // curr_frm.landmarks_.at(invalid_idx) = nullptr;
+//       curr_shot.RemoveLandmarkObservation(invalid_idx);
+//       --num_matches;
+//     }
+//   }
+//   return num_matches;
+// }
 
 bool 
 GuidedMatcher::IsObservable(map::Landmark* lm, const map::Shot& shot, const float ray_cos_thr,
@@ -409,7 +747,7 @@ GuidedMatcher::IsObservable(map::Landmark* lm, const map::Shot& shot, const floa
   const auto& lm_data = lm->slam_data_;
   if (in_image)
   {
-    if (grid_params_.in_grid(reproj.cast<float>()))
+    if (grid_params_.in_grid(reproj[0], reproj[1]))
     {
       const Eigen::Vector3d cam_to_lm_vec = pos_w - pose.GetOrigin();
       const auto cam_to_lm_dist = cam_to_lm_vec.norm();

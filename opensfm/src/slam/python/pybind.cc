@@ -30,9 +30,10 @@ PYBIND11_MODULE(pyslam, m) {
          py::arg("shot"))
     .def("match_shot_to_shot", &slam::GuidedMatchingWrapper::MatchShotToShot,
          py::arg("shot1"), py::arg("shot2"), py::arg("prev_matched"), py::arg("margin"))
-    .def("assign_shot_landmarks_to_kpts", &slam::GuidedMatchingWrapper::AssignShot1LandmarksToShot2Kpts,
-         py::arg("shot1"), py::arg("shot2"), py::arg("margin"))
-    
+    // .def("assign_shot_landmarks_to_kpts", &slam::GuidedMatchingWrapper::AssignShot1LandmarksToShot2Kpts,
+        //  py::arg("shot1"), py::arg("shot2"), py::arg("margin"))
+    .def("assign_shot_landmarks_to_kpts_new", &slam::GuidedMatchingWrapper::AssignShot1LandmarksToShot2KptsLM)
+    .def("match_for_triangulation_epipolr", &slam::GuidedMatchingWrapper::MatchForTriangulationEpipolar)
   ;
 
   // Helper class
@@ -49,6 +50,7 @@ PYBIND11_MODULE(pyslam, m) {
     .def("update_local_keyframes", &slam::PySlamUtilities::UpdateLocalKeyframes, py::return_value_policy::reference_internal)
     .def("update_local_landmarks", &slam::PySlamUtilities::UpdateLocalLandmarks, py::return_value_policy::reference_internal)
     .def("match_shot_to_local_lms", &slam::PySlamUtilities::MatchShotToLocalLandmarks)
+    .def("create_E_21", &slam::PySlamUtilities::create_E_21)
   ;
 
 }

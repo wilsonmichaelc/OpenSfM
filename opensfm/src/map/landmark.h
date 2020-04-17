@@ -14,10 +14,6 @@ public:
   cv::Mat descriptor_;
   size_t num_observations_ = 0;
 
-
-
-
-
   //! この3次元点を観測しているkeyframeについて，keyframe->lmのベクトルの平均値(規格化されてる)
   Eigen::Vector3d mean_normal_ = Eigen::Vector3d::Zero();
   float GetMinValidDistance() const { return 0.7 * min_valid_dist_; }
@@ -45,6 +41,7 @@ class Landmark {
   void SetGlobalPos(const Eigen::Vector3d& global_pos) { global_pos_ = global_pos; }
 
   bool IsObservedInShot(Shot* shot) const { return observations_.count(shot) > 0; }
+  
   void AddObservation(Shot* shot, const FeatureId feat_id) { observations_.emplace(shot, feat_id); }
   void RemoveObservation(Shot* shot) { observations_.erase(shot); }
   bool HasObservations() const { return !observations_.empty(); }

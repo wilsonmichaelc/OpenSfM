@@ -13,7 +13,9 @@ set(SLAM_FILES
   src/slam_utilities.cc
   guided_matching_bind.h
   guided_matching.h
+  slam_map.h
   src/guided_matching.cc
+  src/slam_map.cc
 )
 add_library(slam ${SLAM_FILES} ${ORB_FILES})
 target_link_libraries(slam

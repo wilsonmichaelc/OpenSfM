@@ -42,14 +42,14 @@ class SlamTracker(object):
         
         
         # Update local map!
-        local_keyframes = pyslam.SlamUtilities.update_local_keyframes(
-            curr_shot)
-        print("new lk: ", len(local_keyframes), " old_lk: ")
-        local_landmarks = pyslam.SlamUtilities.update_local_landmarks(
-            local_keyframes)
-        n_loc_kfs = pyslam.SlamUtilities.match_shot_to_local_lms(curr_shot, self.guided_matcher)
-        assert(len(local_keyframes) == n_loc_kfs)
-        print("len(local_keyframes) == n_loc_kfs",n_loc_kfs, len(local_keyframes))
+        # local_keyframes = pyslam.SlamUtilities.update_local_keyframes(
+            # curr_shot)
+        # print("new lk: ", len(local_keyframes), " old_lk: ")
+        # local_landmarks = pyslam.SlamUtilities.update_local_landmarks(
+            # local_keyframes)
+        # n_loc_kfs = pyslam.SlamUtilities.match_shot_to_local_lms(curr_shot, self.guided_matcher)
+        # assert(len(local_keyframes) == n_loc_kfs)
+        # print("len(local_keyframes) == n_loc_kfs",n_loc_kfs, len(local_keyframes))
         chrono.lap("update_local_landmarks")
         pose_tracking_2 = pymap.Pose()
         pose_tracking_2.set_from_world_to_cam(
@@ -57,20 +57,40 @@ class SlamTracker(object):
         curr_shot.set_pose(pose_tracking_2)
         # n_matches = self.guided_matcher.search_local_landmarks(
         #     local_landmarks, curr_shot)
-        n_matches = 0
+        n_valid_pts_bef = curr_shot.compute_num_valid_pts(1);
+        n_matches = pyslam.SlamUtilities.match_shot_to_local_lms(curr_shot, self.guided_matcher);
+        n_valid_pts_aft = curr_shot.compute_num_valid_pts(1);
+        print("n_matches {} found in current frame. bef{} aft {}".format(n_matches, n_valid_pts_bef, n_valid_pts_aft))
+        assert(n_matches + n_valid_pts_bef == n_valid_pts_aft)
+        
+        val_lms = curr_shot.get_valid_landmarks()
+        val_lms_idc = curr_shot.get_valid_landmarks_indices()
+        matches_last = []
+        for lm, new_id in zip(val_lms, val_lms_idc):
+            obs = lm.get_observations()
+            if slam_mapper.last_shot in obs:
+                matches_last.append((obs[slam_mapper.last_shot], new_id))
+        
+        pts1 = pyslam.SlamUtilities.keypts_from_shot(slam_mapper.last_shot)
+        pts2 = pyslam.SlamUtilities.keypts_from_shot(curr_shot)
+        slam_debug.disable_debug = False
+        matches_last = np.asarray(matches_last)
+        slam_debug.visualize_matches_pts(pts1, pts2, matches_last, data.load_image(slam_mapper.last_shot.name), data.load_image(curr_shot.name),
+                                         is_normalized=False, do_show=True)
+
         chrono.lap("search_local_landmarks")
         # Now, local optimization
-        print("n_matches {} found in current frame.".format(n_matches))
-        idx = 0
-        valid_lms = frame.cframe.get_valid_lms()
-        valid_kps = frame.cframe.get_valid_keypts()
-        valid_ids = frame.cframe.get_valid_idx()
-        points3D = np.zeros((len(valid_lms), 3))
-        print("n_matches: ", n_matches, " len: ", len(valid_lms))
-        for idx, lm in enumerate(valid_lms):
-            points3D[idx, :] = lm.get_pos_in_world()
+        lms = curr_shot.get_valid_landmarks()
+        points2D = pyslam.SlamUtilities.get_valid_kpts_from_shot(curr_shot)
+        valid_ids = curr_shot.get_valid_landmarks_indices()
+        print("got: ", len(lms), " landmarks and ", len(points2D))
+
+
+        points3D = np.zeros((len(lms), 3), dtype=np.float)
+        for i, lm in enumerate(lms):
+            points3D[i, :] = lm.get_global_pos()
         observations, _, _ = features.normalize_features(
-            valid_kps, None, None, camera[1].width, camera[1].height)
+            points2D, None, None, camera[1].width, camera[1].height)
 
         # TODO: Remove debug stuff
         # slam_debug.disable_debug = False
@@ -79,29 +99,33 @@ class SlamTracker(object):
         #                                title="bef tracking: "+frame.im_name, obs_normalized=True, do_show=False)
         slam_debug.avg_timings.addTimes(chrono.laps_dict)
         chrono.start()
+        pose_init_sfm = slam_utils.mat_to_pose(curr_shot.get_pose().get_world_to_cam())
         pose, valid_pts = self.\
-            bundle_tracking(points3D, observations, slam_utils.mat_to_pose(
-                frame.cframe.get_Tcw()), camera, data.config, data)
+            bundle_tracking(points3D, observations, pose_init_sfm, camera, data.config, data)
         chrono.lap("track_local_map")
         slam_debug.avg_timings.addTimes(chrono.laps_dict)
 
-        # print("pose after! ", pose.rotation, pose.translation)
-        # print("valid_pts: ", len(valid_pts), " vs ", len(observations))
-        # slam_debug.reproject_landmarks(points3D, observations,
-        #                                pose, frame.image, camera[1],
-        #                                title="aft tracking: "+frame.im_name, obs_normalized=True, do_show=True)
-        # slam_debug.disable_debug = True
-
-        # for
-
+        slam_debug.reproject_landmarks(points3D, observations,
+                                       slam_utils.pose_to_mat(pose), data.load_image(curr_shot.name), camera[1],
+                                       title="aft tracking: "+curr_shot.name, obs_normalized=True, do_show=True)
+        slam_debug.disable_debug = True
         slam_debug.avg_timings.addTimes(chrono.laps_dict)
         chrono.start()
-        self.num_tracked_lms = np.sum(valid_pts)
-        frame.cframe.set_outlier(np.array(valid_ids)[np.invert(valid_pts)])
-        n_tracked = frame.cframe.clean_and_tick_landmarks()
+        print("valid: ", curr_shot.compute_num_valid_pts(1))
+        n_tracked = 0;
+        for idx, is_valid in enumerate(valid_pts):
+            if not is_valid:
+                curr_shot.remove_observation(valid_ids[idx])
+            else:
+                n_tracked += 1
+        assert(curr_shot.compute_num_valid_pts(1) == np.sum(valid_pts))
+
+        self.num_tracked_lms = n_tracked
+        # frame.cframe.set_outlier(np.array(valid_ids)[np.invert(valid_pts)])
+        # n_tracked = frame.cframe.clean_and_tick_landmarks()
         chrono.lap("filter_outliers")
-        slam_debug.avg_timings.addTimes(chrono.laps_dict)
-        print("n tracked: ", n_tracked)
+        # slam_debug.avg_timings.addTimes(chrono.laps_dict)
+        # print("n tracked: ", n_tracked)
         return pose
 
     def track_motion(self, slam_mapper: SlamMapper, curr_shot: pymap.Shot,
@@ -129,10 +153,10 @@ class SlamTracker(object):
         # WORLD POSE = T_CW
         # pose_init = velocity.compose(last_shot.world_pose)
         # print("pose_init: ", pose_init.get_Rt())
-        print("slam_mapper.velocity: ", slam_mapper.velocity,
-              "last_shot",last_shot.get_pose().get_world_to_cam())
+        # print("slam_mapper.velocity: ", slam_mapper.velocity,
+            #   "last_shot",last_shot.get_pose().get_world_to_cam())
         T_init = slam_mapper.velocity.dot(last_shot.get_pose().get_world_to_cam())
-        print("T_init: ", T_init)
+        # print("T_init: ", T_init)
         # END velocity
         # TODO: REMOVE DEBUG VISUALIZATION
 
@@ -141,7 +165,7 @@ class SlamTracker(object):
         points3D = np.zeros((len(lms), 3), dtype=np.float)
         for idx, lm in enumerate(lms):
             points3D[idx, :] = lm.get_global_pos()
-        slam_debug.disable_debug = False
+        # slam_debug.disable_debug = False
         slam_debug.reproject_landmarks(points3D, None,
                                        last_shot.get_pose().get_world_to_cam(),
                                        data.load_image(last_shot.name), camera[1],
@@ -157,9 +181,10 @@ class SlamTracker(object):
         curr_shot.set_pose(pose_init)
         print("frame.cframe: ", curr_shot.get_pose().get_world_to_cam(),
               " inv: ", curr_shot.get_pose().get_cam_to_world())
-        n_matches = self.guided_matcher.\
-            assign_shot_landmarks_to_kpts(slam_mapper.last_shot, curr_shot, margin)
-        print("matches: ", n_matches)
+        # n_matches = self.guided_matcher.\
+            # assign_shot_landmarks_to_kpts(slam_mapper.last_shot, curr_shot, margin)
+        n_matches = self.guided_matcher.assign_shot_landmarks_to_kpts_new(slam_mapper.last_shot, curr_shot, margin)
+        print("found matches: ", n_matches)
         if n_matches < 10:  # not enough matches found, increase margin
             print("matches2: ", margin)
             n_matches = self.guided_matcher.\
@@ -197,7 +222,7 @@ class SlamTracker(object):
         points3D = np.zeros((len(lms), 3), dtype=np.float)
         for idx, lm in enumerate(lms):
             points3D[idx, :] = lm.get_global_pos()
-        slam_debug.disable_debug = False
+        # slam_debug.disable_debug = False
         slam_debug.reproject_landmarks(points3D, points2D,
             slam_utils.pose_to_mat(pose), data.load_image(curr_shot.name), camera[1], title="repro", obs_normalized=False, do_show=True)
         slam_debug.disable_debug = True
@@ -205,11 +230,16 @@ class SlamTracker(object):
 
         # Remove outliers
         print("valid: ", curr_shot.compute_num_valid_pts(1))
+        n_tracked = 0
         for idx, is_valid in enumerate(valid_pts):
             if not is_valid:
                 curr_shot.remove_observation(valid_ids[idx])
+            else:
+                n_tracked += 1
         assert(curr_shot.compute_num_valid_pts(1) == np.sum(valid_pts))
-        
+        assert(curr_shot.compute_num_valid_pts(1) == n_tracked)
+        self.num_tracked_lms = n_tracked
+
         if np.sum(valid_pts) < 10:
             logger.error("Tracking lost!!")
             # TODO: ROBUST MATCHING

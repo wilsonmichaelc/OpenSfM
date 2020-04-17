@@ -68,6 +68,20 @@ class Shot {
     }
     return valid_landmarks;
   }
+  std::vector<std::pair<Landmark*,FeatureId>> ComputeValidLandmarksAndIndices() const
+  {
+    std::vector<std::pair<Landmark*,FeatureId>> valid_landmarks;
+    valid_landmarks.reserve(landmarks_.size());
+    for (size_t idx = 0; idx < landmarks_.size(); ++idx)
+    {
+      auto* lm = landmarks_[idx];
+      if (lm != nullptr)
+      {
+        valid_landmarks.push_back(std::make_pair(lm,idx));
+      }
+    }
+    return valid_landmarks;
+  }
 
   Landmark* GetLandmark(const FeatureId id) { return landmarks_.at(id);}
   void RemoveLandmarkObservation(const FeatureId id) { landmarks_.at(id) = nullptr; }

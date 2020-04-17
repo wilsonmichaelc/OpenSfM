@@ -25,11 +25,14 @@ struct GridParameters
   const float img_max_width_, img_max_height_;
   const float inv_cell_width_, inv_cell_height_;
 
-  bool in_grid(const Eigen::Vector2f &pt2D) const { return in_grid(pt2D[0], pt2D[1]); }
-  bool in_grid(const float x, const float y) const
+  // bool in_grid(const Eigen::Vector2f &pt2D) const { return in_grid(pt2D[0], pt2D[1]); }
+  // bool in_grid(const Eigen::Vector2d &pt2D) const { return in_grid(pt2D[0], pt2D[1]); }
+
+  template< class T> bool in_grid(const T x, const T y) const
   {
     return img_min_width_ < x && img_max_width_ > x && img_min_height_ < y && img_max_height_ > y;
   }
+
 };
 
 using CellIndices = std::vector<std::vector<std::vector<size_t>>>;
@@ -40,6 +43,8 @@ public:
   static constexpr unsigned int HAMMING_DIST_THR_LOW{50};
   static constexpr unsigned int HAMMING_DIST_THR_HIGH{100};
   static constexpr unsigned int MAX_HAMMING_DIST{256};
+  static constexpr float NO_LOWE_TEST{0.0f};
+  static constexpr bool NO_ORIENTATION_CHECK{false};
   static constexpr size_t NO_MATCH{std::numeric_limits<size_t>::max()};
   //! ORB特徴量間のハミング距離を計算する
   static inline unsigned int
@@ -89,11 +94,21 @@ public:
   // keypts seen in curr shot and sets the observations
   // in curr shot accordingly
   size_t AssignShot1LandmarksToShot2Kpts(const map::Shot &last_shot, map::Shot &curr_shot, const float margin) const;
-  
-  map::FeatureId
-  FindBestMatchForLandmark(const map::Landmark *const landmark, map::Shot &curr_shot, const float reproj_x, const float reproj_y,
-                           const int last_scale_level, const float margin) const;
+  // size_t AssignLandmarksToShot(map::Shot& shot, std::vector<map::Landmark*>& landmarks, const float margin) const;
+  // size_t AssignLandmarksToShot(map::Shot& shot, std::vector<map::Landmark*>& landmarks, const float margin) const;
 
+  size_t
+  AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Landmark*>& landmarks, const float margin,
+                        const std::vector<cv::KeyPoint>& undist_kpts, bool check_orientation, const float lowe_ratio) const;
+  map::FeatureId
+  FindBestMatchForLandmark2(const map::Landmark *const landmark, map::Shot &curr_shot, const float reproj_x, const float reproj_y,
+                           const int last_scale_level, const float margin) const;
+                      
+  map::FeatureId
+  FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot& curr_shot,
+                          const float reproj_x, const float reproj_y,
+                          const int scale_level, const float margin,
+                          const float lowe_ratio) const;
   std::vector<size_t>
   GetKeypointsInCell(const std::vector<cv::KeyPoint> &undist_keypts,
                      const CellIndices &keypt_indices_in_cells,
@@ -108,6 +123,15 @@ public:
 
   // static bool is_inside_in_orb_scale(const float cam_to_lm_dist) const;
   size_t PredScaleLevel(const float max_valid_dist, const float cam_to_lm_dist) const;
+
+  MatchIndices
+  MatchingForTriangulationEpipolar(const map::Shot& kf1, const map::Shot& kf2, const Eigen::Matrix3d& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin = 5) const;
+  static bool 
+  CheckEpipolarConstraint(const Eigen::Vector3f& bearing_1, const Eigen::Vector3f& bearing_2,
+                            const Eigen::Matrix3f& E_12, const float bearing_1_scale_factor);
+  static bool 
+  CheckEpipolarConstraint(const Eigen::Vector3d& bearing_1, const Eigen::Vector3d& bearing_2,
+                          const Eigen::Matrix3d& E_12, const float bearing_1_scale_factor);
 
 private:
   size_t num_scale_levels_;

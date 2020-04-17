@@ -17,12 +17,16 @@ public:
   const size_t height;
   const std::string projectionType;
   virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
-                                      std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const {};
+                                      std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const {};
   virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const {};
   virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                 Eigen::Vector2f& pt2D) const {return true;};
   virtual bool ReprojectToImage(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
                                 Eigen::Vector2d& pt2D) const {return true;};
+  virtual bool ReprojectToBearing(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                  Eigen::Vector3f& bearing, Eigen::Vector2f& pt2D) const { return true; }
+  virtual bool ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
+                                Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const { return true; }
 };
 
 class BrownPerspectiveCamera : public Camera
@@ -32,12 +36,18 @@ public:
                          const float fx_, const float fy_, const float cx_, const float cy_,
                          const float k1_, const float k2_, const float p1_, const float p2_, const float k3_);
   virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
-                                      std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const;
+                                      std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const;
   virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const;
   virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                 Eigen::Vector2f& pt2D) const;
   virtual bool ReprojectToImage(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
                                 Eigen::Vector2d& pt2D) const;
+  
+  virtual bool ReprojectToBearing(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                  Eigen::Vector3f& bearing, Eigen::Vector2f& pt2D) const;
+  virtual bool ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
+                                Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const;
+
   float fx_p, fy_p; // focal lengths in pixels
   float cx_p, cy_p; // principal points in pixels
   

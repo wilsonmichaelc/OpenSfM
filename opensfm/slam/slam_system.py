@@ -1,10 +1,11 @@
+from opensfm import pyslam
 from opensfm import pymap
 from opensfm import dataset
-from opensfm import pyslam
 from slam_initializer import SlamInitializer
 import numpy as np
 import slam_config
 import slam_debug
+import slam_utils
 from slam_mapper import SlamMapper
 from slam_tracker import SlamTracker
 import logging
@@ -82,14 +83,13 @@ class SlamSystem(object):
         if not self.system_initialized:
             self.system_initialized = self.init_slam_system(curr_shot)
             chrono.lap("init_slam_system_all")
-            
             return self.system_initialized
         
         # Tracking
         pose = self.track_frame(curr_shot)
         chrono.lap("track")
         if pose is not None:
-            curr_shot.world_pose = pose
+            curr_shot.get_pose().set_from_world_to_cam(slam_utils.pose_to_mat(pose))
         self.slam_mapper.update_with_last_frame(curr_shot)
         self.slam_mapper.num_tracked_lms = self.slam_tracker.num_tracked_lms
         if self.slam_mapper.new_keyframe_is_needed(curr_shot):

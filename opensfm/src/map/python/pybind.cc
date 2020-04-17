@@ -19,6 +19,7 @@ PYBIND11_MODULE(pymap, m) {
     .def("get_world_to_cam", &map::Pose::WorldToCamera)
     .def("set_from_cam_to_world", &map::Pose::SetFromCameraToWorld)
     .def("set_from_world_to_cam", &map::Pose::SetFromWorldToCamera)
+    .def("get_origin", &map::Pose::GetOrigin)
   ;
 
   py::class_<map::Map>(m, "Map")
@@ -64,7 +65,8 @@ PYBIND11_MODULE(pymap, m) {
     .def("remove_shot", &map::Map::RemoveShot)
     .def("next_unique_shot_id", &map::Map::GetNextUniqueShotId)
 
-    .def("add_observation", &map::Map::AddObservation)
+    .def("add_observation", &map::Map::AddObservation,
+         py::arg("shot"), py::arg("landmark"), py::arg("feature_id"))
     .def("remove_observation", &map::Map::RemoveObservation)
     .def("get_all_shots", &map::Map::GetAllShotPointers, py::return_value_policy::reference_internal)
     .def("get_all_cameras", &map::Map::GetAllCameraPointers, py::return_value_policy::reference_internal)
@@ -84,7 +86,7 @@ PYBIND11_MODULE(pymap, m) {
     .def("compute_num_valid_pts", &map::Shot::ComputeNumValidLandmarks)
     .def("get_valid_landmarks", &map::Shot::ComputeValidLandmarks, py::return_value_policy::reference_internal)
     .def("get_valid_landmarks_indices", &map::Shot::ComputeValidLandmarksIndices, py::return_value_policy::reference_internal)
-
+    .def("get_valid_landmarks_and_indices", &map::Shot::ComputeValidLandmarksAndIndices, py::return_value_policy::reference_internal)
     .def("number_of_keypoints", &map::Shot::NumberOfKeyPoints)
     .def("init_and_take_datastructures", &map::Shot::InitAndTakeDatastructures)
     .def("init_keypts_and_descriptors", &map::Shot::InitKeyptsAndDescriptors)
@@ -96,10 +98,13 @@ PYBIND11_MODULE(pymap, m) {
     .def("scale_landmarks", &map::Shot::ScaleLandmarks)
     .def("scale_pose", &map::Shot::ScalePose)
     .def("remove_observation", &map::Shot::RemoveLandmarkObservation)
+    .def("get_camera_to_world", &map::Shot::GetCamToWorld)
+    .def("get_world_to_camera", &map::Shot::GetWorldToCam)
   ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")
     .def_readonly("undist_keypts", &map::SLAMShotData::undist_keypts_)
+    .def("update_graph_node", &map::SLAMShotData::UpdateGraphNode);
   ;
 
   py::class_<map::Landmark>(m, "Landmark")

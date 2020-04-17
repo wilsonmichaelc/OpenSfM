@@ -41,7 +41,7 @@ BrownPerspectiveCamera::BrownPerspectiveCamera(const size_t width_, const size_t
 
 void
 BrownPerspectiveCamera::UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint> &undist_keypts,
-                                                    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const
+                                                    std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const
 {
   bearings.resize(undist_keypts.size());
   for (unsigned long idx = 0; idx < undist_keypts.size(); ++idx) {
@@ -50,7 +50,7 @@ BrownPerspectiveCamera::UndistortedKeyptsToBearings(const std::vector<cv::KeyPoi
       // const auto l2_norm = std::sqrt(x_normalized * x_normalized + y_normalized * y_normalized + 1.0);
       // bearings.at(idx) = Eigen::Vector3f{x_normalized / l2_norm, y_normalized / l2_norm, 1.0 / l2_norm};
       // std::cout << "oslam: " <<  bearings.at(idx) << " my: " << Eigen::Vector3f(x_normalized, y_normalized, 1.0).normalized() << std::endl;
-      bearings.at(idx) = Eigen::Vector3f(x_normalized, y_normalized, 1.0).normalized();
+      bearings.at(idx) = Eigen::Vector3d(x_normalized, y_normalized, 1.0).normalized();
   }
 }
 void
@@ -110,5 +110,33 @@ BrownPerspectiveCamera::ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eige
     // return (pt2D[0] >= 0 && pt2D[1] >= 0 && pt2D[0] < width && pt2D[1] < height);
     // return gridParams.in_grid(pt2D);
 }
+bool 
+BrownPerspectiveCamera::ReprojectToBearing(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
+                                            Eigen::Vector3f& bearing, Eigen::Vector2f& pt2D) const
+{
+    //first, transform pt3D into cam
+    bearing = R_cw*ptWorld + t_cw;
+    //check z coordinate
+    if (bearing[2] < 0.0) return false;
+    // //now reproject to image
+    pt2D = (K_pixel_eig*bearing).hnormalized();
+    bearing.normalized();
+    return true;
+}
+
+bool 
+BrownPerspectiveCamera::ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
+                                            Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const
+{
+    //first, transform pt3D into cam
+    bearing = R_cw*ptWorld + t_cw;
+    //check z coordinate
+    if (bearing[2] < 0.0) return false;
+    // //now reproject to image
+    pt2D = (K_pixel_eig.cast<double>()*bearing).hnormalized();
+    bearing.normalized();
+    return true;
+}
+
 
 } // namespace map

@@ -8,22 +8,32 @@
 namespace slam
 {
 
-Eigen::Matrix3f
-SlamUtilities::to_skew_symmetric_mat(const Eigen::Vector3f &vec)
+Eigen::Matrix3d
+SlamUtilities::to_skew_symmetric_mat(const Eigen::Vector3d &vec)
 {
-  Eigen::Matrix3f skew;
+  Eigen::Matrix3d skew;
   skew << 0, -vec(2), vec(1),
       vec(2), 0, -vec(0),
       -vec(1), vec(0), 0;
   return skew;
 }
-Eigen::Matrix3f
-SlamUtilities::create_E_21(const Eigen::Matrix3f &rot_1w, const Eigen::Vector3f &trans_1w,
-                           const Eigen::Matrix3f &rot_2w, const Eigen::Vector3f &trans_2w)
+// Eigen::Matrix3f
+// SlamUtilities::create_E_21(const Eigen::Matrix3f &rot_1w, const Eigen::Vector3f &trans_1w,
+//                            const Eigen::Matrix3f &rot_2w, const Eigen::Vector3f &trans_2w)
+// {
+//   const Eigen::Matrix3f rot_21 = rot_2w * rot_1w.transpose();
+//   const Eigen::Vector3f trans_21 = -rot_21 * trans_1w + trans_2w;
+//   const Eigen::Matrix3f trans_21_x = to_skew_symmetric_mat(trans_21);
+//   return trans_21_x * rot_21;
+// }
+
+Eigen::Matrix3d
+SlamUtilities::create_E_21(const Eigen::Matrix3d &rot_1w, const Eigen::Vector3d &trans_1w,
+                           const Eigen::Matrix3d &rot_2w, const Eigen::Vector3d &trans_2w)
 {
-  const Eigen::Matrix3f rot_21 = rot_2w * rot_1w.transpose();
-  const Eigen::Vector3f trans_21 = -rot_21 * trans_1w + trans_2w;
-  const Eigen::Matrix3f trans_21_x = to_skew_symmetric_mat(trans_21);
+  const Eigen::Matrix3d rot_21 = rot_2w * rot_1w.transpose();
+  const Eigen::Vector3d trans_21 = -rot_21 * trans_1w + trans_2w;
+  const Eigen::Matrix3d trans_21_x = to_skew_symmetric_mat(trans_21);
   return trans_21_x * rot_21;
 }
 
@@ -216,14 +226,14 @@ SlamUtilities::update_local_keyframes(const map::Shot &curr_shot)
 }
 
 size_t
-SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatcher& matcher)
+SlamUtilities::MatchShotToLocalMap(map::Shot &shot, const slam::GuidedMatcher& matcher)
 {
 
   constexpr unsigned int max_num_local_keyfrms{60};
   
   //First create a set of landmarks that don't need matching, i.e. the already seen ones
   std::unordered_set<map::Landmark*> matched_lms;
-  for (const auto& lm : curr_shot.GetLandmarks())
+  for (const auto& lm : shot.GetLandmarks())
   {
     if (lm != nullptr)
     {
@@ -243,6 +253,7 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatch
   size_t scale_level;
   // add the second-order keyframes to the local landmarks
   auto add_local_keyframe = [&](map::Shot *keyfrm) {
+    // std::cout << "Trying to insert: " << keyfrm << std::endl;
     if (keyfrm == nullptr)
     {
       return false;
@@ -254,14 +265,15 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatch
       {
         if (lm != nullptr && matched_lms.count(lm) == 0)
         {
-          std::cout << "isobservable?" << std::endl;
+          // std::cout << "isobservable?" << std::endl;
           //try to reproject
           if (matcher.IsObservable(lm, *keyfrm, 0.5, reproj, scale_level))
           {
-            std::cout << "observable?" << std::endl;
+            // std::cout << "observable?" << std::endl;
+            lm->slam_data_.IncreaseNumObservable();
             local_landmarks.emplace_back(
               std::make_pair(lm, Eigen::Vector3d(reproj[0], reproj[1], scale_level)));
-            std::cout << "added?" << std::endl;
+            // std::cout << "added?" << std::endl;
           }
           //Don't try again
           matched_lms.insert(lm);
@@ -271,23 +283,23 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatch
     return it.second;
   };
 
-  const auto &landmarks = curr_shot.GetLandmarks();
+  const auto &landmarks = shot.GetLandmarks();
   const auto n_keypts = landmarks.size();
   for (unsigned int idx = 0; idx < n_keypts; ++idx)
   {
     const auto& lm = landmarks.at(idx);
     if (lm != nullptr)
     {
-      std::cout << "Processing: " << lm->id_ << std::endl;
+      // std::cout << "Processing: " << lm->id_ << std::endl;
       for (const auto& obs : lm->GetObservations())
       {
         // local_keyframes.insert(obs.first);
-        std::cout << "Adding " << obs.first << std::endl;
+        // std::cout << "Adding " << obs.first << std::endl;
         add_local_keyframe(obs.first);
       }
     }
   }
-  std::cout << "Created local lms and kfs!" << std::endl;
+  // std::cout << "Created local lms and kfs!" << std::endl;
 
   if (local_keyframes.empty())
   {
@@ -307,10 +319,11 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatch
 
   // Try to insert the max_num number of keyframes
   for (auto iter = local_keyframes.cbegin(), end = local_keyframes.cend();
-       iter != end, max_num_local_keyfrms >= local_keyframes.size(); ++iter)
+       iter != end && max_num_local_keyfrms >= local_keyframes.size(); ++iter)
   {
+    std::cout << "getting desc!" << std::endl;
     auto keyfrm = *iter;
-
+    std::cout << "local_keyframes.size()" << local_keyframes.size() << std::endl;
     // covisibilities of the neighbor keyframe
     const auto neighbors = keyfrm->slam_data_.graph_node_->get_top_n_covisibilities(10);
     for (auto neighbor : neighbors)
@@ -320,7 +333,7 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatch
         break;
       }
     }
-
+    std::cout << "add neighbor local_keyframes.size()" << local_keyframes.size() << std::endl;
     // children of the spanning tree
     const auto spanning_children = keyfrm->slam_data_.graph_node_->get_spanning_children();
     for (auto child : spanning_children)
@@ -330,12 +343,14 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatch
         break;
       }
     }
+    std::cout << "add child local_keyframes.size()" << local_keyframes.size() << std::endl;
 
     // parent of the spanning tree
     auto parent = keyfrm->slam_data_.graph_node_->get_spanning_parent();
     add_local_keyframe(parent);
+    std::cout << "add parent local_keyframes.size()" << local_keyframes.size() << std::endl;
   }
-  // std::cout << "local_keyfrms: " << local_keyframes.size() << std::endl;
+  std::cout << "local_keyfrms: " << local_keyframes.size() << std::endl;
   // return local_keyframes.size();
   // we get the local landmarks
   // Landmarks seen by the local KFs
@@ -359,7 +374,89 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatch
   // and visible in the current frame
 
   //Assign landmarks to current frame
-  return 0;
+  // return local_keyframes.size();
+  constexpr float margin{5};
+  constexpr float lowe_ratio{10};
+  return matcher.AssignLandmarksToShot(shot, landmarks, margin,
+                                       std::vector<cv::KeyPoint>(),GuidedMatcher::NO_ORIENTATION_CHECK,
+                                       lowe_ratio);
+}
+
+void 
+SlamUtilities::SetDescriptorFromObservations(map::Landmark& landmark)
+{
+    const auto& observations = landmark.GetObservations();
+    if (observations.empty()) {
+        return;
+    }
+    std::vector<cv::Mat> descriptors;
+    descriptors.reserve(observations.size());
+    for (const auto& observation : observations) {
+        auto shot = observation.first;
+        const auto idx = observation.second;
+        descriptors.push_back(shot->GetDescriptor(idx));
+    }
+    const auto median_idx = GuidedMatcher::ComputeMedianDescriptorIdx(descriptors);
+    landmark.slam_data_.descriptor_ = descriptors[median_idx].clone();
+}
+
+
+void 
+SlamUtilities::SetNormalAndDepthFromObservations(map::Landmark& landmark, const std::vector<float>& scale_factors)
+{
+    const auto& observations = landmark.GetObservations();
+    if (observations.empty()) {
+        return;
+    }
+    Eigen::Vector3d mean_normal = Eigen::Vector3d::Zero();
+    unsigned int num_observations = 0;
+    for (const auto& observation : observations) {
+        const auto shot = observation.first;
+        const Eigen::Vector3d cam_center = shot->GetPose().GetOrigin(); //.cast<float>();//get_cam_center();
+        const Eigen::Vector3d normal = landmark.GetGlobalPos() - cam_center;
+        mean_normal = mean_normal + normal / normal.norm();
+        ++num_observations;
+    }
+    const auto dist = landmark.ComputeDistanceFromRefFrame();
+    auto* ref_shot = landmark.GetRefShot();
+    const auto ref_obs_idx = observations.at(ref_shot);
+    const auto scale_level = ref_shot->slam_data_.undist_keypts_.at(ref_obs_idx).octave;
+    // const auto scale_level = ref_shot_->undist_keypts_.at(observations_.at(ref_shot_)).octave;
+    const auto scale_factor = scale_factors.at(scale_level);
+    const auto num_scale_levels = scale_factors.size();
+
+    landmark.slam_data_.max_valid_dist_ = dist * scale_factor;
+    landmark.slam_data_.min_valid_dist_ = landmark.slam_data_.max_valid_dist_ / scale_factors.at(num_scale_levels - 1);
+    landmark.slam_data_.mean_normal_ = mean_normal / num_observations;
+}
+
+std::pair<double, double>
+SlamUtilities::ComputeMinMaxDepthInShot(const map::Shot& shot)
+{
+
+    double min_d{std::numeric_limits<double>::infinity()}, max_d{0};
+    const Eigen::Matrix4d T_cw = shot.GetWorldToCam();
+    const auto& landmarks = shot.GetLandmarks();
+    const auto& pose = shot.GetPose();
+    const Eigen::Matrix3d R_cw = pose.RotationWorldToCamera();
+    const Eigen::Vector3d t_cw = pose.TranslationWorldToCamera();
+    const Eigen::Vector3d last_row = R_cw.row(2);
+    const double t_z = t_cw[2];
+    const auto n_landmarks{landmarks.size()};
+    for (size_t idx = 0; idx < n_landmarks; ++idx)
+    {
+        auto* lm = landmarks[idx];
+        if (lm != nullptr)
+        {
+          // const float d = (R_cw*lm->GetGlobalPos()+t_cw)[2];
+          //should be equal
+          const auto d = (last_row.dot(lm->GetGlobalPos())+t_z);
+
+          min_d = std::min(d, min_d);
+          max_d = std::max(d, max_d);
+        }
+    }
+    return std::make_pair(min_d, max_d);
 }
 
 } // namespace slam

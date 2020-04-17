@@ -25,12 +25,27 @@ public:
                                     prev_matched, margin);
   }
 
+  // size_t
+  // AssignShot1LandmarksToShot2Kpts(const map::Shot& shot1, map::Shot& shot2, const float margin) const
+  // {
+  //   return matcher_.AssignShot1LandmarksToShot2Kpts(shot1, shot2, margin);
+  // }
+
   size_t
-  AssignShot1LandmarksToShot2Kpts(const map::Shot& shot1, map::Shot& shot2, const float margin) const
+  AssignShot1LandmarksToShot2KptsLM(const map::Shot& shot1, map::Shot& shot2, const float margin) const
   {
-    return matcher_.AssignShot1LandmarksToShot2Kpts(shot1, shot2, margin);
+    const auto& lms = shot1.GetLandmarks();
+    return matcher_.AssignLandmarksToShot(shot2, lms, margin, shot1.slam_data_.undist_keypts_,true, GuidedMatcher::NO_LOWE_TEST);
   }
 
-GuidedMatcher matcher_;
+  MatchIndices
+  MatchForTriangulationEpipolar(const map::Shot& kf1, const map::Shot& kf2, const Eigen::Matrix3d& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin) const
+  {
+    //(const map::Shot& kf1, const map::Shot& kf2, const Eigen::Matrix3d& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin) const
+    matcher_.MatchingForTriangulationEpipolar(kf1, kf2, E_12, min_depth, max_depth, traverse_with_depth, margin);
+  }
+
+// private:
+  GuidedMatcher matcher_;
 };
 } // namespace slam
