@@ -164,11 +164,55 @@ Map::RemoveLandmark(const LandmarkId lm_id)
     landmarks_.erase(lm_it);
   }
 }
-// void
-// Map::CreateShotCameraNoReturn(const CameraId cam_id, const Camera* const camera, const std::string& name)
-// {
-//   CreateShotCamera(cam_id, camera, name);
-// }
+/**
+ * Replaces landmark old_lm by new_lm
+ * 
+ * 
+ * 
+ * 
+ */
+
+void 
+Map::ReplaceLandmark(Landmark* old_lm, Landmark* new_lm)
+{
+  if (old_lm == nullptr || new_lm == nullptr || old_lm->id_ == new_lm->id_)
+  {
+    return;
+  }
+  // go through the observations of old_lm
+  for (const auto& observation : old_lm->GetObservations())
+  {
+    Shot* obs_shot = observation.first;
+    FeatureId obs_feat_id = observation.second;
+    // if the new one is seen in obs_shot, there was a mismatch
+    // Thus, erase the observation of the old_lm
+    if (new_lm->IsObservedInShot(obs_shot))
+    {
+      obs_shot->RemoveLandmarkObservation(obs_feat_id);
+    }
+    else
+    {
+      // replace, should be the same as AddObservation
+      obs_shot->AddLandmarkObservation(new_lm, obs_feat_id);
+      new_lm->AddObservation(obs_shot, obs_feat_id);
+    }
+    // just for testing
+    auto* test_lm = obs_shot->GetLandmark(obs_feat_id);
+    if (test_lm == old_lm)
+    {
+      std::cout << "Error during replace!" << std::endl;
+      exit(0);
+    }
+  }
+  // TODO: This basically takes all the observations from the old lm
+  // Might not be completely correct
+  new_lm->slam_data_.IncreaseNumObserved(old_lm->slam_data_.GetNumObserved());
+  new_lm->slam_data_.IncreaseNumObservable(old_lm->slam_data_.GetNumObservable());
+  //3) Remove from landmark_names_
+  landmark_names_.erase(old_lm->name_);
+  //4) Remove from landmarks
+  landmarks_.erase(old_lm->id_);
+}
 
 /**
  * Creates a shot camera and returns a pointer to it

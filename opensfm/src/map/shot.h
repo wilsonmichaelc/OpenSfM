@@ -35,7 +35,10 @@ class Shot {
   Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose, const std::string& name = "");
   const cv::Mat GetDescriptor(const FeatureId id) const { return descriptors_.row(id); }
   const cv::KeyPoint& GetKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
-  
+  Eigen::Vector3f GetKeyPointEigen(const FeatureId id) const { 
+    const auto kpt = keypoints_.at(id);
+    return Eigen::Vector3f(kpt.pt.x, kpt.pt.y, kpt.size);
+  }
   //No reason to set individual keypoints or descriptors
   //read-only access
   const std::vector<cv::KeyPoint>& GetKeyPoints() const { return keypoints_; }

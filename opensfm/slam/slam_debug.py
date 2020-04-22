@@ -104,8 +104,10 @@ def reproject_landmarks(points3D, observations, T_world_to_cam,
     print("T_world_to_cam reproject_landmarks: ", T_world_to_cam)
     pose_world_to_cam = types.Pose()
     pose_world_to_cam.set_rotation_matrix(T_world_to_cam[0:3, 0:3])
-    pose_world_to_cam.set_origin(T_world_to_cam[0:3, 3])
-
+    # pose_world_to_cam.set_translation(T_world_to_cam[0:3, 3])
+    pose_world_to_cam.translation = T_world_to_cam[0:3, 3]
+    print(title, T_world_to_cam, " pose: ", pose_world_to_cam.get_Rt())
+    legend = ['reproj']
     camera_point = pose_world_to_cam.transform_many(points3D)
     points2D = camera.project_many(camera_point)
     fig, ax = plt.subplots(1)
@@ -126,7 +128,9 @@ def reproject_landmarks(points3D, observations, T_world_to_cam,
         else:
             obs = observations
         ax.scatter(obs[:, 0], obs[:, 1], c=[[0, 1, 0]])
+        legend.append('observation')
     ax.set_title(title)
+    ax.legend(legend)
     if do_show:
         plt.show()
 

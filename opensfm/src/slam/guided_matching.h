@@ -6,6 +6,7 @@
 #include <opencv2/core.hpp>
 #include <map/shot.h>
 #include <map/landmark.h>
+#include <map/map.h>
 
 namespace slam
 {
@@ -76,10 +77,12 @@ public:
   // GuidedMatcher(const GridParameters &grid_params);
   GuidedMatcher(const GridParameters &grid_params, const float scale_factor, const size_t num_scale_levels) : 
   grid_params_(grid_params), num_scale_levels_(num_scale_levels), scale_factors_(num_scale_levels_, 1.0), 
-  scale_factor_(scale_factor), log_scale_factor_(std::log(scale_factor))
+  scale_factor_(scale_factor), log_scale_factor_(std::log(scale_factor)), inv_level_sigma_sq_(num_scale_levels_, 1.0)
   {
-    for (unsigned int level = 1; level < num_scale_levels_; ++level) {
-        scale_factors_.at(level) = scale_factor * scale_factors_.at(level - 1);
+    for (unsigned int level = 1; level < num_scale_levels_; ++level)
+    {
+      scale_factors_.at(level) = scale_factor * scale_factors_.at(level - 1);
+      inv_level_sigma_sq_.at(level) = 1.0f / scale_factors_.at(level);
     }
   }
 
@@ -126,19 +129,22 @@ public:
 
   MatchIndices
   MatchingForTriangulationEpipolar(const map::Shot& kf1, const map::Shot& kf2, const Eigen::Matrix3d& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin = 5) const;
-  static bool 
-  CheckEpipolarConstraint(const Eigen::Vector3f& bearing_1, const Eigen::Vector3f& bearing_2,
-                            const Eigen::Matrix3f& E_12, const float bearing_1_scale_factor);
+  // static bool 
+  // CheckEpipolarConstraint(const Eigen::Vector3f& bearing_1, const Eigen::Vector3f& bearing_2,
+  //                           const Eigen::Matrix3f& E_12, const float bearing_1_scale_factor);
   static bool 
   CheckEpipolarConstraint(const Eigen::Vector3d& bearing_1, const Eigen::Vector3d& bearing_2,
                           const Eigen::Matrix3d& E_12, const float bearing_1_scale_factor);
+
+  
+  template<typename T> size_t ReplaceDuplicatedLandmarks(map::Shot& fuse_shot, const T& landmarks_to_check, const float margin, map::Map& slam_map) const;
 
 private:
   size_t num_scale_levels_;
   std::vector<float> scale_factors_;
   float scale_factor_;
   float log_scale_factor_;
-
+  std::vector<float> inv_level_sigma_sq_;
   /*MatchIndices 
     match_frame_to_frame(const cslam::Frame& frame1, const cslam::Frame& frame2,
                          const Eigen::MatrixX2f& prevMatched,

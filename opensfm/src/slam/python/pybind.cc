@@ -33,7 +33,7 @@ PYBIND11_MODULE(pyslam, m) {
     // .def("assign_shot_landmarks_to_kpts", &slam::GuidedMatchingWrapper::AssignShot1LandmarksToShot2Kpts,
         //  py::arg("shot1"), py::arg("shot2"), py::arg("margin"))
     .def("assign_shot_landmarks_to_kpts_new", &slam::GuidedMatchingWrapper::AssignShot1LandmarksToShot2KptsLM)
-    .def("match_for_triangulation_epipolr", &slam::GuidedMatchingWrapper::MatchForTriangulationEpipolar)
+    .def("match_for_triangulation_epipolar", &slam::GuidedMatchingWrapper::MatchForTriangulationEpipolar)
   ;
 
   // Helper class
@@ -46,11 +46,15 @@ PYBIND11_MODULE(pyslam, m) {
     .def("keypts_from_shot", &slam::PySlamUtilities::GetKeyptsFromShot)
     .def("compute_descriptor", &slam::PySlamUtilities::SetDescriptorFromObservations)
     .def("compute_normal_and_depth", &slam::PySlamUtilities::SetNormalAndDepthFromObservations)
+    .def("compute_min_max_depth", &slam::PySlamUtilities::ComputeMinMaxDepthInShot)
     .def("get_valid_kpts_from_shot", &slam::PySlamUtilities::GetValidKeypts)
     .def("update_local_keyframes", &slam::PySlamUtilities::UpdateLocalKeyframes, py::return_value_policy::reference_internal)
     .def("update_local_landmarks", &slam::PySlamUtilities::UpdateLocalLandmarks, py::return_value_policy::reference_internal)
     .def("match_shot_to_local_lms", &slam::PySlamUtilities::MatchShotToLocalLandmarks)
     .def("create_E_21", &slam::PySlamUtilities::create_E_21)
+    .def("get_second_order_covisibility_for_shot", &slam::PySlamUtilities::GetSecondOrderCovisibility, py::return_value_policy::reference_internal)
+    .def("fuse_duplicated_landmarks", &slam::PySlamUtilities::FuseDuplicatedLandmarks)
+    .def("compute_local_keyframes", &slam::PySlamUtilities::ComputeLocalKeyframes, py::return_value_policy::reference_internal)
   ;
 
 }

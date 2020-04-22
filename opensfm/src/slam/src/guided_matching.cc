@@ -5,6 +5,8 @@
 #include <opencv2/core/eigen.hpp>
 #include <unordered_set>
 #include <map/camera.h>
+#include <slam/slam_utilities.h>
+#include <unordered_set>
 namespace slam
 {
 
@@ -619,16 +621,22 @@ GuidedMatcher::MatchingForTriangulationEpipolar(const map::Shot& kf1, const map:
   matches.reserve(num_matches);
   //We do not check the orientation
   for (unsigned int idx_1 = 0; idx_1 < matched_indices_2_in_keyfrm_1.size(); ++idx_1) {
-      if (matched_indices_2_in_keyfrm_1.at(idx_1) < 0) {
-          continue;
+      if (matched_indices_2_in_keyfrm_1.at(idx_1) >= 0) 
+      {
+        matches.emplace_back(std::make_pair(idx_1, matched_indices_2_in_keyfrm_1.at(idx_1)));
+        if (idx_1 >= kf1.NumberOfKeyPoints() || matched_indices_2_in_keyfrm_1.at(idx_1) >= kf2.NumberOfKeyPoints())
+        {
+          std::cout << "OUT OF BOUNDS!" << idx_1 << "/" << matched_indices_2_in_keyfrm_1.at(idx_1) << " # tot: "
+                    << kf1.NumberOfKeyPoints() << ", " << kf2.NumberOfKeyPoints() << std::endl;
+          exit(0);
+        }
       }
-      matches.emplace_back(std::make_pair(idx_1, matched_indices_2_in_keyfrm_1.at(idx_1)));
   }
   return matches;
 }
 bool 
-CheckEpipolarConstraint(const Eigen::Vector3d& bearing_1, const Eigen::Vector3d& bearing_2,
-                        const Eigen::Matrix3d& E_12, const float bearing_1_scale_factor)
+GuidedMatcher::CheckEpipolarConstraint(const Eigen::Vector3d& bearing_1, const Eigen::Vector3d& bearing_2,
+                                       const Eigen::Matrix3d& E_12, const float bearing_1_scale_factor)
 {
     // keyframe1上のtエピポーラ平面の法線ベクトル
   const Eigen::Vector3d epiplane_in_1 = E_12 * bearing_2;
@@ -646,6 +654,127 @@ CheckEpipolarConstraint(const Eigen::Vector3d& bearing_1, const Eigen::Vector3d&
   // 特徴点スケールが大きいほど閾値を緩くする
   // TODO: thresholdの重み付けの検討
   return residual_rad < residual_rad_thr * bearing_1_scale_factor;
+}
+
+
+template<typename T> size_t 
+GuidedMatcher::ReplaceDuplicatedLandmarks(map::Shot& fuse_shot, const T& landmarks_to_check, const float margin, map::Map& slam_map) const
+{
+  if (landmarks_to_check.empty())
+  {
+    return 0;
+  }
+  unsigned int num_fused = 0;
+  size_t n_cam_to_lm_dist{0}, n_cam_disc{0};
+  const auto& fuse_pose = fuse_shot.GetPose();
+  const Eigen::Matrix3d R_cw = fuse_pose.RotationWorldToCamera();
+  const Eigen::Vector3d t_cw = fuse_pose.TranslationWorldToCamera();
+  const Eigen::Vector3d origin = fuse_pose.GetOrigin();
+  const auto& cam = fuse_shot.shot_camera_.camera_model_;
+  for (const auto& lm : landmarks_to_check)
+  {
+    // map::Landmark* lm;
+    if (lm != nullptr && !lm->IsObservedInShot(&fuse_shot))
+    {
+      const auto& lm_data = lm->slam_data_;
+      const Eigen::Vector3d& global_pos = lm->GetGlobalPos();
+      Eigen::Vector2d pt2D;
+      if (cam.ReprojectToImage(R_cw, t_cw, global_pos, pt2D))
+      {
+        if (grid_params_.in_grid(pt2D[0], pt2D[1]))
+        {
+          constexpr auto ray_cos_thr{0.5};
+          const Eigen::Vector3d cam_to_lm_vec = global_pos - origin;
+          const auto cam_to_lm_dist = cam_to_lm_vec.norm();
+          // check if inside orb sale
+          if (lm_data.GetMinValidDistance()  <= cam_to_lm_dist && 
+              lm_data.GetMaxValidDistance() >= cam_to_lm_dist)
+          {
+            const Eigen::Vector3d obs_mean_normal = lm_data.mean_normal_;
+            const auto ray_cos = cam_to_lm_vec.dot(obs_mean_normal) / cam_to_lm_dist;
+            if (ray_cos > ray_cos_thr)
+            {
+              const auto pred_scale_lvl = PredScaleLevel(lm_data.GetMaxValidDistance(), cam_to_lm_dist);
+              //TODO: check scale level!
+              // TODO: This part is very similar to the FindBestMatchForLandmark!!
+              // This can probably be combined to a new function
+              const auto indices = GetKeypointsInCell(fuse_shot.slam_data_.undist_keypts_,
+                                                      fuse_shot.slam_data_.keypt_indices_in_cells_, 
+                                                      pt2D[0], pt2D[1],
+                                                      scale_factors_.at(pred_scale_lvl)*margin ,
+                                                      pred_scale_lvl - 1, pred_scale_lvl + 1);
+              if (!indices.empty())
+              {
+                const auto& lm_desc = lm->slam_data_.descriptor_;
+                auto best_dist = MAX_HAMMING_DIST;
+                auto best_idx = NO_MATCH;
+                for (const auto idx : indices)
+                {
+                  const auto& keypt = fuse_shot.slam_data_.undist_keypts_.at(idx);
+                  const size_t scale_level = keypt.octave;
+                  //check the scale level
+                  // if (scale_level < pred_scale_level - 1 || pred_scale_level < scale_level) {
+                  //   continue;
+                  // }
+                  if (!(scale_level < pred_scale_lvl - 1 || pred_scale_lvl < scale_level)
+                      != (scale_level >= pred_scale_lvl-1 && pred_scale_lvl >= scale_level))
+                  {
+                    std::cout << "Problem with pred_scale if!!" << std::endl;
+                    exit(0);
+                  }
+                  if (scale_level >= pred_scale_lvl-1 && pred_scale_lvl >= scale_level)
+                  {
+                    const auto e_x = pt2D(0) - keypt.pt.x;
+                    const auto e_y = pt2D(1) - keypt.pt.y;
+                    const auto reproj_error_sq = e_x * e_x + e_y * e_y;
+
+                    // 自由度n=2
+                    constexpr float chi_sq_2D = 5.99146;
+                    if (chi_sq_2D >= reproj_error_sq * inv_level_sigma_sq_.at(scale_level)) {
+                      const auto& desc = fuse_shot.GetDescriptor(idx);
+                      const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
+                      if (hamm_dist < best_dist)
+                      {
+                        best_dist = hamm_dist;
+                        best_idx = idx;
+                      }
+                    }
+                  }
+                }
+                //check if the match is valid
+                if (best_dist <= HAMMING_DIST_THR_LOW)
+                {
+                  auto* shot_lm = fuse_shot.GetLandmark(best_idx);
+                  //we already have a landmark there, thus either add or replace
+                  if (shot_lm != nullptr) 
+                  {
+                    //replace the one with fewer observations by the other
+                    if (lm->NumberOfObservations() < shot_lm->NumberOfObservations())
+                    {
+                      slam_map.ReplaceLandmark(lm, shot_lm); // replace lm by shot_lm
+                      SlamUtilities::SetDescriptorFromObservations(*shot_lm);
+                    }
+                    else
+                    {
+                      slam_map.ReplaceLandmark(shot_lm, lm); // replace shot_lm by lm
+                      SlamUtilities::SetDescriptorFromObservations(*lm);
+                    }
+                  }
+                  else //add the observation
+                  {
+                    slam_map.AddObservation(&fuse_shot, lm, best_idx);
+                  }
+                  ++num_fused;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  std::cout << "num_fused: " << num_fused << " num_cam_disc: " << n_cam_disc << " n_cam_to_lm_dist: " << n_cam_to_lm_dist << std::endl;
+  return num_fused;
 }
 
 
@@ -779,4 +908,8 @@ GuidedMatcher::PredScaleLevel(const float max_valid_dist, const float cam_to_lm_
   if (num_scale_levels_ <= static_cast<unsigned int>(pred_scale_level)) return num_scale_levels_ - 1;
   return static_cast<unsigned int>(pred_scale_level);
 }
+template size_t GuidedMatcher::ReplaceDuplicatedLandmarks(map::Shot&, const std::vector<map::Landmark*>&, const float, map::Map& slam_map) const;
+template size_t GuidedMatcher::ReplaceDuplicatedLandmarks(map::Shot&, const std::unordered_set<map::Landmark*>&, const float, map::Map& slam_map) const;
+template size_t GuidedMatcher::ReplaceDuplicatedLandmarks(map::Shot&, const std::set<map::Landmark*, map::KeyCompare>&, const float, map::Map& slam_map) const;
+
 }; // namespace slam

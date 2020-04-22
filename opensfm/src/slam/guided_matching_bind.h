@@ -41,8 +41,7 @@ public:
   MatchIndices
   MatchForTriangulationEpipolar(const map::Shot& kf1, const map::Shot& kf2, const Eigen::Matrix3d& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin) const
   {
-    //(const map::Shot& kf1, const map::Shot& kf2, const Eigen::Matrix3d& E_12, const float min_depth, const float max_depth, const bool traverse_with_depth, const float margin) const
-    matcher_.MatchingForTriangulationEpipolar(kf1, kf2, E_12, min_depth, max_depth, traverse_with_depth, margin);
+    return matcher_.MatchingForTriangulationEpipolar(kf1, kf2, E_12, min_depth, max_depth, traverse_with_depth, margin);
   }
 
 // private:

@@ -91,5 +91,21 @@ public:
   {
     return SlamUtilities::create_E_21(rot_1w, trans_1w, rot_2w, trans_2w);
   }
+
+  static auto GetSecondOrderCovisibility(const map::Shot& shot, const size_t first_order_thr, const size_t second_order_thr)
+  {
+    return SlamUtilities::GetSecondOrderCovisibilityForShot(shot, first_order_thr, second_order_thr);
+  }
+
+  static void FuseDuplicatedLandmarks(map::Shot &shot, const std::vector<map::Shot *> &fuse_shots, const slam::GuidedMatchingWrapper &matcher,
+                                      const float margin, map::Map &slam_map)
+  {
+    return SlamUtilities::FuseDuplicatedLandmarks(shot, fuse_shots, matcher.matcher_, margin, slam_map);
+  }
+
+  static auto ComputeLocalKeyframes(map::Shot& shot)
+  {
+    return SlamUtilities::ComputeLocalKeyframes(shot);
+  }
 };
 } // namespace slam

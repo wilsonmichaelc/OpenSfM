@@ -64,6 +64,7 @@ PYBIND11_MODULE(pymap, m) {
     .def("update_shot_pose", &map::Map::UpdateShotPose)
     .def("remove_shot", &map::Map::RemoveShot)
     .def("next_unique_shot_id", &map::Map::GetNextUniqueShotId)
+    .def("get_shot", &map::Map::GetShot, py::return_value_policy::reference_internal)
 
     .def("add_observation", &map::Map::AddObservation,
          py::arg("shot"), py::arg("landmark"), py::arg("feature_id"))
@@ -100,6 +101,8 @@ PYBIND11_MODULE(pymap, m) {
     .def("remove_observation", &map::Shot::RemoveLandmarkObservation)
     .def("get_camera_to_world", &map::Shot::GetCamToWorld)
     .def("get_world_to_camera", &map::Shot::GetWorldToCam)
+    //TODO: Move completely away from opencv
+    .def("get_obs_by_idx", &map::Shot::GetKeyPointEigen)
   ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")
@@ -121,7 +124,6 @@ PYBIND11_MODULE(pymap, m) {
     .def("number_of_observations", &map::Landmark::NumberOfObservations)
     .def("get_ref_shot", &map::Landmark::GetRefShot)
     .def("set_ref_shot", &map::Landmark::SetRefShot)
-
   ;
 
   py::class_<map::ShotCamera>(m, "ShotCamera")

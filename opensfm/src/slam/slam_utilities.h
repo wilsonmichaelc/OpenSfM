@@ -3,6 +3,7 @@
 #include <vector>
 #include <opencv2/core.hpp>
 #include <slam/guided_matching.h>
+#include <unordered_set>
 namespace map
 {
   class Shot;
@@ -40,5 +41,13 @@ public:
   static void SetNormalAndDepthFromObservations(map::Landmark& landmark, const std::vector<float>& scale_factors);
 
   static std::pair<double, double> ComputeMinMaxDepthInShot(const map::Shot& shot);
+
+  static void FuseDuplicatedLandmarks(map::Shot& shot, const std::vector<map::Shot*>& fuse_shots, const slam::GuidedMatcher& matcher, const float margin,
+                                      map::Map& slam_map);
+
+  // static std::set<map::Shot*, map::KeyCompare> 
+  static std::vector<map::Shot*> GetSecondOrderCovisibilityForShot(const map::Shot& shot, const size_t first_order_thr, const size_t second_order_thr);                                      
+
+  static std::unordered_map<map::ShotId, map::Shot*> ComputeLocalKeyframes(map::Shot& shot);
 };
 } // namespace map

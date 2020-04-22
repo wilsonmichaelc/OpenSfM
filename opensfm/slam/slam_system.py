@@ -63,7 +63,7 @@ class SlamSystem(object):
                                             self.config_slam['feat_scale'],
                                             self.config_slam['feat_pyr_levels'])
         self.slam_mapper = SlamMapper(
-            self.data, self.config_slam, self.camera, self.map, self.extractor)
+            self.data, self.config_slam, self.camera, self.map, self.extractor, self.matcher)
         self.slam_init =\
             SlamInitializer(self.data, self.camera, self.matcher)
         self.slam_tracker = SlamTracker(self.matcher)

@@ -14,7 +14,6 @@ public:
   cv::Mat descriptor_;
   size_t num_observations_ = 0;
 
-  //! この3次元点を観測しているkeyframeについて，keyframe->lmのベクトルの平均値(規格化されてる)
   Eigen::Vector3d mean_normal_ = Eigen::Vector3d::Zero();
   float GetMinValidDistance() const { return 0.7 * min_valid_dist_; }
   float GetMaxValidDistance() const { return 1.3 * max_valid_dist_; }
@@ -26,6 +25,8 @@ public:
   float min_valid_dist_ = 0;
   //! min valid distance between landmark and camera
   float max_valid_dist_ = 0; 
+  auto GetNumObserved() const { return num_observed_; }
+  auto GetNumObservable() const { return num_observable_; }
 private:
   // track counter
   size_t num_observable_ = 1;

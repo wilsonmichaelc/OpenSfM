@@ -26,11 +26,6 @@ public:
   Eigen::Vector3d TranslationCameraToWorld() const { return cam_to_world_.block<3,1>(0,3); };
   Eigen::Vector3d GetOrigin() const { return TranslationCameraToWorld(); }
 
-  // void SetPose(const Pose& pose)
-  // {
-  //   world_to_cam_ = pose.WorldToCamera();
-  //   cam_to_world_ = pose.CameraToWorld();
-  // }
   void SetFromWorldToCamera(const Eigen::Matrix4d& world_to_camera)
   {
     world_to_cam_ = world_to_camera;
@@ -42,6 +37,8 @@ public:
     world_to_cam_ = camera_to_world.inverse();
 
   }
+
+  // TODO: Use something to return the minimal representation of the rotation
 private:
   Eigen::Matrix4d cam_to_world_;
   Eigen::Matrix4d world_to_cam_;

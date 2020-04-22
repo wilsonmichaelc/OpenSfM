@@ -62,9 +62,6 @@ class SlamInitializer(object):
         norm_p2 = features.\
             normalized_image_coordinates(f2_points[matches[:, 1], 0:2], self.camera[1].width, self.camera[1].height)
         norm_size = max(self.camera[1].width, self.camera[1].height)
-        # slam_debug.visualize_matches_pts(norm_p1, norm_p2, np.column_stack((np.arange(0,len(norm_p1)), np.arange(0,len(norm_p1)))),
-        #                                  self.init_frame.image,
-        #                                  frame.image, is_normalized=True, do_show=True)
         args.append((im1, im2, norm_p1, norm_p2,
                      self.camera[1], self.camera[1], threshold))
         chrono = slam_debug.Chronometer()
@@ -110,6 +107,6 @@ class SlamInitializer(object):
         if reconstruction_init is not None:
             print("Created init rec from {}<->{} with {} points from {} matches"
                   .format(im1, im2, len(reconstruction_init.points), len(matches)))
-        slam_debug.visualize_graph(graph_inliers, self.init_shot.name, curr_shot.name, self.data, do_show=True)
+        # slam_debug.visualize_graph(graph_inliers, self.init_shot.name, curr_shot.name, self.data, do_show=True)
         return reconstruction_init, graph_inliers, matches
 

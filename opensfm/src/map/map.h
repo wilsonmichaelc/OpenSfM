@@ -42,14 +42,17 @@ public:
   void UpdateShotPose(const ShotId shot_id, const Pose& pose);
   void RemoveShot(const ShotId shot_id);
   auto GetNextUniqueShotId() const { return unique_shot_id_; }
-
+  Shot* GetShot(const ShotId shot_id) const { 
+    const auto& it = shots_.find(shot_id);
+    return (it != shots_.end() ? it->second.get() : nullptr);
+  }
   // Landmark
   Landmark* CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
   void UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos);
   void RemoveLandmark(const Landmark* const lm);
   void RemoveLandmark(const LandmarkId lm_id);
   auto GetNextUniqueLandmarkId() const { return unique_landmark_id_; }
-
+  void ReplaceLandmark(Landmark* old_lm, Landmark* new_lm);
   void AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
   void RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
 

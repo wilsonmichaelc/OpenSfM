@@ -382,6 +382,23 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &shot, const slam::GuidedMatcher& m
                                        lowe_ratio);
 }
 
+std::unordered_map<map::ShotId, map::Shot*>
+SlamUtilities::ComputeLocalKeyframes(map::Shot& shot)
+{
+  std::unordered_map<map::ShotId, map::Shot*> local_keyframes;
+  local_keyframes[shot.id_] = &shot;
+
+  const auto curr_covisibilities = shot.slam_data_.graph_node_->get_covisibilities();
+  for (const auto& local_kf : curr_covisibilities)
+  {
+    if (local_kf != nullptr)
+    {
+      local_keyframes[local_kf->id_] = local_kf;
+    }
+  }
+  return local_keyframes;
+}
+
 void 
 SlamUtilities::SetDescriptorFromObservations(map::Landmark& landmark)
 {
@@ -457,6 +474,78 @@ SlamUtilities::ComputeMinMaxDepthInShot(const map::Shot& shot)
         }
     }
     return std::make_pair(min_d, max_d);
+}
+
+
+void 
+SlamUtilities::FuseDuplicatedLandmarks(map::Shot& shot, const std::vector<map::Shot*>& fuse_shots, const slam::GuidedMatcher& matcher,
+                                       const float margin,
+                                       map::Map& slam_map)
+{
+  if (fuse_shots.empty())
+  {
+    return;
+  }
+
+  auto& landmarks = shot.GetLandmarks();
+
+  for (const auto& fuse_shot: fuse_shots)
+  {
+    const auto n_fused = matcher.ReplaceDuplicatedLandmarks(*fuse_shot, landmarks, margin, slam_map);
+    std::cout << "Fused " << n_fused << " landmarks for " << fuse_shot->name_ << ", " << fuse_shot->id_ << std::endl;
+  }
+}
+
+std::vector<map::Shot*>
+// std::set<map::Shot*, map::KeyCompare>
+SlamUtilities::GetSecondOrderCovisibilityForShot(const map::Shot& shot, const size_t first_order_thr, const size_t second_order_thr)
+{
+    const auto cur_covisibilities = shot.slam_data_.graph_node_->get_top_n_covisibilities(first_order_thr);
+    std::cout << "cur_covisibilities: " << cur_covisibilities.size() << std::endl;
+    // std::unordered_set<KeyFrame*> fuse_tgt_keyfrms;
+    std::set<map::Shot*, map::KeyCompare> fuse_tgt_keyfrms;
+    // fuse_tgt_keyfrms.reserve(cur_covisibilities.size() * 2);
+
+    for (const auto first_order_covis : cur_covisibilities) {
+        // if (first_order_covis->will_be_erased()) {
+        //     continue;
+        // }
+
+        // check if the keyframe is aleady inserted
+        // if (static_cast<bool>(fuse_tgt_keyfrms.count(first_order_covis))) {
+        //     continue;
+        // }
+
+        if (fuse_tgt_keyfrms.count(first_order_covis) == 0)
+        {
+          fuse_tgt_keyfrms.insert(first_order_covis);
+          std::cout << "fuse_tgt_keyfrms.insert(first_order_covis): " << first_order_covis->name_ << std::endl;
+
+          // get the covisibilities of the covisibility of the current keyframe
+          const auto ngh_covisibilities = first_order_covis->slam_data_.graph_node_->get_top_n_covisibilities(second_order_thr);
+          for (const auto second_order_covis : ngh_covisibilities) 
+          {
+              // if (second_order_covis->will_be_erased()) {
+              //     continue;
+              // }
+              // "the covisibilities of the covisibility" contains the current keyframe
+              if (*second_order_covis != shot) {
+                fuse_tgt_keyfrms.insert(second_order_covis);
+                std::cout << "fuse_tgt_keyfrms.insert(second_order_covis): " << second_order_covis->name_ << std::endl;
+              }
+          }
+        }
+    }
+
+    for (const auto& frm: fuse_tgt_keyfrms)
+    {
+        std::cout << "frm: " << frm->name_ << std::endl;
+    }
+    // return fuse_tgt_keyfrms;
+    // TODO: this copy is unnecessary and only used to keep the order
+    std::vector<map::Shot*> fuse_tgt_keyfrms_vec(fuse_tgt_keyfrms.cbegin(), fuse_tgt_keyfrms.cend());
+    return fuse_tgt_keyfrms_vec;
+    
 }
 
 } // namespace slam
