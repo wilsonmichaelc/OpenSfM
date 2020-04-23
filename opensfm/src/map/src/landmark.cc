@@ -18,4 +18,13 @@ Landmark::ComputeDistanceFromRefFrame() const
   return cam_to_lm_vec.norm();
 }
 
+// const auto& Landmark::GetObservations() const 
+// {
+//   for (const auto& obs : observations_)
+//   {
+//     std::cout << "obs: " << obs.first->name_ << ", " << obs.second << std::endl;
+//   } 
+//   return observations_; 
+// }
+
 }; //namespace map

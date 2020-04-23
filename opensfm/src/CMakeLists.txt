@@ -58,6 +58,7 @@ endif()
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/akaze)
 add_subdirectory(third_party/vlfeat)
+# add_subdirectory(third_party/json)
 
 ####### OpenSfM libraries #######
 add_subdirectory(foundation)

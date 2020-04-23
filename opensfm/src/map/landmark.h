@@ -47,7 +47,10 @@ class Landmark {
   void RemoveObservation(Shot* shot) { observations_.erase(shot); }
   bool HasObservations() const { return !observations_.empty(); }
   auto NumberOfObservations() const { return observations_.size(); }
-  const auto& GetObservations() const { return observations_; }
+  const auto& GetObservations() const
+  {
+    return observations_; 
+  }
   void SetRefShot(Shot* ref_shot) {ref_shot_ = ref_shot;}
   Shot* GetRefShot() { return ref_shot_; }
   double ComputeDistanceFromRefFrame() const;

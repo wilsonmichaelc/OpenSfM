@@ -46,7 +46,7 @@ public:
   virtual bool ReprojectToBearing(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                   Eigen::Vector3f& bearing, Eigen::Vector2f& pt2D) const;
   virtual bool ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
-                                Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const;
+                                  Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const;
 
   float fx_p, fy_p; // focal lengths in pixels
   float cx_p, cy_p; // principal points in pixels

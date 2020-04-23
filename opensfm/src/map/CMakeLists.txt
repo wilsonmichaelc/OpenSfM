@@ -11,6 +11,7 @@ set(MAP_FILES
   third_party/data/graph_node.cc
   third_party/data/graph_node.h
   slam_shot_data.h
+  map_exporter.h
 )
 add_library(map ${MAP_FILES})
 target_link_libraries(map
@@ -32,6 +33,7 @@ pybind11_add_module(pymap python/pybind.cc)
 target_link_libraries(pymap 
   PRIVATE
     map
+    # nlohmann_json::nlohmann_json
     # pybind11
     # ${OpenCV_LIBS}
 )

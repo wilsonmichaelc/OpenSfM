@@ -106,7 +106,7 @@ PYBIND11_MODULE(pymap, m) {
   ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")
-    .def_readonly("undist_keypts", &map::SLAMShotData::undist_keypts_)
+    .def_readonly("undist_keypts", &map::SLAMShotData::undist_keypts_, py::return_value_policy::reference_internal)
     .def("update_graph_node", &map::SLAMShotData::UpdateGraphNode);
   ;
 
@@ -122,7 +122,7 @@ PYBIND11_MODULE(pymap, m) {
     .def("has_observations", &map::Landmark::HasObservations)
     .def("get_observations", &map::Landmark::GetObservations, py::return_value_policy::reference_internal)
     .def("number_of_observations", &map::Landmark::NumberOfObservations)
-    .def("get_ref_shot", &map::Landmark::GetRefShot)
+    .def("get_ref_shot", &map::Landmark::GetRefShot, py::return_value_policy::reference_internal)
     .def("set_ref_shot", &map::Landmark::SetRefShot)
   ;
 

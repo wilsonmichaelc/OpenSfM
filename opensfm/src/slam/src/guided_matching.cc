@@ -132,6 +132,10 @@ GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot
     // if (!( curr_lm != nullptr && curr_lm->HasObservations()))
     if (curr_lm == nullptr || (curr_lm != nullptr && !curr_lm->HasObservations()))
     {
+      if (curr_lm != nullptr)
+      {
+        std::cout << "Matching to " << lm->id_ << " to already matched!" << std::endl;
+      }
       const auto& desc = curr_shot.GetDescriptor(match_idx);
       const auto hamm_dist = compute_descriptor_distance_32(lm_desc, desc);
       if (hamm_dist < best_hamm_dist) {
@@ -395,13 +399,11 @@ GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Lan
   {
     return 0;
   }
-  // bool have_keypts = true;
   if (other_undist_kpts.empty())
   {
     check_orientation = false;
-    // have_keypts = false;
   }
-  else
+  if (check_orientation)    
   {
     angle_checker = std::make_unique<openvslam::match::angle_checker<int>>();
   }
@@ -429,11 +431,11 @@ GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Lan
         {
           auto& lm_data = lm->slam_data_;
           int scale_lvl = -1;
-          if (!other_undist_kpts.empty()) //take the scale level from there
+          if (!other_undist_kpts.empty()) //take the scale level from the keypts
           {
             scale_lvl = other_undist_kpts.at(idx).octave;
           }
-          else //predict
+          else // or predict
           {
             constexpr auto ray_cos_thr{0.5};
             const Eigen::Vector3d cam_to_lm_vec = global_pos - origin;
@@ -463,6 +465,7 @@ GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Lan
               }
               num_matches++;
               shot.AddLandmarkObservation(lm, best_idx);
+              std::cout << "Adding lm: " << lm->id_ << "," << lm << " to " << best_idx << std::endl;
             }
           }
         }
@@ -871,7 +874,6 @@ GuidedMatcher::IsObservable(map::Landmark* lm, const map::Shot& shot, const floa
   const Eigen::Matrix3d rot_cw = pose.RotationWorldToCamera();
   const Eigen::Vector3d trans_cw = pose.TranslationWorldToCamera();
   const auto& cam = shot.shot_camera_.camera_model_;
-
   const bool in_image = cam.ReprojectToImage(rot_cw, trans_cw, pos_w, reproj);
   const auto& lm_data = lm->slam_data_;
   if (in_image)
@@ -893,8 +895,6 @@ GuidedMatcher::IsObservable(map::Landmark* lm, const map::Shot& shot, const floa
         }
       }
     }
-    
-
   }
   return false;
 }
