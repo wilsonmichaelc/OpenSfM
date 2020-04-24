@@ -44,13 +44,10 @@ class SlamSystem(object):
                                [self.camera[1].width, self.camera[1].height]])  # right bottom
 
         corners = self.camera[1].undistort_many(corner_pts).reshape((4, 2))
-        print(corners)
         bounds = np.array([np.min((corners[0, 0], corners[2, 0])),
                            np.max((corners[1, 0], corners[3, 0])),
                            np.min((corners[0, 1], corners[2, 1])),
                            np.max((corners[1, 1], corners[3, 1]))])
-        # ])
-        print(bounds)
         inv_cell_w = self.config_slam['grid_n_cols'] / (bounds[1] - bounds[0])
         inv_cell_h = self.config_slam['grid_n_rows'] / (bounds[3] - bounds[2])
         self.grid_params =\
@@ -84,12 +81,13 @@ class SlamSystem(object):
             self.system_initialized = self.init_slam_system(curr_shot)
             chrono.lap("init_slam_system_all")
             return self.system_initialized
-        
+
         # Tracking
         pose = self.track_frame(curr_shot)
         chrono.lap("track")
         if pose is not None:
             curr_shot.get_pose().set_from_world_to_cam(slam_utils.pose_to_mat(pose))
+
         self.slam_mapper.update_with_last_frame(curr_shot)
         self.slam_mapper.num_tracked_lms = self.slam_tracker.num_tracked_lms
         if self.slam_mapper.new_keyframe_is_needed(curr_shot):
@@ -100,16 +98,13 @@ class SlamSystem(object):
     def init_slam_system(self, curr_shot: pymap.Shot):
         """Find the initial depth estimates for the slam map"""
         print("init_slam_system: ", curr_shot.name)
-        # chrono = slam_debug.Chronometer()
         if (not self.system_initialized):
-            
             rec_init, graph, matches = self.slam_init.initialize(curr_shot)
             self.system_initialized = (rec_init is not None)
             if self.system_initialized:
                 self.slam_mapper.create_init_map(graph, rec_init,
                                                  self.slam_init.init_shot,
                                                  curr_shot)
-                # pymap.MapIO.save_map(self.slam_mapper.map, "rec_test.json")
                 self.slam_mapper.velocity = np.eye(4)
             if self.system_initialized:
                 print("Initialized with ", curr_shot.name)
@@ -127,23 +122,4 @@ class SlamSystem(object):
         return self.slam_tracker.track(self.slam_mapper, curr_shot,
                                        self.config, self.camera, data)
 
-        # if self.slam_init.init_frame is None:
-        #     self.slam_init.set_initial_frame(frame)
-        #     self.system_initialized = False
-        # else:
-        #     chrono = slam_debug.Chronometer()
-        #     rec_init, graph, matches = \
-        #         self.slam_init.initialize(frame)
-        #     chrono.lap("slam_init")
-        #     self.system_initialized = (rec_init is not None)
-        #     if self.system_initialized:
-        #         self.slam_mapper.create_init_map(graph, rec_init,
-        #                                          self.slam_init.init_frame,
-        #                                          frame)
-        #         chrono.lap("create_init_map")
-        #     slam_debug.avg_timings.addTimes(chrono.laps_dict)
-        # if self.system_initialized:
-        #     logger.debug("Initialized system with {}".format(frame.im_name))
-        # else:
-        #     logger.debug("Failed to initialize with {}".format(frame.im_name))
         return self.system_initialized
