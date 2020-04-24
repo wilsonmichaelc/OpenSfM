@@ -9,6 +9,7 @@
 #include <map/shot.h>
 #include <map/landmark.h>
 #include <map/camera.h>
+#include <map/map_io.h>
 
 namespace py = pybind11;
 PYBIND11_MODULE(pymap, m) {
@@ -17,11 +18,20 @@ PYBIND11_MODULE(pymap, m) {
     .def(py::init())
     .def("get_cam_to_world", &map::Pose::CameraToWorld)
     .def("get_world_to_cam", &map::Pose::WorldToCamera)
-    .def("set_from_cam_to_world", &map::Pose::SetFromCameraToWorld)
-    .def("set_from_world_to_cam", &map::Pose::SetFromWorldToCamera)
+    .def("set_from_cam_to_world", py::overload_cast<const Eigen::Matrix4d&>(&map::Pose::SetFromCameraToWorld))
+    .def("set_from_cam_to_world", py::overload_cast<const Eigen::Matrix3d&, const Eigen::Vector3d&>(&map::Pose::SetFromCameraToWorld))
+    .def("set_from_world_to_cam", py::overload_cast<const Eigen::Matrix4d&>(&map::Pose::SetFromWorldToCamera))
+    .def("set_from_world_to_cam", py::overload_cast<const Eigen::Matrix3d&, const Eigen::Vector3d&>(&map::Pose::SetFromWorldToCamera))
     .def("get_origin", &map::Pose::GetOrigin)
+    .def("get_R_cam_to_world_min", &map::Pose::RotationCameraToWorldMin)
+    .def("get_R_world_to_cam_min", &map::Pose::RotationWorldToCameraMin)
+    .def("get_t_cam_to_world", &map::Pose::TranslationCameraToWorld)
+    .def("get_t_world_to_cam", &map::Pose::TranslationWorldToCamera)
   ;
-
+  py::class_<map::MapIO>(m, "MapIO")
+    .def("save_map", &map::MapIO::SaveMapToFile)
+    .def("color_map", &map::MapIO::ColorMap)
+  ;
   py::class_<map::Map>(m, "Map")
     .def(py::init())
     .def("number_of_shots", &map::Map::NumberOfShots, "Returns the number of shots")

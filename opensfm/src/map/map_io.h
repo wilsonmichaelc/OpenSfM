@@ -6,13 +6,18 @@ namespace map
 {
 class Map;
 class Shot;
+class ShotCamera;
 class Landmark;
 
-class MapExporter
+class MapIO
 {
 public:
-  static void MapToJson(const map::Map& rec_map);
-  static void ShotToJson(const map::Shot& shot);
-  static void LandmarkToJson(const map::Landmark& landmark);
+  static void SaveMapToFile(const Map& rec_map, const std::string& path);
+  static void ColorMap(Map& rec_map) {}
+  static json MapToJson(const Map& rec_map);
+  static json ShotToJson(const Shot& shot);
+  static json LandmarkToJson(const Landmark& landmark);
+  static json CameraToJson(const ShotCamera& camera);
+
 };
 }

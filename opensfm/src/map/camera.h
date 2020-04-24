@@ -15,6 +15,7 @@ public:
 
   const size_t width;
   const size_t height;
+  //TODO: Make to enum
   const std::string projectionType;
   virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
                                       std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const {};

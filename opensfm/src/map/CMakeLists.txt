@@ -11,7 +11,8 @@ set(MAP_FILES
   third_party/data/graph_node.cc
   third_party/data/graph_node.h
   slam_shot_data.h
-  map_exporter.h
+  map_io.h
+  src/map_io.cc
 )
 add_library(map ${MAP_FILES})
 target_link_libraries(map

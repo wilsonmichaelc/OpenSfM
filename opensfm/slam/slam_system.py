@@ -28,7 +28,7 @@ class SlamSystem(object):
             c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3
         )
         # Create the matching shot camera
-        self.shot_cam = self.map.create_shot_camera(0, self.cam)
+        self.shot_cam = self.map.create_shot_camera(0, self.cam, self.camera[0])
 
         self.extractor = pyslam.OrbExtractor(
             self.config_slam['feat_max_number'],
@@ -109,6 +109,7 @@ class SlamSystem(object):
                 self.slam_mapper.create_init_map(graph, rec_init,
                                                  self.slam_init.init_shot,
                                                  curr_shot)
+                # pymap.MapIO.save_map(self.slam_mapper.map, "rec_test.json")
                 self.slam_mapper.velocity = np.eye(4)
             if self.system_initialized:
                 print("Initialized with ", curr_shot.name)

@@ -54,7 +54,8 @@ class Landmark {
   void SetRefShot(Shot* ref_shot) {ref_shot_ = ref_shot;}
   Shot* GetRefShot() { return ref_shot_; }
   double ComputeDistanceFromRefFrame() const;
-
+  Eigen::Vector3i GetColor() const { return color_; }
+  void SetColor(const Eigen::Vector3i& color) { color_ = color; }
   // void UpdateSLAMDataWithNewObservation();
   //Comparisons
   bool operator==(const Landmark& lm) const { return id_ == lm.id_; }
@@ -73,6 +74,6 @@ private:
   Eigen::Vector3d global_pos_; // point in global
   std::map<Shot*, FeatureId, KeyCompare> observations_;
   Shot* ref_shot_; //shot in which the landmark was first seen
-  
+  Eigen::Vector3i color_;
 };
 }

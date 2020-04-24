@@ -1,5 +1,7 @@
 #pragma once
-#include <Eigen/Eigen>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <third_party/sophus/se3.hpp>
 
 namespace map
 {
@@ -13,35 +15,49 @@ public:
   {
 
   }
+  Eigen::Matrix4d WorldToCamera() const { return world_to_cam_.matrix(); }
+  Eigen::Matrix<double, 3, 4> WorldToCameraRt() const { return world_to_cam_.matrix3x4(); }
+
   //4x4 Transformation
-  Eigen::Matrix4d WorldToCamera() const { return world_to_cam_; }
-  Eigen::Matrix4d CameraToWorld() const { return cam_to_world_; }
+  Eigen::Matrix4d CameraToWorld() const { return cam_to_world_.matrix(); }
+  Eigen::Matrix<double, 3, 4> CameraToWorldRt() const { return cam_to_world_.matrix3x4(); }
 
   // 3x3 Rotation
-  Eigen::Matrix3d RotationWorldToCamera() const { return world_to_cam_.block<3,3>(0,0); }
-  Eigen::Matrix3d RotationCameraToWorld() const { return cam_to_world_.block<3,3>(0,0); }
-  
+  Eigen::Matrix3d RotationWorldToCamera() const { return world_to_cam_.rotationMatrix(); }
+  Eigen::Matrix3d RotationCameraToWorld() const { return cam_to_world_.rotationMatrix(); }
+  Eigen::Vector3d RotationWorldToCameraMin() const { return world_to_cam_.so3().log(); }
+  Eigen::Vector3d RotationCameraToWorldMin() const { return cam_to_world_.so3().log(); }
+
   // 3x1 Translation
-  Eigen::Vector3d TranslationWorldToCamera() const { return world_to_cam_.block<3,1>(0,3); }
-  Eigen::Vector3d TranslationCameraToWorld() const { return cam_to_world_.block<3,1>(0,3); };
-  Eigen::Vector3d GetOrigin() const { return TranslationCameraToWorld(); }
+  Eigen::Vector3d TranslationWorldToCamera() const { return world_to_cam_.translation(); }
+  Eigen::Vector3d TranslationCameraToWorld() const { return cam_to_world_.translation(); };
+  Eigen::Vector3d GetOrigin() const { return TranslationCameraToWorld(); }  
 
   void SetFromWorldToCamera(const Eigen::Matrix4d& world_to_camera)
   {
-    world_to_cam_ = world_to_camera;
-    cam_to_world_ = world_to_camera.inverse();
+    SetFromCameraToWorld(world_to_camera.block<3,3>(0,0), world_to_camera.block<3,1>(0,3));
+
   }
   void SetFromCameraToWorld(const Eigen::Matrix4d& camera_to_world)
   {
-    cam_to_world_ = camera_to_world;
-    world_to_cam_ = camera_to_world.inverse();
-
+    SetFromCameraToWorld(camera_to_world.block<3,3>(0,0), camera_to_world.block<3,1>(0,3));
   }
 
-  // TODO: Use something to return the minimal representation of the rotation
+  void SetFromWorldToCamera(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw)
+  {
+    world_to_cam_.setRotationMatrix(R_cw);
+    world_to_cam_.translation() = t_cw;
+    cam_to_world_ = world_to_cam_.inverse();
+  }
+  void SetFromCameraToWorld(const Eigen::Matrix3d& R_wc, const Eigen::Vector3d& t_wc)
+  {
+    cam_to_world_.setRotationMatrix(R_wc);
+    cam_to_world_.translation() = t_wc;
+    world_to_cam_ = cam_to_world_.inverse();
+  }
+  // TODO: set from min representation!
 private:
-  Eigen::Matrix4d cam_to_world_;
-  Eigen::Matrix4d world_to_cam_;
-  //Maybe use Sophus to store the minimum representation
+  Sophus::SE3d cam_to_world_;
+  Sophus::SE3d world_to_cam_;
 };
 }; //namespace map

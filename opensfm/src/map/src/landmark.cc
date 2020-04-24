@@ -6,7 +6,7 @@
 namespace map
 {
 Landmark::Landmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name):
-  id_(lm_id), name_(name), global_pos_(global_pos)
+  id_(lm_id), name_(name), global_pos_(global_pos), color_(255,0,0)
 {
 
 }

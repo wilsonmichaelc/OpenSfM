@@ -32,7 +32,6 @@ public:
 
   // Camera
   ShotCamera* CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name = "");
-  // void CreateShotCameraNoReturn(const CameraId cam_id, const Camera& camera, const std::string& name = "");
   void UpdateShotCamera(const CameraId cam_id, const Camera& camera);
   void RemoveShotCamera(const CameraId cam_id);
 
@@ -59,9 +58,9 @@ public:
   std::map<Landmark*, FeatureId> GetObservationsOfShot(const Shot* shot);
   std::map<Shot*, FeatureId> GetObservationsOfPoint(const Landmark* point);  
 
-  auto& GetAllShots() { return shots_; }
-  auto& GetAllCameras() { return cameras_; };
-  auto& GetAllLandmarks() { return landmarks_; };
+  const auto& GetAllShots() const { return shots_; }
+  const auto& GetAllCameras() const { return cameras_; };
+  const auto& GetAllLandmarks() const { return landmarks_; };
 
   const auto GetAllShotPointers() const
   {
