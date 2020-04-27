@@ -35,7 +35,7 @@ public:
 
   void SetFromWorldToCamera(const Eigen::Matrix4d& world_to_camera)
   {
-    SetFromCameraToWorld(world_to_camera.block<3,3>(0,0), world_to_camera.block<3,1>(0,3));
+    SetFromWorldToCamera(world_to_camera.block<3,3>(0,0), world_to_camera.block<3,1>(0,3));
 
   }
   void SetFromCameraToWorld(const Eigen::Matrix4d& camera_to_world)

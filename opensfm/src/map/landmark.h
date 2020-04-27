@@ -19,7 +19,7 @@ public:
   float GetMaxValidDistance() const { return 1.3 * max_valid_dist_; }
   void IncreaseNumObservable(unsigned int num_observable = 1){ num_observable_ += num_observable; }
   void IncreaseNumObserved(unsigned int num_observed = 1) { num_observed_ += num_observed; }
-  float get_observed_ratio() const { return static_cast<float>(num_observed_)/num_observable_; }
+  float GetObservedRatio() const { return static_cast<float>(num_observed_)/num_observable_; }
   // ORB scale variances
   //! max valid distance between landmark and camera
   float min_valid_dist_ = 0;

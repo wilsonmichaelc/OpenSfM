@@ -193,7 +193,7 @@ GuidedMatcher::MatchKptsToKpts(const std::vector<cv::KeyPoint> &undist_keypts_1,
     // f1 = x, y, size, angle, octave
     const auto &u_kpt_1 = undist_keypts_1.at(idx_1);
     const Eigen::Vector2f pt2D = prevMatched.row(idx_1);
-    const float scale_1 = u_kpt_1.octave;
+    const auto scale_1 = u_kpt_1.octave;
     if (scale_1 < 0)
       continue;
     // const auto indices = get_keypoints_in_cell(frame2.undist_keypts_, frame2.keypts_indices_in_cells_,
@@ -465,7 +465,7 @@ GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Lan
               }
               num_matches++;
               shot.AddLandmarkObservation(lm, best_idx);
-              std::cout << "Adding lm: " << lm->id_ << "," << lm << " to " << best_idx << std::endl;
+              // std::cout << "Adding lm: " << lm->id_ << "," << lm << " to " << best_idx << std::endl;
             }
           }
         }

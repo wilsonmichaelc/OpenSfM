@@ -35,6 +35,8 @@ class SlamMapper(object):
         self.lms_ratio_thr = 0.9
         self.fresh_landmarks = []
         self.guided_matcher = matcher
+        self.curr_kf_id = 0
+        self.frame_id_to_kf_id = {} # converts the frame id to kf id
 
     def add_keyframe(self, kf):
         """Adds a keyframe to the map graph
@@ -44,6 +46,10 @@ class SlamMapper(object):
         self.n_keyframes += 1
         self.keyframes.append(kf)
         self.curr_kf = kf
+        # helper variables for unique KF id
+        self.frame_id_to_kf_id[kf.id] = self.curr_kf_id
+        self.curr_kf_id += 1  # If no KF deletion then equal to n_keyframes
+       
 
     def update_with_last_frame(self, shot: pymap.Shot):
         """Updates the last frame and the related variables in slam mapper
@@ -107,22 +113,8 @@ class SlamMapper(object):
               self.map.number_of_landmarks())
 
         # TODO: Remove Check for double landmarks!
-
-        added_lms = {}
-
-        for lm, idx in kf1.get_valid_landmarks_and_indices():
-            if lm in added_lms:
-                print("double!!!", lm.id_, idx, added_lms[lm])
-                exit(0)
-            else:
-                added_lms[lm] = idx
-        added_lms.clear()
-        for lm, idx in kf2.get_valid_landmarks_and_indices():
-            if lm in added_lms:
-                print("double!!!", lm.id_, idx, added_lms[lm])
-                exit(0)
-            else:
-                added_lms[lm] = idx
+        slam_debug.check_shot_for_double_entries(kf1)
+        slam_debug.check_shot_for_double_entries(kf2)
         # TODO: Remove Check for double landmarks!
 
 
@@ -208,7 +200,7 @@ class SlamMapper(object):
         if not cond_b:
             print("not cond_b -> no kf")
             return False
-        
+
         # Do not add if none of A is satisfied
         if not cond_a1 and not cond_a2 and not cond_a3:
             print("not cond_a1 and not cond_a2 and not cond_a3 -> no kf")
@@ -218,24 +210,35 @@ class SlamMapper(object):
 
     def remove_redundant_kfs(self):
         pass
+
     def remove_redundant_lms(self):
-        pass
+        # return
+        observed_ratio_th = 0.3
+        num_reliable_kfs = 2
+        num_obs_thr = 2
+        unclear_lms = []
+        # think about making a self.fresh_landmarks set!
+        for lm in self.fresh_landmarks:
+            if (lm.slam_data.get_observed_ratio() < observed_ratio_th):
+                self.map.remove_landmark(lm)
+            elif (num_reliable_kfs + self.frame_id_to_kf_id[lm.get_parent_shot().id]) < self.curr_kf_id\
+                    and lm.number_of_observations() <= num_obs_thr:
+                self.map.remove_landmark(lm)
+            elif num_reliable_kfs + 1 + lm.kf_id < self.curr_kf_id:
+                # valid
+                pass
+            else:  # not clear
+                unclear_lms.append(lm)
+        print("Removed {} out of {} redundant landmarks"
+              .format((len(self.fresh_landmarks) - len(unclear_lms)),
+                      len(self.fresh_landmarks)))
+        self.fresh_landmarks = set(unclear_lms)
+
     def insert_new_keyframe(self, shot: pymap.Shot):
-        # TODO: REMOVE double check
-        added_lms = {}
-        val_lms = shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm],i)
-                exit(0)
-            else:
-                added_lms[lm] = i
-        # TODO: REMOVE double check
         # Create new Keyframe
         self.add_keyframe(shot)
         # Now, we have to add the lms as observations
         lm_idc = shot.get_valid_landmarks_and_indices()
-        # shot.get_valid_landmarks_indices
         scale_levels = self.extractor.get_scale_levels()
         # already matched
         matched = {}
@@ -243,13 +246,10 @@ class SlamMapper(object):
             # If observed correctly, check it!
             # Triggers only for replaced landmarks
             if lm.is_observed_in_shot(shot):
-                # TODO: FIX IT
-                # self.fresh_landmarks.append(lm)
+                self.fresh_landmarks.add(lm)
                 if lm.id in matched:
                     print("Already in there!!", matched[lm.id], " now: ", idx)
-                print("Adding to fresh_landmarks", lm.id)
             else:
-                print("Fixing observation to fresh_landmarks", lm.id)
                 if lm.id in matched:
                     print("Already in there!!")
                 matched[lm.id] = idx
@@ -259,13 +259,7 @@ class SlamMapper(object):
                 pyslam.SlamUtilities.compute_descriptor(lm)
                 pyslam.SlamUtilities.compute_normal_and_depth(lm, scale_levels)
         # TODO: REMOVE double check
-        added_lms = {}
-        for lm, idx in shot.get_valid_landmarks_and_indices():
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm])
-                exit(0)
-            else:
-                added_lms[lm] = idx
+        slam_debug.check_shot_for_double_entries(shot)
         # TODO: REMOVE double check
 
         # Update connection
@@ -273,7 +267,6 @@ class SlamMapper(object):
 
         # self.slam_map_cleaner.update_lms_after_kf_insert(new_kf.ckf)
         self.remove_redundant_lms()
-
 
         # self.slam_map_cleaner.remove_redundant_lms(new_kf.kf_id)
         print("create_new_landmarks_before")
@@ -499,8 +492,7 @@ class SlamMapper(object):
             self.map.add_observation(kf2, lm, f2_id)
             pyslam.SlamUtilities.compute_descriptor(lm)
             pyslam.SlamUtilities.compute_normal_and_depth(lm, scale_factors)
-            # TODO: FIX
-            # self.fresh_landmarks.append(lm)
+            self.fresh_landmarks.add(lm)
     
     def local_bundle_adjustment(self, shot: pymap.Shot):
         """ TODO: Build optimization problem directly from C++"""
@@ -583,12 +575,12 @@ class SlamMapper(object):
         # Now, get all the keyframes that are not in local keyframes
         # from the landmarks and fix their poses
         for lm in lm_added:
-            print("Getting observation ", lm.id)
-            print("Has observation ", lm.has_observations(), "#", lm.number_of_observations())
+            # print("Getting observation ", lm.id)
+            # print("Has observation ", lm.has_observations(), "#", lm.number_of_observations())
             kf_idx_list = lm.get_observations()
-            print("Processing ", lm.id)
+            # print("Processing ", lm.id)
             for kf, idx in kf_idx_list.items():
-                print("Processing ", kf.id, " with ", lm.id)
+                # print("Processing ", kf.id, " with ", lm.id)
 
                 kf_id = kf.id
                 lm_id = lm.id
@@ -605,9 +597,9 @@ class SlamMapper(object):
                     kf_added[kf_id] = True
                     kfs_dict_constant[kf_id] = True
                 # add reprojections
-                print("Getting obs: ", idx)
+                # print("Getting obs: ", idx)
                 pt = kf.get_obs_by_idx(idx)
-                print("Got obs: ", idx, pt)
+                # print("Got obs: ", idx, pt)
                 pt2D, _, _ = features.normalize_features(pt.reshape((1, 3)), None, None, cam.width, cam.height)
                 pt2D = pt2D.reshape((3, 1))
                 ba.add_point_projection_observation(str(kf_id), str(lm_id), pt2D[0], pt2D[1], pt2D[2])
@@ -662,13 +654,13 @@ class SlamMapper(object):
         slam_debug.reproject_landmarks(points3D, None, shot.get_pose().get_world_to_cam(),
                                        self.data.load_image(
                                            shot.name), self.camera[1],
-                                       do_show=False, title="bef")
+                                       do_show=False, title="bef", obs_normalized=False)
         ba_shot = ba.get_shot(str(shot.id))
         pose = types.Pose(ba_shot.r, ba_shot.t)
         slam_debug.reproject_landmarks(points3D, None, pose.get_Rt(),
                                        self.data.load_image(
                                            shot.name), self.camera[1],
-                                       do_show=True, title="aft")
+                                       do_show=True, title="aft", obs_normalized=False)
         slam_debug.disable_debug = True
         # DEBUG END
 

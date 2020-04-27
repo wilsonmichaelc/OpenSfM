@@ -120,10 +120,16 @@ PYBIND11_MODULE(pymap, m) {
     .def("update_graph_node", &map::SLAMShotData::UpdateGraphNode);
   ;
 
+  py::class_<map::SLAMLandmarkData>(m , "SlamLandmarkData")
+    .def("get_observed_ratio", &map::SLAMLandmarkData::GetObservedRatio)
+    // .def_readonly("")
+  ;
+
   py::class_<map::Landmark>(m, "Landmark")
     .def(py::init<const map::LandmarkId&, const Eigen::Vector3d&, const std::string&>())
     .def_readonly("id", &map::Landmark::id_)
     .def_readonly("name", &map::Landmark::name_)
+    .def_readwrite("slam_data", &map::Landmark::slam_data_)
     .def("get_global_pos", &map::Landmark::GetGlobalPos)
     .def("set_global_pos", &map::Landmark::SetGlobalPos)
     .def("is_observed_in_shot", &map::Landmark::IsObservedInShot)

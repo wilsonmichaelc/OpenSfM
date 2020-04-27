@@ -58,31 +58,14 @@ class SlamTracker(object):
         # n_matches = self.guided_matcher.search_local_landmarks(
         #     local_landmarks, curr_shot)
         # TODO: REMOVE DEBUG VISUALIZATION
-        added_lms = {}
-        val_lms = curr_shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm], i)
-                exit(0)
-            else:
-                added_lms[lm] = i
-        print("curr_shot: ", curr_shot.name, " with ", len(val_lms))
-        n_valid_pts_bef = curr_shot.compute_num_valid_pts(1);
+        slam_debug.check_shot_for_double_entries(curr_shot)
+        n_valid_pts_bef = curr_shot.compute_num_valid_pts(1) # TODO: Remove debug stuff
         n_matches = pyslam.SlamUtilities.match_shot_to_local_lms(curr_shot, self.guided_matcher)
-        n_valid_pts_aft = curr_shot.compute_num_valid_pts(1);
+        n_valid_pts_aft = curr_shot.compute_num_valid_pts(1) # TODO: Remove debug stuff
         print("n_matches {} found in current frame. bef{} aft {}".format(n_matches, n_valid_pts_bef, n_valid_pts_aft))
         assert(n_matches + n_valid_pts_bef == n_valid_pts_aft)
         # TODO: REMOVE DEBUG VISUALIZATION
-        added_lms = {}
-        val_lms = curr_shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm], i)
-                exit(0)
-            else:
-                added_lms[lm] = i
-        print("curr_shot: ", curr_shot.name, " with ", len(val_lms))
-
+        slam_debug.check_shot_for_double_entries(curr_shot)  # TODO: Remove debug stuff
         val_lms = curr_shot.get_valid_landmarks()
         val_lms_idc = curr_shot.get_valid_landmarks_indices()
         matches_last = []
@@ -132,24 +115,15 @@ class SlamTracker(object):
         slam_debug.avg_timings.addTimes(chrono.laps_dict)
         chrono.start()
         print("valid: ", curr_shot.compute_num_valid_pts(1))
-        n_tracked = 0;
+        n_tracked = 0
         for idx, is_valid in enumerate(valid_pts):
             if not is_valid:
                 curr_shot.remove_observation(valid_ids[idx])
             else:
                 n_tracked += 1
-        assert(curr_shot.compute_num_valid_pts(1) == np.sum(valid_pts))
+        assert(curr_shot.compute_num_valid_pts(1) == np.sum(valid_pts)) # TODO: Remove debug stuff
 
-        added_lms = {}
-        val_lms = curr_shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm], i)
-                exit(0)
-            else:
-                added_lms[lm] = i
-        print("curr_shot: ", curr_shot.name, " with ", len(val_lms))
-
+        slam_debug.check_shot_for_double_entries(curr_shot) # TODO: Remove debug stuff
         self.num_tracked_lms = n_tracked
         # frame.cframe.set_outlier(np.array(valid_ids)[np.invert(valid_pts)])
         # n_tracked = frame.cframe.clean_and_tick_landmarks()
@@ -195,7 +169,7 @@ class SlamTracker(object):
         points3D = np.zeros((len(lms), 3), dtype=np.float)
         for idx, lm in enumerate(lms):
             points3D[idx, :] = lm.get_global_pos()
-        slam_debug.disable_debug = True
+        slam_debug.disable_debug = False
         T_last = last_shot.get_pose().get_world_to_cam()
         slam_debug.reproject_landmarks(points3D, pyslam.SlamUtilities.keypts_from_shot(last_shot),
                                        T_last, data.load_image(last_shot.name), camera[1], title="init_last", obs_normalized=False, do_show=False)
@@ -208,28 +182,8 @@ class SlamTracker(object):
         pose_init = pymap.Pose()
         pose_init.set_from_world_to_cam(T_init)
         curr_shot.set_pose(pose_init)
-        print("frame.cframe: ", curr_shot.get_pose().get_world_to_cam(),
-              " inv: ", curr_shot.get_pose().get_cam_to_world())
-        # n_matches = self.guided_matcher.\
-            # assign_shot_landmarks_to_kpts(slam_mapper.last_shot, curr_shot, margin)
-        added_lms = {}
-        val_lms = curr_shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm],i)
-                exit(0)
-            else:
-                added_lms[lm] = i
-        print("curr_shot: ", curr_shot.name, " with ", len(val_lms))
-        added_lms = {}
-        val_lms = last_shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm],i)
-                exit(0)
-            else:
-                added_lms[lm] = i
-        print("last_shot: ", last_shot.name, " with ", len(val_lms))
+        slam_debug.check_shot_for_double_entries(curr_shot)  # TODO: Remove debug stuff
+        slam_debug.check_shot_for_double_entries(last_shot)  # TODO: Remove debug stuff
         n_matches = self.guided_matcher.assign_shot_landmarks_to_kpts_new(slam_mapper.last_shot, curr_shot, margin)
         print("found matches: ", n_matches)
         if n_matches < 10:  # not enough matches found, increase margin
@@ -240,15 +194,7 @@ class SlamTracker(object):
             if n_matches < 10:
                 logger.error("Tracking lost!!")
                 exit()
-
-        added_lms = {}
-        val_lms = curr_shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm],i)
-                exit(0)
-            else:
-                added_lms[lm] = i
+        slam_debug.check_shot_for_double_entries(curr_shot) # TODO: Remove debug stuff
 
         lms = curr_shot.get_valid_landmarks()
         points2D = pyslam.SlamUtilities.get_valid_kpts_from_shot(curr_shot)
@@ -263,7 +209,7 @@ class SlamTracker(object):
         points3D = np.zeros((len(lms), 3), dtype=np.float)
         for i, lm in enumerate(lms):
             points3D[i, :] = lm.get_global_pos()
-        print("loc map tracking: ", curr_shot.name, "points3D: ", points3D)
+        # print("loc map tracking: ", curr_shot.name, "points3D: ", points3D)
         pose_init_sfm = slam_utils.mat_to_pose(T_init)
         # Set up bundle adjustment problem
         pose, valid_pts = self.bundle_tracking(
@@ -279,13 +225,13 @@ class SlamTracker(object):
         points3D = np.zeros((len(lms), 3), dtype=np.float)
         for idx, lm in enumerate(lms):
             points3D[idx, :] = lm.get_global_pos()
-        slam_debug.disable_debug = True
+        slam_debug.disable_debug = False
         slam_debug.\
             reproject_landmarks(points3D, points2D,
                                 slam_utils.pose_to_mat(pose),
                                 data.load_image(curr_shot.name),
                                 camera[1], title="reproj",
-                                obs_normalized=True, do_show=True)
+                                obs_normalized=False, do_show=True)
         slam_debug.disable_debug = True
         # TODO: REMOVE DEBUG VISUALIZATION
 
@@ -297,19 +243,10 @@ class SlamTracker(object):
                 curr_shot.remove_observation(valid_ids[idx])
             else:
                 n_tracked += 1
-        assert(curr_shot.compute_num_valid_pts(1) == np.sum(valid_pts))
-        assert(curr_shot.compute_num_valid_pts(1) == n_tracked)
+        assert(curr_shot.compute_num_valid_pts(1) == np.sum(valid_pts)) # TODO: Remove debug stuff
+        assert(curr_shot.compute_num_valid_pts(1) == n_tracked) # TODO: Remove debug stuff
         self.num_tracked_lms = n_tracked
-
-        added_lms = {}
-        val_lms = curr_shot.get_valid_landmarks_and_indices()
-        for i, (lm, idx) in enumerate(val_lms):
-            if lm in added_lms:
-                print("double!!!", lm.id, idx, added_lms[lm],i)
-                exit(0)
-            else:
-                added_lms[lm] = i
-
+        slam_debug.check_shot_for_double_entries(curr_shot) # TODO: Remove debug stuff
         if np.sum(valid_pts) < 10:
             logger.error("Tracking lost!!")
             # TODO: ROBUST MATCHING
