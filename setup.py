@@ -72,6 +72,7 @@ setuptools.setup(
             'pyrobust.*',
             'pyfeatures.*',
             'pydense.*',
+            'pysfm.*',
             'pyfoundation.*',
             'pyreconstruction.*',
             'pymap.*',

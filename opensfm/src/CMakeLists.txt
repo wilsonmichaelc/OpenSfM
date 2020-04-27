@@ -51,7 +51,8 @@ find_package(OpenCV)
 if(${OpenCV_VERSION} LESS 3.0)
     find_package(OpenCV REQUIRED core imgproc calib3d)
 else()
-    find_package(OpenCV REQUIRED core imgproc calib3d OPTIONAL_COMPONENTS imgcodecs)
+    # find_package(OpenCV REQUIRED core imgproc calib3d OPTIONAL_COMPONENTS imgcodecs)
+    find_package(OpenCV REQUIRED core imgproc calib3d imgcodecs)
 endif()
 
 ####### Third party libraries #######
@@ -59,16 +60,6 @@ add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/akaze)
 add_subdirectory(third_party/vlfeat)
 # add_subdirectory(third_party/json)
-
-####### OpenSfM libraries #######
-add_subdirectory(foundation)
-add_subdirectory(bundle)
-add_subdirectory(dense)
-add_subdirectory(features)
-add_subdirectory(geometry)
-add_subdirectory(robust)
-add_subdirectory(map)
-add_subdirectory(slam)
 
 ####### Debugging #######
 if (CMAKE_BUILD_TYPE MATCHES DEBUG)
@@ -91,18 +82,21 @@ if (OPENSFM_BUILD_TESTS)
               third_party/gtest/gmock_gtest_all.cc
               third_party/gtest/gmock_main.cc)
 
-  add_library(testing_main testing_main.cc)
-  target_link_libraries(testing_main
+  set(TEST_MAIN test_main)
+  add_library(${TEST_MAIN} testing_main.cc)
+  target_link_libraries(${TEST_MAIN}
                         ${GFLAGS_LIBRARY}
                         ${GLOG_LIBRARY}
                         gtest)
-
-  add_executable(depthmap_test dense/src/depthmap_test.cc dense/src/depthmap.cc)
-  target_include_directories(depthmap_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-  target_link_libraries(depthmap_test
-                        PUBLIC
-                        ${OpenCV_LIBS}
-                        testing_main)
-  add_test(depthmap_test depthmap_test)
-
 endif()
+
+####### OpenSfM libraries #######
+add_subdirectory(foundation)
+add_subdirectory(bundle)
+add_subdirectory(dense)
+add_subdirectory(features)
+add_subdirectory(geometry)
+add_subdirectory(robust)
+add_subdirectory(sfm)
+add_subdirectory(map)
+add_subdirectory(slam)
