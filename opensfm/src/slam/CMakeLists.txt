@@ -36,6 +36,7 @@ target_link_libraries(pyslam
   PRIVATE
     map
     slam
+    bundle
 )
 set_target_properties(pyslam PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${opensfm_SOURCE_DIR}/.."

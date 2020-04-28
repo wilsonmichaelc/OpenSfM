@@ -36,18 +36,27 @@ public:
   Eigen::Vector3d NormalizePointAndScale(const Eigen::Vector2d& point, const double scale) const
   {
     const auto size = std::max(width, height);
-    return Eigen::Vector3d(point[0]*size - 0.5 + width/2.0,
-                           point[1]*size - 0.5 + height/2.0,
-                           scale/size);
+    return Eigen::Vector3d(point[0] + 0.5 - width/2.0,
+                           point[1] + 0.5 - height/2.0,
+                           scale) / size;
   }
-
   Eigen::Vector2d NormalizePoint(const Eigen::Vector2d& point) const
+  {
+    const auto size = std::max(width, height);
+    return Eigen::Vector2d(point[0] + 0.5 - width/2.0,
+                           point[1] + 0.5 - height/2.0) / size;
+  }
+  Eigen::Vector2d DeNormalizePoint(const Eigen::Vector2d& point) const
   {
     const auto size = std::max(width, height);
     return Eigen::Vector2d(point[0]*size - 0.5 + width/2.0,
                            point[1]*size - 0.5 + height/2.0);
   }
 
+  bool InImage(const Eigen::Vector2d& point) const
+  {
+    return point[0] >= 0 && point[1] >= 0 && point[0] < width && point[1] < height;
+  }
 };
 
 class BrownPerspectiveCamera : public Camera

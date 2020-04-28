@@ -1,6 +1,7 @@
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2
 
 from timeit import default_timer as timer
 from collections import defaultdict
@@ -138,7 +139,7 @@ def reproject_landmarks(points3D, observations, T_world_to_cam,
     if do_show:
         plt.show()
 
-    
+
 def visualize_matches_pts(pts1, pts2, matches, im1, im2, is_normalized= True, do_show=True, title = ""):
     if disable_debug:
         return
@@ -166,3 +167,22 @@ def visualize_matches_pts(pts1, pts2, matches, im1, im2, is_normalized= True, do
     ax.set_title(title)
     if do_show:
         plt.show()
+
+
+def visualize_tracked_lms(points2D, shot, data, is_normalized=False):
+    # if disable_debug:
+        # return
+    im1 = data.load_image(shot.name)
+    h1, w1, c = im1.shape
+    im1 = cv2.cvtColor(im1, cv2.COLOR_RGB2BGR)
+    if is_normalized:
+        p1d = np.array(features.denormalized_image_coordinates(
+            points2D, w1, h1), dtype=int)
+        for x, y in p1d:
+            cv2.drawMarker(im1, (x, y), (255, 0, 0),
+                           markerType=cv2.MARKER_SQUARE, markerSize=10)
+    else:
+        for x, y,_ in points2D:
+            cv2.drawMarker(im1, (x, y), (255, 0, 0),
+                           markerType=cv2.MARKER_SQUARE, markerSize=10)
+    cv2.imwrite("./debug/track_" + shot.name, im1)

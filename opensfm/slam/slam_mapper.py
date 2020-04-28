@@ -6,6 +6,7 @@ from opensfm import features
 from opensfm import types
 from opensfm import reconstruction
 from opensfm import pybundle
+from opensfm import pysfm
 import slam_utils
 import slam_debug
 import logging
@@ -389,6 +390,45 @@ class SlamMapper(object):
         print("n_baseline_reject: ", n_baseline_reject)
 
     def triangulate_from_two_kfs(self, new_kf: pymap.Shot, old_kf: pymap.Shot, matches):
+        im1 = new_kf.name
+        im2 = old_kf.name
+
+        pts1 = pyslam.SlamUtilities.keypts_from_shot(new_kf)
+        norm_p1, _, _ = features.\
+            normalize_features(pts1, None, None,
+                               self.camera[1].width, self.camera[1].height)
+        
+        pts2 = pyslam.SlamUtilities.keypts_from_shot(old_kf)
+        norm_p2, _, _ = features.\
+            normalize_features(pts2, None, None,
+                               self.camera[1].width, self.camera[1].height)
+        
+        new_pose: pymap.Pose = new_kf.get_pose()
+        old_pose: pymap.Pose = old_kf.get_pose()
+
+        f_processed = defaultdict(int)
+
+        # create the graph with the new tracks manager
+        tracks_graph = pysfm.TracksManager()
+        for (track_id, (f1_id, f2_id)) in enumerate(matches):
+            f_processed[f1_id] += 1
+            if f_processed[f1_id] > 1:
+                print("double add!!")
+                exit()
+            x, y, s = norm_p1[track_id, 0:3]
+            # s = scale_1[track_id]
+            r, g, b = [255, 0, 0]  # self.init_frame.colors[f1_id, :]
+            obs1 = pysfm.Observation(x, y, s, int(r), int(g), int(b), f1_id)
+            tracks_graph.add_observation(im1, str(track_id), obs1)
+
+            x, y,s = norm_p2[track_id, 0:3]
+            # s = scale_2[track_id]
+            r, g, b = [255, 0, 0]
+            obs2 = pysfm.Observation(x, y, s, int(r), int(g), int(b), f2_id)
+            tracks_graph.add_observation(im2, str(track_id), obs2)
+
+
+    def triangulate_from_two_kfs_old(self, new_kf: pymap.Shot, old_kf: pymap.Shot, matches):
         # TODO: try without tracks graph
         frame1 = new_kf.name
         frame2 = old_kf.name
@@ -650,7 +690,7 @@ class SlamMapper(object):
                     n_th += 1
             points3D[idx, :] = pos_w
         print("Found: ", n_th, " outliers!")
-        slam_debug.disable_debug = False
+        slam_debug.disable_debug = True
         slam_debug.reproject_landmarks(points3D, None, shot.get_pose().get_world_to_cam(),
                                        self.data.load_image(
                                            shot.name), self.camera[1],

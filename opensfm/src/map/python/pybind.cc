@@ -25,6 +25,8 @@ PYBIND11_MODULE(pymap, m) {
     .def("set_from_world_to_cam", py::overload_cast<const Eigen::Matrix3d&, const Eigen::Vector3d&>(&map::Pose::SetFromWorldToCamera))
     .def("set_from_world_to_cam", py::overload_cast<const Eigen::Vector3d&, const Eigen::Vector3d&>(&map::Pose::SetFromWorldToCamera))
     .def("get_origin", &map::Pose::GetOrigin)
+    .def("get_R_cam_to_world", &map::Pose::RotationCameraToWorld)
+    .def("get_R_world_to_cam", &map::Pose::RotationWorldToCamera)
     .def("get_R_cam_to_world_min", &map::Pose::RotationCameraToWorldMin)
     .def("get_R_world_to_cam_min", &map::Pose::RotationWorldToCameraMin)
     .def("get_t_cam_to_world", &map::Pose::TranslationCameraToWorld)

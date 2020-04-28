@@ -30,17 +30,15 @@ PYBIND11_MODULE(pyslam, m) {
          py::arg("shot"))
     .def("match_shot_to_shot", &slam::GuidedMatchingWrapper::MatchShotToShot,
          py::arg("shot1"), py::arg("shot2"), py::arg("prev_matched"), py::arg("margin"))
-    // .def("assign_shot_landmarks_to_kpts", &slam::GuidedMatchingWrapper::AssignShot1LandmarksToShot2Kpts,
-        //  py::arg("shot1"), py::arg("shot2"), py::arg("margin"))
     .def("assign_shot_landmarks_to_kpts_new", &slam::GuidedMatchingWrapper::AssignShot1LandmarksToShot2KptsLM)
     .def("match_for_triangulation_epipolar", &slam::GuidedMatchingWrapper::MatchForTriangulationEpipolar)
   ;
 
-  // Helper class
+
   py::class_<slam::GridParameters>(m, "GridParameters")
     .def(py::init<unsigned int, unsigned int, float, float, float, float, float, float>())
   ;
-
+  // Helper class
   py::class_<slam::PySlamUtilities>(m, "SlamUtilities")
     .def("undist_keypts_from_shot", &slam::PySlamUtilities::GetUndistortedKeyptsFromShot)
     .def("keypts_from_shot", &slam::PySlamUtilities::GetKeyptsFromShot)
@@ -55,6 +53,7 @@ PYBIND11_MODULE(pyslam, m) {
     .def("get_second_order_covisibility_for_shot", &slam::PySlamUtilities::GetSecondOrderCovisibility, py::return_value_policy::reference_internal)
     .def("fuse_duplicated_landmarks", &slam::PySlamUtilities::FuseDuplicatedLandmarks)
     .def("compute_local_keyframes", &slam::PySlamUtilities::ComputeLocalKeyframes, py::return_value_policy::reference_internal)
+    .def("bundle_tracking", &slam::PySlamUtilities::SetUpBAProblem)
   ;
 
 }
