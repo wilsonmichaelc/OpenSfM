@@ -35,12 +35,16 @@ public:
 
   void SetFromWorldToCamera(const Eigen::Matrix4d& world_to_camera)
   {
-    SetFromWorldToCamera(world_to_camera.block<3,3>(0,0), world_to_camera.block<3,1>(0,3));
+    const Eigen::Matrix3d R_cw = world_to_camera.block<3,3>(0,0);
+    SetFromWorldToCamera(R_cw, world_to_camera.block<3,1>(0,3));
 
   }
   void SetFromCameraToWorld(const Eigen::Matrix4d& camera_to_world)
   {
-    SetFromCameraToWorld(camera_to_world.block<3,3>(0,0), camera_to_world.block<3,1>(0,3));
+    const Eigen::Matrix3d R_wc = camera_to_world.block<3,3>(0,0); //avoid ambiguous compile error
+    SetFromCameraToWorld(R_wc, camera_to_world.block<3,1>(0,3));
+
+    // SetFromCameraToWorld(camera_to_world.block<3,3>(0,0), camera_to_world.block<3,1>(0,3));
   }
 
   void SetFromWorldToCamera(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw)
@@ -54,6 +58,18 @@ public:
     cam_to_world_.setRotationMatrix(R_wc);
     cam_to_world_.translation() = t_wc;
     world_to_cam_ = cam_to_world_.inverse();
+  }
+
+  void SetFromCameraToWorld(const Eigen::Vector3d& R_wc, const Eigen::Vector3d& t_wc)
+  {
+    // Sophus::SO3d::exp(R_wc);
+    // SetFromCameraToWorld(Sophus::makeRotationMatrix(R_wc), t_wc);
+    SetFromCameraToWorld(Sophus::SO3d::exp(R_wc).matrix(), t_wc);
+
+  }
+  void SetFromWorldToCamera(const Eigen::Vector3d& R_cw, const Eigen::Vector3d& t_cw)
+  {
+    SetFromWorldToCamera(Sophus::SO3d::exp(R_cw).matrix(), t_cw);
   }
   // TODO: set from min representation!
 private:
