@@ -28,6 +28,26 @@ public:
                                   Eigen::Vector3f& bearing, Eigen::Vector2f& pt2D) const { return true; }
   virtual bool ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
                                 Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const { return true; }
+  Eigen::Vector3d NormalizePointAndScale(const Eigen::Vector3d& point_and_scale) const
+  {
+    return NormalizePointAndScale(point_and_scale.head<2>(), point_and_scale[2]);
+  }
+
+  Eigen::Vector3d NormalizePointAndScale(const Eigen::Vector2d& point, const double scale) const
+  {
+    const auto size = std::max(width, height);
+    return Eigen::Vector3d(point[0]*size - 0.5 + width/2.0,
+                           point[1]*size - 0.5 + height/2.0,
+                           scale/size);
+  }
+
+  Eigen::Vector2d NormalizePoint(const Eigen::Vector2d& point) const
+  {
+    const auto size = std::max(width, height);
+    return Eigen::Vector2d(point[0]*size - 0.5 + width/2.0,
+                           point[1]*size - 0.5 + height/2.0);
+  }
+
 };
 
 class BrownPerspectiveCamera : public Camera
