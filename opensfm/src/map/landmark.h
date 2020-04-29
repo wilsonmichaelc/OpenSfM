@@ -1,6 +1,5 @@
 #pragma once
 #include <Eigen/Eigen>
-#include <opencv2/features2d/features2d.hpp>
 #include <map>
 #include <memory>
 #include <map/defines.h>

@@ -86,13 +86,12 @@ public:
     }
   }
 
-  void DistributeUndistKeyptsToGrid(const std::vector<cv::KeyPoint> &undist_keypts,
-                                    CellIndices &keypt_indices_in_cells) const;
+  void DistributeUndistKeyptsToGrid(const AlignedVector<map::Observation>& undist_keypts, CellIndices& keypt_indices_in_cells) const;
 
-  MatchIndices MatchKptsToKpts(const std::vector<cv::KeyPoint> &undist_keypts_1, const cv::Mat &descriptors_1,
-                               const std::vector<cv::KeyPoint> &undist_keypts_2, const cv::Mat &descriptors_2,
-                               const CellIndices &keypts_indices_in_cells_2,
-                               const Eigen::MatrixX2f &prevMatched, const size_t margin) const;
+  MatchIndices MatchKptsToKpts(const AlignedVector<map::Observation>& undist_keypts_1, const cv::Mat& descriptors_1,
+                               const AlignedVector<map::Observation>& undist_keypts_2, const cv::Mat& descriptors_2,
+                               const CellIndices& keypts_indices_in_cells_2,
+                               const Eigen::MatrixX2f& prevMatched, const size_t margin) const;
   // Matches the landmarks seen in last shot to the
   // keypts seen in curr shot and sets the observations
   // in curr shot accordingly
@@ -102,7 +101,7 @@ public:
 
   size_t
   AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Landmark*>& landmarks, const float margin,
-                        const std::vector<cv::KeyPoint>& undist_kpts, bool check_orientation, const float lowe_ratio) const;
+                        const AlignedVector<map::Observation>& undist_kpts, bool check_orientation, const float lowe_ratio) const;
   map::FeatureId
   FindBestMatchForLandmark2(const map::Landmark *const landmark, map::Shot &curr_shot, const float reproj_x, const float reproj_y,
                            const int last_scale_level, const float margin) const;
@@ -113,7 +112,8 @@ public:
                           const int scale_level, const float margin,
                           const float lowe_ratio) const;
   std::vector<size_t>
-  GetKeypointsInCell(const std::vector<cv::KeyPoint> &undist_keypts,
+  GetKeypointsInCell(const AlignedVector<map::Observation>& undist_keypts,
+                    //  const std::vector<cv::KeyPoint> &undist_keypts,
                      const CellIndices &keypt_indices_in_cells,
                      const float ref_x, const float ref_y, const float margin,
                      const int min_level = -1, const int max_level = -1) const;

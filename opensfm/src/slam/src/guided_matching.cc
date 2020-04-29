@@ -142,12 +142,12 @@ GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot
         second_best_hamm_dist = best_hamm_dist;
         best_hamm_dist = hamm_dist;
         second_best_scale_level = best_scale_level;
-        best_scale_level = undist_kpts.at(match_idx).octave;
+        best_scale_level = undist_kpts.at(match_idx).scale;
         best_idx = match_idx;
       }
       else 
         if (hamm_dist < second_best_hamm_dist) {
-          second_best_scale_level = undist_kpts.at(match_idx).octave;
+          second_best_scale_level = undist_kpts.at(match_idx).scale;
           second_best_hamm_dist = hamm_dist;
         }
     }
@@ -166,11 +166,16 @@ GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot
   // return HAMMING_DIST_THR_HIGH < best_hamm_dist ? NO_MATCH : best_idx;
 }
 
+// MatchIndices
+// GuidedMatcher::MatchKptsToKpts(const std::vector<cv::KeyPoint> &undist_keypts_1, const cv::Mat &descriptors_1,
+//                                const std::vector<cv::KeyPoint> &undist_keypts_2, const cv::Mat &descriptors_2,
+//                                const CellIndices &keypts_indices_in_cells_2,
+//                                const Eigen::MatrixX2f &prevMatched, const size_t margin) const
 MatchIndices
-GuidedMatcher::MatchKptsToKpts(const std::vector<cv::KeyPoint> &undist_keypts_1, const cv::Mat &descriptors_1,
-                               const std::vector<cv::KeyPoint> &undist_keypts_2, const cv::Mat &descriptors_2,
-                               const CellIndices &keypts_indices_in_cells_2,
-                               const Eigen::MatrixX2f &prevMatched, const size_t margin) const
+GuidedMatcher::MatchKptsToKpts(const AlignedVector<map::Observation>& undist_keypts_1, const cv::Mat& descriptors_1,
+                               const AlignedVector<map::Observation>& undist_keypts_2, const cv::Mat& descriptors_2,
+                               const CellIndices& keypts_indices_in_cells_2,
+                               const Eigen::MatrixX2f& prevMatched, const size_t margin) const
 {
   MatchIndices match_indices; // Index in 1, Index in 2
   if (undist_keypts_1.empty() || undist_keypts_2.empty() || keypts_indices_in_cells_2.empty())
@@ -193,7 +198,7 @@ GuidedMatcher::MatchKptsToKpts(const std::vector<cv::KeyPoint> &undist_keypts_1,
     // f1 = x, y, size, angle, octave
     const auto &u_kpt_1 = undist_keypts_1.at(idx_1);
     const Eigen::Vector2f pt2D = prevMatched.row(idx_1);
-    const auto scale_1 = u_kpt_1.octave;
+    const auto scale_1 = u_kpt_1.scale;
     if (scale_1 < 0)
       continue;
     // const auto indices = get_keypoints_in_cell(frame2.undist_keypts_, frame2.keypts_indices_in_cells_,
@@ -285,7 +290,9 @@ GuidedMatcher::MatchKptsToKpts(const std::vector<cv::KeyPoint> &undist_keypts_1,
   return match_indices;
 }
 
-void GuidedMatcher::DistributeUndistKeyptsToGrid(const std::vector<cv::KeyPoint> &undist_keypts, CellIndices &keypt_indices_in_cells) const
+// void GuidedMatcher::DistributeUndistKeyptsToGrid(const std::vector<cv::KeyPoint> &undist_keypts, CellIndices &keypt_indices_in_cells) const
+void GuidedMatcher::DistributeUndistKeyptsToGrid(const AlignedVector<map::Observation>& undist_keypts, CellIndices& keypt_indices_in_cells) const
+
 {
   const size_t num_pts = undist_keypts.size();
   const size_t num_to_reserve = 0.5 * num_pts / (grid_params_.grid_cols_ * grid_params_.grid_rows_);
@@ -301,8 +308,8 @@ void GuidedMatcher::DistributeUndistKeyptsToGrid(const std::vector<cv::KeyPoint>
   for (size_t idx = 0; idx < num_pts; ++idx)
   {
     const auto &keypt = undist_keypts.at(idx);
-    const int cell_idx_x = std::round((keypt.pt.x - grid_params_.img_min_width_) * grid_params_.inv_cell_width_);
-    const int cell_idx_y = std::round((keypt.pt.y - grid_params_.img_min_height_) * grid_params_.inv_cell_height_);
+    const int cell_idx_x = std::round((keypt.point[0] - grid_params_.img_min_width_) * grid_params_.inv_cell_width_);
+    const int cell_idx_y = std::round((keypt.point[1] - grid_params_.img_min_height_) * grid_params_.inv_cell_height_);
     if ((0 <= cell_idx_x && cell_idx_x < static_cast<int>(grid_params_.grid_cols_) && 0 <= cell_idx_y && cell_idx_y < static_cast<int>(grid_params_.grid_rows_)))
     {
       keypt_indices_in_cells.at(cell_idx_x).at(cell_idx_y).push_back(idx);
@@ -311,8 +318,8 @@ void GuidedMatcher::DistributeUndistKeyptsToGrid(const std::vector<cv::KeyPoint>
 }
 
 std::vector<size_t>
-GuidedMatcher::GetKeypointsInCell(const std::vector<cv::KeyPoint> &undist_keypts,
-                                  const CellIndices &keypt_indices_in_cells,
+GuidedMatcher::GetKeypointsInCell(const AlignedVector<map::Observation>& undist_keypts,
+                                  const CellIndices& keypt_indices_in_cells,
                                   const float ref_x, const float ref_y, const float margin,
                                   const int min_level, const int max_level) const
 {
@@ -360,13 +367,13 @@ GuidedMatcher::GetKeypointsInCell(const std::vector<cv::KeyPoint> &undist_keypts
         const auto &keypt = undist_keypts[idx];
         if (check_level)
         {
-          if (keypt.octave < min_level || (0 <= max_level && max_level < keypt.octave))
+          if (keypt.scale < min_level || (0 <= max_level && max_level < keypt.scale))
           {
             continue;
           }
         }
-        const float dist_x = keypt.pt.x - ref_x;
-        const float dist_y = keypt.pt.y - ref_y;
+        const float dist_x = keypt.point[0] - ref_x;
+        const float dist_y = keypt.point[1] - ref_y;
         if (std::abs(dist_x) < margin && std::abs(dist_y) < margin)
         {
           indices.push_back(idx);
@@ -388,7 +395,7 @@ GuidedMatcher::GetKeypointsInCell(const std::vector<cv::KeyPoint> &undist_keypts
 size_t
 // MatchIndices
 GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Landmark*>& landmarks, const float margin,
-                                     const std::vector<cv::KeyPoint>& other_undist_kpts, bool check_orientation, const float lowe_ratio) const
+                                     const AlignedVector<map::Observation>& other_undist_kpts, bool check_orientation, const float lowe_ratio) const
 {
   size_t num_matches{0};
   // MatchIndices matches;
@@ -433,7 +440,7 @@ GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Lan
           int scale_lvl = -1;
           if (!other_undist_kpts.empty()) //take the scale level from the keypts
           {
-            scale_lvl = other_undist_kpts.at(idx).octave;
+            scale_lvl = other_undist_kpts.at(idx).scale;
           }
           else // or predict
           {
@@ -536,12 +543,12 @@ GuidedMatcher::MatchingForTriangulationEpipolar(const map::Shot& kf1, const map:
     if (lm_1 != nullptr) continue; // already matched to a landmark
 
     const auto& u_kpt_1 = undist_kpts1.at(idx_1);
-    const float scale_1 = u_kpt_1.octave;
+    const float scale_1 = u_kpt_1.scale;
     std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> pts2D;
     if (scale_1 >= 0)
     {
-      const Eigen::Vector3d pt3D((u_kpt_1.pt.x-cx)*inv_fx, (u_kpt_1.pt.y-cy)*inv_fy, 1.0);
-      const Eigen::Vector3d ptTrans = KRK_i * Eigen::Vector3d(u_kpt_1.pt.x, u_kpt_1.pt.y,1.0);
+      const Eigen::Vector3d pt3D((u_kpt_1.point[0]-cx)*inv_fx, (u_kpt_1.point[1]-cy)*inv_fy, 1.0);
+      const Eigen::Vector3d ptTrans = KRK_i * Eigen::Vector3d(u_kpt_1.point[0], u_kpt_1.point[1],1.0);
       const Eigen::Vector2d start_pt = (ptTrans + Kt*inv_min_depth).hnormalized();
       // const Eigen::Vector2f end_pt = (KRK_i * Eigen::Vector2f(u_kpt_1.pt.x, u_kpt_1.pt.y,1.0) * max_depth + Kt).hnormalized();
       const Eigen::Vector2d end_pt = (ptTrans + Kt*inv_max_depth).hnormalized();
@@ -603,7 +610,7 @@ GuidedMatcher::MatchingForTriangulationEpipolar(const map::Shot& kf1, const map:
 
         // E行列による整合性チェック
         const bool is_inlier = CheckEpipolarConstraint(bearing_1, bearing_2, E_12,
-                                                       scale_factors_.at(u_kpt_1.octave));
+                                                       scale_factors_.at(u_kpt_1.scale));
         if (is_inlier) {
             best_idx_2 = idx_2;
             best_hamm_dist = hamm_dist;
@@ -714,7 +721,7 @@ GuidedMatcher::ReplaceDuplicatedLandmarks(map::Shot& fuse_shot, const T& landmar
                 for (const auto idx : indices)
                 {
                   const auto& keypt = fuse_shot.slam_data_.undist_keypts_.at(idx);
-                  const size_t scale_level = keypt.octave;
+                  const size_t scale_level = keypt.scale;
                   //check the scale level
                   // if (scale_level < pred_scale_level - 1 || pred_scale_level < scale_level) {
                   //   continue;
@@ -727,10 +734,16 @@ GuidedMatcher::ReplaceDuplicatedLandmarks(map::Shot& fuse_shot, const T& landmar
                   }
                   if (scale_level >= pred_scale_lvl-1 && pred_scale_lvl >= scale_level)
                   {
-                    const auto e_x = pt2D(0) - keypt.pt.x;
-                    const auto e_y = pt2D(1) - keypt.pt.y;
-                    const auto reproj_error_sq = e_x * e_x + e_y * e_y;
+                    const auto e_x = pt2D(0) - keypt.point[0];
+                    const auto e_y = pt2D(1) - keypt.point[1];
+                    // const auto reproj_error_sq = e_x * e_x + e_y * e_y;
 
+                    const auto reproj_error_sq = (pt2D - keypt.point).squaredNorm();
+                    if (reproj_error_sq != (e_x * e_x + e_y * e_y))
+                    {
+                      std::cout << "reproj_error_sq != (e_x * e_x + e_y * e_y): " << std::endl;
+                      exit(0);
+                    }
                     // 自由度n=2
                     constexpr float chi_sq_2D = 5.99146;
                     if (chi_sq_2D >= reproj_error_sq * inv_level_sigma_sq_.at(scale_level)) {

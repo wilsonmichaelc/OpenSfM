@@ -59,7 +59,7 @@ bool SlamUtilities::check_epipolar_constraint(const Eigen::Vector3f &bearing_1, 
 }
 
 Eigen::MatrixXf
-SlamUtilities::ConvertOpenCVKptsToEigen(const std::vector<cv::KeyPoint> &keypts)
+SlamUtilities::ConvertOpenCVKptsToEigen(const AlignedVector<map::Observation>& keypts)
 {
   if (!keypts.empty())
   {
@@ -68,7 +68,7 @@ SlamUtilities::ConvertOpenCVKptsToEigen(const std::vector<cv::KeyPoint> &keypts)
     for (size_t i = 0; i < n_kpts; ++i)
     {
       const auto &kpt = keypts[i];
-      mat.row(i) << kpt.pt.x, kpt.pt.y, kpt.size, kpt.angle, kpt.octave;
+      mat.row(i) << kpt.point[0], kpt.point[1], kpt.size, kpt.angle, kpt.scale;
     }
     return mat;
   }
@@ -401,7 +401,7 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &shot, const slam::GuidedMatcher& m
   constexpr float margin{5};
   constexpr float lowe_ratio{10};
   return matcher.AssignLandmarksToShot(shot, local_landmarks, margin,
-                                       std::vector<cv::KeyPoint>(),GuidedMatcher::NO_ORIENTATION_CHECK,
+                                       AlignedVector<map::Observation>(),GuidedMatcher::NO_ORIENTATION_CHECK,
                                        lowe_ratio);
 }
 
@@ -460,7 +460,7 @@ SlamUtilities::SetNormalAndDepthFromObservations(map::Landmark& landmark, const 
     const auto dist = landmark.ComputeDistanceFromRefFrame();
     auto* ref_shot = landmark.GetRefShot();
     const auto ref_obs_idx = observations.at(ref_shot);
-    const auto scale_level = ref_shot->slam_data_.undist_keypts_.at(ref_obs_idx).octave;
+    const auto scale_level = ref_shot->slam_data_.undist_keypts_.at(ref_obs_idx).scale;
     // const auto scale_level = ref_shot_->undist_keypts_.at(observations_.at(ref_shot_)).octave;
     const auto scale_factor = scale_factors.at(scale_level);
     const auto num_scale_levels = scale_factors.size();

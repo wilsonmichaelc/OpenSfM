@@ -38,15 +38,13 @@ BrownPerspectiveCamera::BrownPerspectiveCamera(const size_t width_, const size_t
     cy_p = K_pixel_eig(1,2);
 
 }
-
 void
-BrownPerspectiveCamera::UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint> &undist_keypts,
-                                                    std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const
+BrownPerspectiveCamera::UndistortedKeyptsToBearings(const AlignedVector<Observation>& undist_keypts, AlignedVector<Eigen::Vector3d>& bearings) const
 {
   bearings.resize(undist_keypts.size());
   for (unsigned long idx = 0; idx < undist_keypts.size(); ++idx) {
-      const auto x_normalized = (undist_keypts.at(idx).pt.x - cx_p) / fx_p;
-      const auto y_normalized = (undist_keypts.at(idx).pt.y - cy_p) / fy_p;
+      const auto x_normalized = (undist_keypts.at(idx).point[0] - cx_p) / fx_p;
+      const auto y_normalized = (undist_keypts.at(idx).point[1] - cy_p) / fy_p;
       // const auto l2_norm = std::sqrt(x_normalized * x_normalized + y_normalized * y_normalized + 1.0);
       // bearings.at(idx) = Eigen::Vector3f{x_normalized / l2_norm, y_normalized / l2_norm, 1.0 / l2_norm};
       // std::cout << "oslam: " <<  bearings.at(idx) << " my: " << Eigen::Vector3f(x_normalized, y_normalized, 1.0).normalized() << std::endl;
@@ -54,15 +52,15 @@ BrownPerspectiveCamera::UndistortedKeyptsToBearings(const std::vector<cv::KeyPoi
   }
 }
 void
-BrownPerspectiveCamera::UndistortKeypts(const std::vector<cv::KeyPoint> &keypts, std::vector<cv::KeyPoint> &undist_keypts) const
+BrownPerspectiveCamera::UndistortKeypts(const AlignedVector<Observation>& keypts, AlignedVector<Observation>& undist_keypts) const
 {
   const auto num_keypts = keypts.size();
   // Fill matrix with points
   cv::Mat upTmp(num_keypts,2,CV_32F);
   for(size_t i=0; i<num_keypts; i++)
   {
-      upTmp.at<float>(i,0)=keypts[i].pt.x;
-      upTmp.at<float>(i,1)=keypts[i].pt.y;
+    upTmp.at<float>(i, 0) = keypts[i].point[0];
+    upTmp.at<float>(i, 1) = keypts[i].point[1];
   }
   // Undistort points
   upTmp=upTmp.reshape(2);
@@ -73,11 +71,12 @@ BrownPerspectiveCamera::UndistortKeypts(const std::vector<cv::KeyPoint> &keypts,
   // std::cout << "num_keypts: " << num_keypts << " keypts: " << keypts.size() << std::endl;
   for(size_t idx = 0; idx < num_keypts; idx++)
   {
-      undist_keypts.at(idx).pt.x = upTmp.at<float>(idx, 0);
-      undist_keypts.at(idx).pt.y = upTmp.at<float>(idx, 1);
+      undist_keypts.at(idx).point = Eigen::Vector2d(upTmp.at<float>(idx,0), upTmp.at<float>(idx,1));
+    //   undist_keypts.at(idx).point.x = upTmp.at<float>(idx, 0);
+    //   undist_keypts.at(idx).point.y = upTmp.at<float>(idx, 1);
       undist_keypts.at(idx).angle = keypts.at(idx).angle;
       undist_keypts.at(idx).size = keypts.at(idx).size;
-      undist_keypts.at(idx).octave = keypts.at(idx).octave;
+      undist_keypts.at(idx).scale = keypts.at(idx).scale;
   }
 }
 bool 

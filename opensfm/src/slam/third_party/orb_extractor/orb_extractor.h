@@ -5,6 +5,8 @@
 #include "orb_extractor_node.h"
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
+#include <map/defines.h>
+#include <map/observation.h>
 namespace openvslam {
 namespace feature{
 class orb_extractor {
@@ -28,7 +30,7 @@ public:
     
     //! Extract keypoints and each descriptor of them
     void extract(const cv::_InputArray& in_image, const cv::_InputArray& in_image_mask,
-                 std::vector<cv::KeyPoint>& keypts, const cv::_OutputArray& out_descriptors);
+                 AlignedVector<map::Observation>& keypts, const cv::_OutputArray& out_descriptors);
 
     //! Get the maximum number of keypoints
     unsigned int get_max_num_keypoints() const;

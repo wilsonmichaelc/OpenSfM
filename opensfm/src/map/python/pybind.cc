@@ -10,7 +10,7 @@
 #include <map/landmark.h>
 #include <map/camera.h>
 #include <map/map_io.h>
-
+#include <map/observation.h>
 namespace py = pybind11;
 PYBIND11_MODULE(pymap, m) {
 
@@ -164,5 +164,19 @@ PYBIND11_MODULE(pymap, m) {
                   py::arg("width"), py::arg("height"), py::arg("projection_type"),
                   py::arg("fx"), py::arg("fy"), py::arg("cx"), py::arg("cy"),
                   py::arg("k1"), py::arg("k2"), py::arg("p1"), py::arg("p2"), py::arg("k3"))
+  ;
+
+  py::class_<map::Observation>(m, "Observation")
+    .def(py::init<double, double, double, int, int, int, int>())
+    .def(py::init<double, double, double, int, int, int, int,
+                  float, float, float, int>())
+    .def_readwrite("point", &map::Observation::point)
+    .def_readwrite("scale", &map::Observation::scale)
+    .def_readwrite("id", &map::Observation::id)
+    .def_readwrite("color", &map::Observation::color)
+    .def_readwrite("angle", &map::Observation::angle)
+    .def_readwrite("response", &map::Observation::response)
+    .def_readwrite("size", &map::Observation::size)
+    .def_readwrite("class_id", &map::Observation::class_id)
   ;
 }

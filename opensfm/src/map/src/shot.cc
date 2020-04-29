@@ -61,7 +61,7 @@ Shot::InitKeyptsAndDescriptors(const size_t n_keypts)
 }
 
 void
-Shot::InitAndTakeDatastructures(std::vector<cv::KeyPoint> keypts, cv::Mat descriptors)
+Shot::InitAndTakeDatastructures(AlignedVector<Observation> keypts, cv::Mat descriptors)
 {
   assert(keypts.size() == descriptors.rows);
 

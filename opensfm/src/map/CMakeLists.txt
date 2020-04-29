@@ -2,6 +2,7 @@ set(MAP_FILES
   shot.h
   landmark.h
   map.h
+  observation.h
   defines.h
   camera.h
   src/landmark.cc

@@ -29,28 +29,61 @@ public:
   {
     SlamUtilities::SetNormalAndDepthFromObservations(landmark, scale_factors);
   }
+  // this is the same as getting it directly from the shot
+  // static AlignedVector<map::Observation>
+  // GetKeyptsFromShotTest(const map::Shot& shot)
+  // {
+  //   return shot.GetKeyPoints();
+  // }
 
-  static py::object GetValidKeypts(const map::Shot &shot)
+  // static py::object GetValidKeypts(const map::Shot &shot)
+  // {
+  //   const auto &landmarks = shot.GetLandmarks();
+  //   const auto n_landmarks = landmarks.size();
+  //   // const auto n_valid_pts = n_landmarks - std::count(landmarks.cbegin(), landmarks.cend(),nullptr);
+  //   const auto &keypts = shot.GetKeyPoints();
+  //   // Convert to numpy.
+  //   cv::Mat keys(n_landmarks, 3, CV_32F);
+  //   size_t idx2{0};
+  //   for (size_t i = 0; i < n_landmarks; ++i)
+  //   {
+  //     if (landmarks[i] != nullptr)
+  //     {
+  //       keys.at<float>(idx2, 0) = keypts[i].pt.x;
+  //       keys.at<float>(idx2, 1) = keypts[i].pt.y;
+  //       keys.at<float>(idx2, 2) = keypts[i].size;
+  //       idx2++;
+  //     }
+  //   }
+  //   return foundation::py_array_from_data(keys.ptr<float>(0), idx2, keys.cols);
+  // }
+
+  static Eigen::MatrixXf GetValidKeypts(const map::Shot &shot)
   {
     const auto &landmarks = shot.GetLandmarks();
     const auto n_landmarks = landmarks.size();
     // const auto n_valid_pts = n_landmarks - std::count(landmarks.cbegin(), landmarks.cend(),nullptr);
-    const auto &keypts = shot.GetKeyPoints();
+    const auto& keypts = shot.GetKeyPoints();
+    Eigen::MatrixXf kpts(n_landmarks, 3);
     // Convert to numpy.
-    cv::Mat keys(n_landmarks, 3, CV_32F);
+    // cv::Mat keys(n_landmarks, 3, CV_32F);
     size_t idx2{0};
     for (size_t i = 0; i < n_landmarks; ++i)
     {
       if (landmarks[i] != nullptr)
       {
-        keys.at<float>(idx2, 0) = keypts[i].pt.x;
-        keys.at<float>(idx2, 1) = keypts[i].pt.y;
-        keys.at<float>(idx2, 2) = keypts[i].size;
+        const auto& kpt = keypts[i];
+        kpts.row(idx2) = Eigen::Vector3f(kpt.point[0], kpt.point[1], kpt.size);
+        // keys.at<float>(idx2, 0) = keypts[i].pt.x;
+        // keys.at<float>(idx2, 1) = keypts[i].pt.y;
+        // keys.at<float>(idx2, 2) = keypts[i].size;
         idx2++;
       }
     }
-    return foundation::py_array_from_data(keys.ptr<float>(0), idx2, keys.cols);
+    return kpts.topRows(idx2);
+    // return foundation::py_array_from_data(keys.ptr<float>(0), idx2, keys.cols);
   }
+
 
   static auto
   UpdateLocalKeyframes(const map::Shot &shot)
@@ -156,7 +189,7 @@ public:
         const auto pt_id = std::to_string(n_points);
         ba.AddPoint(pt_id, lm->GetGlobalPos(), set_3D_points_const);
         const auto& kpt = kpts[idx];
-        const Eigen::Vector3d norm_pt_scale = cam.NormalizePointAndScale(Eigen::Vector2d(kpt.pt.x, kpt.pt.y), kpt.size);
+        const Eigen::Vector3d norm_pt_scale = cam.NormalizePointAndScale(kpt.point, kpt.size);
         // std::cout << pt_id << ": " << norm_pt_scale.transpose() << std::endl;
         ba.AddPointProjectionObservation(shot_name, pt_id, 
                                          norm_pt_scale[0],

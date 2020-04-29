@@ -70,7 +70,7 @@ orb_extractor::orb_extractor(const orb_params& orb_params)
 }
 
 void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArray& in_image_mask,
-                            std::vector<cv::KeyPoint>& keypts, const cv::_OutputArray& out_descriptors)
+                            AlignedVector<map::Observation>& keypts, const cv::_OutputArray& out_descriptors)
 {
     if (in_image.empty()) {
         return;
@@ -141,7 +141,14 @@ void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArr
 
         correct_keypoint_scale(keypts_at_level, level);
 
-        keypts.insert(keypts.end(), keypts_at_level.begin(), keypts_at_level.end());
+        // keypts.insert(keypts.end(), keypts_at_level.begin(), keypts_at_level.end());
+        keypts.reserve(keypts.size() + keypts_at_level.size());
+        for (const auto& kpt : keypts_at_level)
+        {
+            const cv::Vec3b color = image.at<cv::Vec3b>(std::floor(kpt.pt.y), std::floor(kpt.pt.x));
+            keypts.emplace_back(kpt.pt.x, kpt.pt.y, kpt.octave, color[0], color[1], color[2],
+                                -1, kpt.angle, kpt.response, kpt.size, kpt.class_id);
+        }
     }
 }
 
@@ -649,9 +656,22 @@ float orb_extractor::ic_angle(const cv::Mat& image, const cv::Point2f& point) co
 
 void orb_extractor::compute_orb_descriptors(const cv::Mat& image, const std::vector<cv::KeyPoint>& keypts, cv::Mat& descriptors) const {
     descriptors = cv::Mat::zeros(keypts.size(), 32, CV_8UC1);
-
+    // Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> desc_mat(keypts.size(), 32);
     for (unsigned int i = 0; i < keypts.size(); ++i) {
         compute_orb_descriptor(keypts.at(i), image, descriptors.ptr(i));
+        // std::cout << "eig bef: " << desc_mat.row(i).cast<int>() << std::endl;
+        // compute_orb_descriptor(keypts.at(i), image, desc_mat.row(i).data());
+        // std::cout << "cv: " << descriptors.row(i) << std::endl;
+        // std::cout << "eig: " << desc_mat.row(i).cast<int>() << std::endl;
+        // for (int j = 0; j < 32; ++j)
+        // {
+            
+        //     if (descriptors.at<uint8_t>(i,j) != desc_mat(i,j))
+        //     {
+        //         std::cout << "(row_cv[j] != desc_mat[i][j]" << std::endl;
+        //         exit(0);
+        //     }
+        // }
     }
 }
 

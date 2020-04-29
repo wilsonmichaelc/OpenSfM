@@ -50,7 +50,6 @@ class SlamMapper(object):
         # helper variables for unique KF id
         self.frame_id_to_kf_id[kf.id] = self.curr_kf_id
         self.curr_kf_id += 1  # If no KF deletion then equal to n_keyframes
-       
 
     def update_with_last_frame(self, shot: pymap.Shot):
         """Updates the last frame and the related variables in slam mapper

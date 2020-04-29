@@ -1,11 +1,11 @@
 #pragma once
-#include <opencv2/features2d/features2d.hpp>
+// #include <opencv2/features2d/features2d.hpp>
+#include <opencv2/core.hpp>
 #include <Eigen/Eigen>
-
 #include <map/defines.h>
 #include <map/pose.h>
 #include <map/slam_shot_data.h>
-
+#include <map/observation.h>
 namespace map
 {
 class Pose;
@@ -34,14 +34,14 @@ class Shot {
 
   Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose, const std::string& name = "");
   const cv::Mat GetDescriptor(const FeatureId id) const { return descriptors_.row(id); }
-  const cv::KeyPoint& GetKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
+  const auto& GetKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
   Eigen::Vector3f GetKeyPointEigen(const FeatureId id) const { 
     const auto kpt = keypoints_.at(id);
-    return Eigen::Vector3f(kpt.pt.x, kpt.pt.y, kpt.size);
+    return Eigen::Vector3f(kpt.point[0], kpt.point[1], kpt.size);
   }
   //No reason to set individual keypoints or descriptors
   //read-only access
-  const std::vector<cv::KeyPoint>& GetKeyPoints() const { return keypoints_; }
+  const auto& GetKeyPoints() const { return keypoints_; }
   const cv::Mat& GetDescriptors() const { return descriptors_; }
   
   size_t NumberOfKeyPoints() const { return keypoints_.size(); }
@@ -94,7 +94,7 @@ class Shot {
   Eigen::Matrix4d GetWorldToCam() const { return pose_.WorldToCamera(); }
   Eigen::Matrix4d GetCamToWorld() const { return pose_.CameraToWorld(); }
 
-  void InitAndTakeDatastructures(std::vector<cv::KeyPoint> keypts, cv::Mat descriptors);
+  void InitAndTakeDatastructures(AlignedVector<Observation> keypts, cv::Mat descriptors);
   void InitKeyptsAndDescriptors(const size_t n_keypts);
   
   // SLAM stuff
@@ -122,10 +122,8 @@ private:
   Pose pose_;
   size_t num_keypts_;
   std::vector<Landmark*> landmarks_;
-  std::vector<cv::KeyPoint> keypoints_;
+  AlignedVector<Observation> keypoints_;
   cv::Mat descriptors_;
   ShotMeasurements shot_measurements_;
-  // std::unique_ptr<SLAMShotData> slam_shot_data_; 
-
 };
 }

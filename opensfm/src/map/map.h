@@ -29,7 +29,6 @@ public:
   auto NumberOfCameras() const { return cameras_.size(); }
 
   // Create, Update and Remove
-
   // Camera
   ShotCamera* CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name = "");
   void UpdateShotCamera(const CameraId cam_id, const Camera& camera);

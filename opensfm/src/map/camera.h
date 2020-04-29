@@ -1,5 +1,6 @@
 #pragma once
 #include <map/defines.h>
+#include <map/observation.h>
 #include <vector>
 #include <opencv2/core.hpp>
 #include <Eigen/Core>
@@ -17,9 +18,11 @@ public:
   const size_t height;
   //TODO: Make to enum
   const std::string projectionType;
-  virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
-                                      std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const {};
-  virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const {};
+  // virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
+  //                                     std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const {};
+  // virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const {};
+  virtual void UndistortedKeyptsToBearings(const AlignedVector<Observation>& undistKeypts, AlignedVector<Eigen::Vector3d>& bearings) const {};
+  virtual void UndistortKeypts(const AlignedVector<Observation>& keypts, AlignedVector<Observation>& undist_keypts) const {};
   virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                 Eigen::Vector2f& pt2D) const {return true;};
   virtual bool ReprojectToImage(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
@@ -65,9 +68,8 @@ public:
   BrownPerspectiveCamera(const size_t width_, const size_t height_, const std::string& projection_type_,
                          const float fx_, const float fy_, const float cx_, const float cy_,
                          const float k1_, const float k2_, const float p1_, const float p2_, const float k3_);
-  virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
-                                      std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& bearings) const;
-  virtual void UndistortKeypts(const std::vector<cv::KeyPoint>& keypts, std::vector<cv::KeyPoint>& undist_keypts) const;
+  virtual void UndistortedKeyptsToBearings(const AlignedVector<Observation>& undist_keypts, AlignedVector<Eigen::Vector3d>& bearings) const;
+  virtual void UndistortKeypts(const AlignedVector<Observation>& keypts, AlignedVector<Observation>& undist_keypts) const;
   virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
                                 Eigen::Vector2f& pt2D) const;
   virtual bool ReprojectToImage(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,

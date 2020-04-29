@@ -2,6 +2,7 @@
 #include <slam/third_party/orb_extractor/orb_extractor.h>
 #include <foundation/types.h>
 #include <map/shot.h>
+#include <map/observation.h>
 #include <opencv2/core.hpp>
 namespace py = pybind11;
 namespace slam
@@ -21,33 +22,58 @@ public:
   {
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
-    std::vector<cv::KeyPoint> kpts;
+    AlignedVector<map::Observation> kpts;
     cv::Mat desc;
     extractor_.extract(img, mask_img, kpts, desc);
     shot.InitAndTakeDatastructures(kpts, desc);
   }
 
+  // py::list extract(foundation::pyarray_uint8 image, foundation::pyarray_uint8 mask)
+  // {
+  //   const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
+  //   const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
+  //   std::vector<cv::KeyPoint> kpts;
+  //   cv::Mat desc;
+  //   extractor_.extract(img, mask_img, kpts, desc);
+  //   cv::Mat keys(kpts.size(), 5, CV_32F);
+  //   for (int i = 0; i < (int) kpts.size(); ++i) {
+  //       keys.at<float>(i, 0) = kpts[i].pt.x;
+  //       keys.at<float>(i, 1) = kpts[i].pt.y;
+  //       keys.at<float>(i, 2) = kpts[i].size;
+  //       keys.at<float>(i, 3) = kpts[i].angle;
+  //       keys.at<float>(i, 4) = kpts[i].octave;
+  //   }
+
+  //   py::list retn;
+  //   retn.append(foundation::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
+  //   retn.append(foundation::py_array_from_data(desc.ptr<unsigned char>(0), desc.rows, desc.cols));
+  //   return retn;
+  // }
+
   py::list extract(foundation::pyarray_uint8 image, foundation::pyarray_uint8 mask)
   {
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
-    std::vector<cv::KeyPoint> kpts;
+    // std::vector<cv::KeyPoint> kpts;
+    AlignedVector<map::Observation> kpts;
     cv::Mat desc;
     extractor_.extract(img, mask_img, kpts, desc);
     cv::Mat keys(kpts.size(), 5, CV_32F);
     for (int i = 0; i < (int) kpts.size(); ++i) {
-        keys.at<float>(i, 0) = kpts[i].pt.x;
-        keys.at<float>(i, 1) = kpts[i].pt.y;
+        keys.at<float>(i, 0) = kpts[i].point[0];
+        keys.at<float>(i, 1) = kpts[i].point[1];
         keys.at<float>(i, 2) = kpts[i].size;
         keys.at<float>(i, 3) = kpts[i].angle;
-        keys.at<float>(i, 4) = kpts[i].octave;
+        keys.at<float>(i, 4) = kpts[i].scale;
     }
 
     py::list retn;
-    retn.append(foundation::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
+    // retn.append(foundation::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
+    retn.append(kpts);
     retn.append(foundation::py_array_from_data(desc.ptr<unsigned char>(0), desc.rows, desc.cols));
     return retn;
   }
+
 
   const auto
   GetScaleLevels() const { return extractor_.get_scale_factors(); }
