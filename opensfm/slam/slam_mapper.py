@@ -34,7 +34,7 @@ class SlamMapper(object):
         self.num_tracked_lms = 0
         self.num_tracked_lms_thr = 15
         self.lms_ratio_thr = 0.9
-        self.fresh_landmarks = []
+        self.fresh_landmarks = set()
         self.guided_matcher = matcher
         self.curr_kf_id = 0
         self.frame_id_to_kf_id = {} # converts the frame id to kf id
@@ -213,7 +213,7 @@ class SlamMapper(object):
         pass
 
     def remove_redundant_lms(self):
-        # return
+        return
         observed_ratio_th = 0.3
         num_reliable_kfs = 2
         num_obs_thr = 2
@@ -222,7 +222,7 @@ class SlamMapper(object):
         for lm in self.fresh_landmarks:
             if (lm.slam_data.get_observed_ratio() < observed_ratio_th):
                 self.map.remove_landmark(lm)
-            elif (num_reliable_kfs + self.frame_id_to_kf_id[lm.get_parent_shot().id]) < self.curr_kf_id\
+            elif (num_reliable_kfs + self.frame_id_to_kf_id[lm.get_ref_shot().id]) < self.curr_kf_id\
                     and lm.number_of_observations() <= num_obs_thr:
                 self.map.remove_landmark(lm)
             elif num_reliable_kfs + 1 + lm.kf_id < self.curr_kf_id:
@@ -390,19 +390,19 @@ class SlamMapper(object):
         print("n_baseline_reject: ", n_baseline_reject)
 
     def triangulate_from_two_kfs(self, new_kf: pymap.Shot, old_kf: pymap.Shot, matches):
-        im1 = new_kf.name
-        im2 = old_kf.name
+        new_kf_name = new_kf.name
+        old_kf_name = old_kf.name
 
         pts1 = pyslam.SlamUtilities.keypts_from_shot(new_kf)
         norm_p1, _, _ = features.\
             normalize_features(pts1, None, None,
                                self.camera[1].width, self.camera[1].height)
-        
+
         pts2 = pyslam.SlamUtilities.keypts_from_shot(old_kf)
         norm_p2, _, _ = features.\
             normalize_features(pts2, None, None,
                                self.camera[1].width, self.camera[1].height)
-        
+
         new_pose: pymap.Pose = new_kf.get_pose()
         old_pose: pymap.Pose = old_kf.get_pose()
 
@@ -415,19 +415,86 @@ class SlamMapper(object):
             if f_processed[f1_id] > 1:
                 print("double add!!")
                 exit()
-            x, y, s = norm_p1[track_id, 0:3]
-            # s = scale_1[track_id]
-            r, g, b = [255, 0, 0]  # self.init_frame.colors[f1_id, :]
+            x, y, s = norm_p1[f1_id, 0:3]
+            r, g, b = [255, 0, 0]
             obs1 = pysfm.Observation(x, y, s, int(r), int(g), int(b), f1_id)
-            tracks_graph.add_observation(im1, str(track_id), obs1)
+            tracks_graph.add_observation(new_kf_name, str(track_id), obs1)
 
-            x, y,s = norm_p2[track_id, 0:3]
-            # s = scale_2[track_id]
+            x, y, s = norm_p2[f2_id, 0:3]
             r, g, b = [255, 0, 0]
             obs2 = pysfm.Observation(x, y, s, int(r), int(g), int(b), f2_id)
-            tracks_graph.add_observation(im2, str(track_id), obs2)
+            tracks_graph.add_observation(old_kf_name, str(track_id), obs2)
 
+        cameras = self.data.load_camera_models()
+        camera = next(iter(cameras.values()))
+        rec_tri = types.Reconstruction()
+        rec_tri.reference = self.data.load_reference()
+        rec_tri.cameras = cameras
+        pose1 = slam_utils.mat_to_pose(new_pose.get_world_to_cam())
+        shot1 = types.Shot()
+        shot1.id = new_kf_name
+        shot1.camera = camera
+        shot1.pose = pose1
+        shot1.metadata = reconstruction.get_image_metadata(
+            self.data, new_kf_name)
+        rec_tri.add_shot(shot1)
 
+        pose2 = slam_utils.mat_to_pose(old_pose.get_world_to_cam())
+        shot2 = types.Shot()
+        shot2.id = old_kf_name
+        shot2.camera = camera
+        shot2.pose = pose2
+        shot2.metadata = reconstruction.get_image_metadata(
+            self.data, old_kf_name)
+        rec_tri.add_shot(shot2)
+        # graph_inliers = pysfm.TracksManager()
+        graph_inliers = nx.Graph()
+        np_before = len(rec_tri.points)
+        reconstruction.triangulate_shot_features(tracks_graph, graph_inliers,
+                                            rec_tri, new_kf_name,
+                                            self.data.config)
+        # reconstruction.triangulate_shot_features(tracks_graph, graph_inliers,
+        #                                          rec_tri, new_kf_name,
+        #                                          self.data.config)
+        np_after = len(rec_tri.points)
+        print("Successfully triangulated {} out of {} points.".
+              format(np_after, np_before))
+        # TODO: Remove debug stuff
+        new_pose = new_kf.get_pose()
+        old_pose = old_kf.get_pose()
+        points = rec_tri.points
+        points3D = np.zeros((len(points), 3))
+        for idx, pt3D in enumerate(points.values()):
+            points3D[idx, :] = pt3D.coordinates
+
+        slam_debug.reproject_landmarks(points3D, None, slam_utils.mat_to_pose(
+            new_pose.get_world_to_cam()), self.data.load_image(new_kf.name),
+            self.camera[1], do_show=False)
+        slam_debug.reproject_landmarks(points3D, None, slam_utils.mat_to_pose(
+            old_pose.get_world_to_cam()), self.data.load_image(old_kf.name),
+            self.camera[1], do_show=True)
+        # TODO: Remove debug stuff
+
+        kf1 = new_kf
+        kf2 = old_kf
+        scale_factors = self.extractor.get_scale_levels()
+        # Add to graph -> or better just create clm
+        for _, gi_lm_id in graph_inliers.edges(new_kf_name):
+            # TODO: Write something like create_landmark
+            pos_w = rec_tri.points[gi_lm_id].coordinates
+            next_id = self.map.next_unique_landmark_id()
+            lm = self.map.create_landmark(next_id, pos_w)
+            lm.set_ref_shot(kf2)
+            e1 = graph_inliers.get_edge_data(new_kf_name, gi_lm_id)
+            e2 = graph_inliers.get_edge_data(old_kf_name, gi_lm_id)
+            f1_id = e1['feature_id']
+            f2_id = e2['feature_id']
+            self.map.add_observation(kf1, lm, f1_id)
+            self.map.add_observation(kf2, lm, f2_id)
+            pyslam.SlamUtilities.compute_descriptor(lm)
+            pyslam.SlamUtilities.compute_normal_and_depth(lm, scale_factors)
+            self.fresh_landmarks.add(lm)
+    
     def triangulate_from_two_kfs_old(self, new_kf: pymap.Shot, old_kf: pymap.Shot, matches):
         # TODO: try without tracks graph
         frame1 = new_kf.name
@@ -469,7 +536,7 @@ class SlamMapper(object):
                                   feature_color=(float(r), float(g), float(b)))
 
             x, y, s = p1[f1_id, 0:3]
-            r, g, b = [0, 0, 0] #c1[f1_id, :]
+            r, g, b = [0, 0, 0]
             tracks_graph.add_edge(str(frame1),
                                   str(track_id),
                                   feature=(float(x), float(y)),
