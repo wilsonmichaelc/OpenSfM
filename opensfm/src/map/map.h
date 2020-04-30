@@ -44,6 +44,7 @@ public:
     const auto& it = shots_.find(shot_id);
     return (it != shots_.end() ? it->second.get() : nullptr);
   }
+  
   // Landmark
   Landmark* CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
   void UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos);
@@ -79,6 +80,7 @@ public:
     std::transform(landmarks_.begin(), landmarks_.end(), std::inserter(copy, copy.end()), [](auto& elem) { return std::make_pair(elem.first, elem.second.get()); });
     return copy;
   }
+
 private:
   std::unordered_map<CameraId, std::unique_ptr<ShotCamera>> cameras_;
   std::unordered_map<ShotId, std::unique_ptr<Shot>> shots_;
@@ -89,7 +91,6 @@ private:
 
   size_t unique_shot_id_ = 0;
   size_t unique_landmark_id_ = 0;
-  
 };
 
 } // namespace map

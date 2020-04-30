@@ -23,9 +23,12 @@ public:
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
     AlignedVector<map::Observation> kpts;
-    cv::Mat desc;
-    extractor_.extract(img, mask_img, kpts, desc);
+    DescriptorMatrix desc;
+    // cv::Mat desc;
+    
+    extractor_.extract(img, mask_img, kpts, desc);//, dmat);
     shot.InitAndTakeDatastructures(kpts, desc);
+    // std::swap(dmat, shot.descriptors_eig_);
   }
 
   // py::list extract(foundation::pyarray_uint8 image, foundation::pyarray_uint8 mask)
@@ -56,21 +59,25 @@ public:
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
     // std::vector<cv::KeyPoint> kpts;
     AlignedVector<map::Observation> kpts;
-    cv::Mat desc;
-    extractor_.extract(img, mask_img, kpts, desc);
-    cv::Mat keys(kpts.size(), 5, CV_32F);
-    for (int i = 0; i < (int) kpts.size(); ++i) {
-        keys.at<float>(i, 0) = kpts[i].point[0];
-        keys.at<float>(i, 1) = kpts[i].point[1];
-        keys.at<float>(i, 2) = kpts[i].size;
-        keys.at<float>(i, 3) = kpts[i].angle;
-        keys.at<float>(i, 4) = kpts[i].scale;
-    }
+    DescriptorMatrix desc;
+    // cv::Mat desc;
+    extractor_.extract(img, mask_img, kpts, desc); //, dmat);
+    // cv::Mat keys(kpts.size(), 5, CV_32F);
+    // Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> keys(kpts.size(), 5);
+    // for (int i = 0; i < (int) kpts.size(); ++i) {
+    //     keys
+    //     // keys.at<float>(i, 0) = kpts[i].point[0];
+    //     // keys.at<float>(i, 1) = kpts[i].point[1];
+    //     // keys.at<float>(i, 2) = kpts[i].size;
+    //     // keys.at<float>(i, 3) = kpts[i].angle;
+    //     // keys.at<float>(i, 4) = kpts[i].scale;
+    // }
 
     py::list retn;
     // retn.append(foundation::py_array_from_data(keys.ptr<float>(0), keys.rows, keys.cols));
     retn.append(kpts);
-    retn.append(foundation::py_array_from_data(desc.ptr<unsigned char>(0), desc.rows, desc.cols));
+    // retn.append(foundation::py_array_from_data(desc.ptr<unsigned char>(0), desc.rows, desc.cols));
+    retn.append(desc);
     return retn;
   }
 

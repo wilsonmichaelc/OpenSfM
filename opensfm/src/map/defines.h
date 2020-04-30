@@ -21,6 +21,8 @@ using CameraId = size_t;
 template<class T>
 using AlignedVector = std::vector<T, Eigen::aligned_allocator<T>>;
 
+using DescriptorType = Eigen::Matrix<uint8_t, 1, 32, Eigen::RowMajor>;
+using DescriptorMatrix = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 // namespace internal {
 // template <typename Type>
 // struct aligned_delete {

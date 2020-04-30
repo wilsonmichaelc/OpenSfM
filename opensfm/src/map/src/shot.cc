@@ -56,12 +56,14 @@ Shot::InitKeyptsAndDescriptors(const size_t n_keypts)
     num_keypts_ = n_keypts;
     landmarks_.resize(num_keypts_, nullptr);
     keypoints_.resize(num_keypts_);
-    descriptors_ = cv::Mat(n_keypts, 32, CV_8UC1, cv::Scalar(0));
+    // descriptors_ = cv::Mat(n_keypts, 32, CV_8UC1, cv::Scalar(0));
+    descriptors_ = DescriptorMatrix(n_keypts, 32);
   }
 }
 
 void
-Shot::InitAndTakeDatastructures(AlignedVector<Observation> keypts, cv::Mat descriptors)
+// Shot::InitAndTakeDatastructures(AlignedVector<Observation> keypts, cv::Mat descriptors)
+Shot::InitAndTakeDatastructures(AlignedVector<Observation> keypts, DescriptorMatrix descriptors)
 {
   assert(keypts.size() == descriptors.rows);
 

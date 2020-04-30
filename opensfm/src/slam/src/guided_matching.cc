@@ -21,12 +21,47 @@ GridParameters::GridParameters(unsigned int grid_cols, unsigned int grid_rows,
 {
 }
 
+// size_t
+// GuidedMatcher::ComputeMedianDescriptorIdx(const std::vector<cv::Mat> &descriptors)
+// {
+//   // First, calculate the distance between features in all combinations
+//   const auto num_descs = descriptors.size();
+//   // std::cout << "Computing: " << num_descs << std::endl;
+//   std::vector<std::vector<unsigned int>> hamm_dists(num_descs, std::vector<unsigned int>(num_descs));
+//   for (unsigned int i = 0; i < num_descs; ++i)
+//   {
+//     hamm_dists.at(i).at(i) = 0;
+//     for (unsigned int j = i + 1; j < num_descs; ++j)
+//     {
+//       const auto dist = compute_descriptor_distance_32(descriptors.at(i), descriptors.at(j));
+//       hamm_dists.at(i).at(j) = dist;
+//       hamm_dists.at(j).at(i) = dist;
+//     }
+//   }
+
+//   // 中央値に最も近いものを求める
+//   // Find the closest to the median
+//   unsigned int best_median_dist = MAX_HAMMING_DIST;
+//   unsigned int best_idx = 0;
+//   for (unsigned idx = 0; idx < num_descs; ++idx)
+//   {
+//     std::vector<unsigned int> partial_hamm_dists(hamm_dists.at(idx).begin(), hamm_dists.at(idx).begin() + num_descs);
+//     std::sort(partial_hamm_dists.begin(), partial_hamm_dists.end());
+//     const auto median_dist = partial_hamm_dists.at(static_cast<unsigned int>(0.5 * (num_descs - 1)));
+//     if (median_dist < best_median_dist)
+//     {
+//       best_median_dist = median_dist;
+//       best_idx = idx;
+//     }
+//   }
+//   return best_idx;
+// }
+
 size_t
-GuidedMatcher::ComputeMedianDescriptorIdx(const std::vector<cv::Mat> &descriptors)
+GuidedMatcher::ComputeMedianDescriptorIdx(const AlignedVector<DescriptorType> &descriptors)
 {
   // First, calculate the distance between features in all combinations
   const auto num_descs = descriptors.size();
-  // std::cout << "Computing: " << num_descs << std::endl;
   std::vector<std::vector<unsigned int>> hamm_dists(num_descs, std::vector<unsigned int>(num_descs));
   for (unsigned int i = 0; i < num_descs; ++i)
   {
@@ -39,7 +74,6 @@ GuidedMatcher::ComputeMedianDescriptorIdx(const std::vector<cv::Mat> &descriptor
     }
   }
 
-  // 中央値に最も近いものを求める
   // Find the closest to the median
   unsigned int best_median_dist = MAX_HAMMING_DIST;
   unsigned int best_idx = 0;
@@ -56,6 +90,7 @@ GuidedMatcher::ComputeMedianDescriptorIdx(const std::vector<cv::Mat> &descriptor
   }
   return best_idx;
 }
+
 
 // size_t 
 // GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot& curr_shot,
@@ -171,9 +206,14 @@ GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot
 //                                const std::vector<cv::KeyPoint> &undist_keypts_2, const cv::Mat &descriptors_2,
 //                                const CellIndices &keypts_indices_in_cells_2,
 //                                const Eigen::MatrixX2f &prevMatched, const size_t margin) const
+// MatchIndices
+// GuidedMatcher::MatchKptsToKpts(const AlignedVector<map::Observation>& undist_keypts_1, const cv::Mat& descriptors_1,
+//                                const AlignedVector<map::Observation>& undist_keypts_2, const cv::Mat& descriptors_2,
+//                                const CellIndices& keypts_indices_in_cells_2,
+//                                const Eigen::MatrixX2f& prevMatched, const size_t margin) const
 MatchIndices
-GuidedMatcher::MatchKptsToKpts(const AlignedVector<map::Observation>& undist_keypts_1, const cv::Mat& descriptors_1,
-                               const AlignedVector<map::Observation>& undist_keypts_2, const cv::Mat& descriptors_2,
+GuidedMatcher::MatchKptsToKpts(const AlignedVector<map::Observation>& undist_keypts_1, const DescriptorMatrix& descriptors_1,
+                               const AlignedVector<map::Observation>& undist_keypts_2, const DescriptorMatrix& descriptors_2,
                                const CellIndices& keypts_indices_in_cells_2,
                                const Eigen::MatrixX2f& prevMatched, const size_t margin) const
 {

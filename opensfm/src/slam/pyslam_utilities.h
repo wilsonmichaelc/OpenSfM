@@ -24,6 +24,10 @@ public:
   {
     SlamUtilities::SetDescriptorFromObservations(landmark);
   }
+  static void SetDescriptorFromObservationsEig(map::Landmark &landmark)
+  {
+    SlamUtilities::SetDescriptorFromObservationsEig(landmark);
+  }
 
   static void SetNormalAndDepthFromObservations(map::Landmark &landmark, const std::vector<float> &scale_factors)
   {
@@ -58,6 +62,10 @@ public:
   //   return foundation::py_array_from_data(keys.ptr<float>(0), idx2, keys.cols);
   // }
 
+  // static py::object GetDescriptors(const map::Shot& shot)
+  // {
+  //   return foundation::py_array_from_data(shot.GetDescriptors().ptr<uchar>(0), shot.NumberOfKeyPoints(), 32);
+  // }
   static Eigen::MatrixXf GetValidKeypts(const map::Shot &shot)
   {
     const auto &landmarks = shot.GetLandmarks();

@@ -20,7 +20,7 @@ PYBIND11_MODULE(pyslam, m) {
         py::arg("min_fast_thr"))
     .def("extract_to_shot", &slam::OrbExtractorWrapper::extract_to_shot)
     .def("extract", &slam::OrbExtractorWrapper::extract)
-    .def("get_scale_levels", &slam::OrbExtractorWrapper::GetScaleLevels)//, py::return_value_policy::reference_internal)
+    .def("get_scale_levels", &slam::OrbExtractorWrapper::GetScaleLevels)
   ;
   
   py::class_<slam::GuidedMatchingWrapper>(m, "GuidedMatcher")
@@ -54,6 +54,7 @@ PYBIND11_MODULE(pyslam, m) {
     .def("fuse_duplicated_landmarks", &slam::PySlamUtilities::FuseDuplicatedLandmarks)
     .def("compute_local_keyframes", &slam::PySlamUtilities::ComputeLocalKeyframes, py::return_value_policy::reference_internal)
     .def("bundle_tracking", &slam::PySlamUtilities::SetUpBAProblem)
+    // .def("get_descriptors", &slam::PySlamUtilities::GetDescriptors)
     // .def("get_keypts_test", &slam::PySlamUtilities::GetKeyptsFromShotTest)
   ;
 

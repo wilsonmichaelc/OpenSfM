@@ -1,7 +1,7 @@
 #pragma once
 #include <Eigen/Core>
 #include <vector>
-#include <opencv2/core.hpp>
+// #include <opencv2/core.hpp>
 #include <slam/guided_matching.h>
 #include <unordered_set>
 namespace map
@@ -39,7 +39,7 @@ public:
   static size_t MatchShotToLocalMap(map::Shot &curr_shot, const slam::GuidedMatcher& matcher);
 
   static void SetDescriptorFromObservations(map::Landmark& landmark);
-
+  static void SetDescriptorFromObservationsEig(map::Landmark& landmark);
   static void SetNormalAndDepthFromObservations(map::Landmark& landmark, const std::vector<float>& scale_factors);
 
   static std::pair<double, double> ComputeMinMaxDepthInShot(const map::Shot& shot);

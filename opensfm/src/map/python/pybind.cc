@@ -117,6 +117,7 @@ PYBIND11_MODULE(pymap, m) {
     .def("get_world_to_camera", &map::Shot::GetWorldToCam)
     //TODO: Move completely away from opencv
     .def("get_obs_by_idx", &map::Shot::GetKeyPointEigen)
+    // .def_readonly("descriptors", &map::Shot::descriptors_eig_)
   ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")

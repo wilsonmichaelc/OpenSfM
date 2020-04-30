@@ -4,13 +4,15 @@
 #include <memory>
 #include <map/defines.h>
 #include <iostream>
+// #include <opencv2/core.hpp>
 namespace map
 {
 class Shot;
 
 class SLAMLandmarkData{
 public:
-  cv::Mat descriptor_;
+  // cv::Mat descriptor_;
+  DescriptorType descriptor_;
   size_t num_observations_ = 0;
 
   Eigen::Vector3d mean_normal_ = Eigen::Vector3d::Zero();
@@ -30,8 +32,8 @@ private:
   // track counter
   size_t num_observable_ = 1;
   size_t num_observed_ = 1;
-
 };
+
 class Landmark {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -55,7 +57,6 @@ class Landmark {
   double ComputeDistanceFromRefFrame() const;
   Eigen::Vector3i GetColor() const { return color_; }
   void SetColor(const Eigen::Vector3i& color) { color_ = color; }
-  // void UpdateSLAMDataWithNewObservation();
   //Comparisons
   bool operator==(const Landmark& lm) const { return id_ == lm.id_; }
   bool operator!=(const Landmark& lm) const { return !(*this == lm); }
@@ -67,7 +68,6 @@ public:
   //We could set the const values to public, to avoid writing a getter.
   const LandmarkId id_;
   const std::string name_;
-  // std::unique_ptr<SLAMLandmarkData> slam_data_;
   SLAMLandmarkData slam_data_;
 private:
   Eigen::Vector3d global_pos_; // point in global
