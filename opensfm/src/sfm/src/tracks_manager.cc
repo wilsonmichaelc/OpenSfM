@@ -1,11 +1,11 @@
 #include <sfm/tracks_manager.h>
 
-#include <unordered_set>
 #include <sstream>
+#include <unordered_set>
 
 namespace {
 
-template< class S>
+template <class S>
 int GetTracksFileVersion(S& fstream) {
   const auto current_position = fstream.tellg();
 
@@ -14,7 +14,8 @@ int GetTracksFileVersion(S& fstream) {
 
   int version = 0;
   if (line.find(TracksManager::TRACKS_HEADER) == 0) {
-    version = std::atoi(line.substr(TracksManager::TRACKS_HEADER.length() + 2).c_str());
+    version = std::atoi(
+        line.substr(TracksManager::TRACKS_HEADER.length() + 2).c_str());
   } else {
     fstream.seekg(current_position);
   }
@@ -23,7 +24,8 @@ int GetTracksFileVersion(S& fstream) {
 
 template <class S>
 void WriteToStreamCurrentVersion(S& ostream, const TracksManager& manager) {
-  ostream << manager.TRACKS_HEADER << "_v" << manager.TRACKS_VERSION << std::endl;
+  ostream << manager.TRACKS_HEADER << "_v" << manager.TRACKS_VERSION
+          << std::endl;
   const auto shotsIDs = manager.GetShotIds();
   for (const auto& shotID : shotsIDs) {
     const auto observations = manager.GetShotObservations(shotID);
@@ -48,7 +50,7 @@ Observation InstanciateObservation(double x, double y, double scale, int id,
   return observation;
 }
 
-template< class S>
+template <class S>
 TracksManager InstanciateFromStreamV0(S& fstream) {
   ShotId image = "";
   TrackId trackID = "";
@@ -64,7 +66,7 @@ TracksManager InstanciateFromStreamV0(S& fstream) {
   return manager;
 }
 
-template< class S>
+template <class S>
 TracksManager InstanciateFromStreamV1(S& fstream) {
   ShotId image = "";
   TrackId trackID = "";
@@ -81,17 +83,17 @@ TracksManager InstanciateFromStreamV1(S& fstream) {
   return manager;
 }
 
-template< class S>
+template <class S>
 TracksManager InstanciateFromStreamT(S& fstream) {
   const auto version = GetTracksFileVersion(fstream);
-    switch (version) {
-      case 0:
-        return InstanciateFromStreamV0(fstream);
-      case 1:
-        return InstanciateFromStreamV1(fstream);
-      default:
-        throw std::runtime_error("Unknown tracks manager file version");
-    }
+  switch (version) {
+    case 0:
+      return InstanciateFromStreamV0(fstream);
+    case 1:
+      return InstanciateFromStreamV1(fstream);
+    default:
+      throw std::runtime_error("Unknown tracks manager file version");
+  }
 }
 
 }  // namespace
@@ -100,7 +102,7 @@ void TracksManager::AddObservation(const ShotId& shot_id,
                                    const TrackId& track_id,
                                    const Observation& observation) {
   tracks_per_shot_[shot_id][track_id] = observation;
-  shot_per_tracks_[track_id][shot_id] = observation;
+  shots_per_track_[track_id][shot_id] = observation;
 }
 
 void TracksManager::RemoveObservation(const ShotId& shot_id,
@@ -109,21 +111,17 @@ void TracksManager::RemoveObservation(const ShotId& shot_id,
   if (find_shot == tracks_per_shot_.end()) {
     throw std::runtime_error("Accessing invalid shot ID");
   }
-  const auto find_track = shot_per_tracks_.find(track_id);
-  if (find_track == shot_per_tracks_.end()) {
+  const auto find_track = shots_per_track_.find(track_id);
+  if (find_track == shots_per_track_.end()) {
     throw std::runtime_error("Accessing invalid track ID");
   }
   find_shot->second.erase(track_id);
   find_track->second.erase(shot_id);
 }
 
-int TracksManager::NumShots() const {
-  return tracks_per_shot_.size();
-}
+int TracksManager::NumShots() const { return tracks_per_shot_.size(); }
 
-int TracksManager::NumTracks() const {
-  return shot_per_tracks_.size();
-}
+int TracksManager::NumTracks() const { return shots_per_track_.size(); }
 
 std::vector<ShotId> TracksManager::GetShotIds() const {
   std::vector<ShotId> shots;
@@ -136,8 +134,8 @@ std::vector<ShotId> TracksManager::GetShotIds() const {
 
 std::vector<TrackId> TracksManager::GetTrackIds() const {
   std::vector<TrackId> tracks;
-  tracks.reserve(shot_per_tracks_.size());
-  for (const auto& it : shot_per_tracks_) {
+  tracks.reserve(shots_per_track_.size());
+  for (const auto& it : shots_per_track_) {
     tracks.push_back(it.first);
   }
   return tracks;
@@ -156,8 +154,8 @@ Observation TracksManager::GetObservation(const ShotId& shot,
   return find_track->second;
 }
 
-const std::unordered_map<TrackId, Observation>& TracksManager::GetShotObservations(
-    const ShotId& shot) const {
+const std::unordered_map<TrackId, Observation>&
+TracksManager::GetShotObservations(const ShotId& shot) const {
   const auto find_shot = tracks_per_shot_.find(shot);
   if (find_shot == tracks_per_shot_.end()) {
     throw std::runtime_error("Accessing invalid shot ID");
@@ -165,10 +163,10 @@ const std::unordered_map<TrackId, Observation>& TracksManager::GetShotObservatio
   return find_shot->second;
 }
 
-const std::unordered_map<ShotId, Observation>& TracksManager::GetTrackObservations(
-    const TrackId& track) const {
-  const auto find_track = shot_per_tracks_.find(track);
-  if (find_track == shot_per_tracks_.end()) {
+const std::unordered_map<ShotId, Observation>&
+TracksManager::GetTrackObservations(const TrackId& track) const {
+  const auto find_track = shots_per_track_.find(track);
+  if (find_track == shots_per_track_.end()) {
     throw std::runtime_error("Accessing invalid track ID");
   }
   return find_track->second;
@@ -184,8 +182,8 @@ TracksManager TracksManager::ConstructSubTracksManager(
 
   TracksManager subset;
   for (const auto& track_id : tracks) {
-    const auto find_track = shot_per_tracks_.find(track_id);
-    if (find_track == shot_per_tracks_.end()) {
+    const auto find_track = shots_per_track_.find(track_id);
+    if (find_track == shots_per_track_.end()) {
       continue;
     }
     for (const auto& obs : find_track->second) {
@@ -202,69 +200,65 @@ TracksManager TracksManager::ConstructSubTracksManager(
 std::vector<TracksManager::KeyPointTuple>
 TracksManager::GetAllCommonObservations(const ShotId& shot1,
                                         const ShotId& shot2) const {
-  auto findShot1 = tracks_per_shot_.find(shot1);
-  auto findShot2 = tracks_per_shot_.find(shot2);
-  if (findShot1 == tracks_per_shot_.end() ||
-      findShot2 == tracks_per_shot_.end()) {
+  auto find_shot1 = tracks_per_shot_.find(shot1);
+  auto find_shot2 = tracks_per_shot_.find(shot2);
+  if (find_shot1 == tracks_per_shot_.end() ||
+      find_shot2 == tracks_per_shot_.end()) {
     throw std::runtime_error("Accessing invalid shot ID");
   }
 
-  std::unordered_map<TrackId, std::vector<Observation>> per_track;
-  for (const auto& p : findShot1->second) {
-    per_track[p.first].push_back(p.second);
-  }
-  for (const auto& p : findShot2->second) {
-    per_track[p.first].push_back(p.second);
-  }
-
   std::vector<KeyPointTuple> tuples;
-  for (const auto& p : per_track) {
-    if (p.second.size() < 2) {
-      continue;
+  for (const auto& p : find_shot1->second) {
+    const auto find = find_shot2->second.find(p.first);
+    if (find != find_shot2->second.end()) {
+      tuples.emplace_back(p.first, p.second, find->second);
     }
-    tuples.push_back(std::make_tuple(p.first, p.second[0], p.second[1]));
   }
   return tuples;
 }
 
-std::unordered_map<TracksManager::ShotPair,
-                   std::vector<TracksManager::KeyPointTuple>, HashPair>
-TracksManager::GetAllCommonObservationsAllPairs(const std::vector<TrackId>& tracks) const {
-  std::unordered_map<ShotPair, std::vector<KeyPointTuple>, HashPair>
-      common_per_pair;
+std::unordered_map<TracksManager::ShotPair, int, HashPair>
+TracksManager::GetAllPairsConnectivity(
+    const std::vector<ShotId>& shots,
+    const std::vector<TrackId>& tracks) const {
+  std::unordered_map<ShotPair, int, HashPair> common_per_pair;
 
   std::vector<TrackId> tracks_to_use;
-  if(tracks.empty()){
-    for (const auto& track : shot_per_tracks_){
+  if (tracks.empty()) {
+    for (const auto& track : shots_per_track_) {
       tracks_to_use.push_back(track.first);
     }
-  }
-  else{
+  } else {
     tracks_to_use = tracks;
   }
 
+  std::unordered_set<ShotId> shots_to_use;
+  if (shots.empty()) {
+    for (const auto& shot : tracks_per_shot_) {
+      shots_to_use.insert(shot.first);
+    }
+  } else {
+    for (const auto& shot : shots) {
+      shots_to_use.insert(shot);
+    }
+  }
+
   for (const auto& track_id : tracks_to_use) {
-    const auto find_track = shot_per_tracks_.find(track_id);
-    if(find_track == shot_per_tracks_.end()){
+    const auto find_track = shots_per_track_.find(track_id);
+    if (find_track == shots_per_track_.end()) {
       continue;
     }
     const auto& track = find_track->second;
-    for (std::unordered_map<ShotId, Observation>::const_iterator it1 =
-             track.begin();
-         it1 != track.end(); ++it1) {
-      const auto& shotID1 = it1->first;
-      for (std::unordered_map<ShotId, Observation>::const_iterator it2 =
-               track.begin();
-           it2 != track.end(); ++it2) {
-        const auto& shotID2 = it2->first;
-        if (shotID1 == shotID2) {
-          continue;
+    for (const auto& it1 : track) {
+      const auto& shot_id1 = it1.first;
+      if (shots_to_use.find(shot_id1) != shots_to_use.end()) {
+        for (const auto& it2 : track) {
+          const auto& shot_id2 = it2.first;
+          if (shot_id1 < shot_id2 &&
+              shots_to_use.find(shot_id2) != shots_to_use.end()) {
+            ++common_per_pair[std::make_pair(shot_id1, shot_id2)];
+          }
         }
-        if (shotID1 > shotID2) {
-          continue;
-        }
-        common_per_pair[std::make_pair(shotID1, shotID2)].push_back(
-            std::make_tuple(track_id, it1->second, it2->second));
       }
     }
   }
@@ -280,7 +274,7 @@ TracksManager TracksManager::InstanciateFromFile(const std::string& filename) {
   }
 }
 
-void TracksManager::WriteToFile(const std::string& filename)const {
+void TracksManager::WriteToFile(const std::string& filename) const {
   std::ofstream ostream(filename);
   if (ostream.is_open()) {
     WriteToStreamCurrentVersion(ostream, *this);
@@ -294,7 +288,7 @@ TracksManager TracksManager::InstanciateFromString(const std::string& str) {
   return InstanciateFromStreamT(sstream);
 }
 
-std::string TracksManager::AsSring()const {
+std::string TracksManager::AsSring() const {
   std::stringstream sstream;
   WriteToStreamCurrentVersion(sstream, *this);
   return sstream.str();
