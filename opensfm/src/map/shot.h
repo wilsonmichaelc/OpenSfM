@@ -25,7 +25,15 @@ struct ShotMeasurements
 {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Eigen::Vector3d gps_;
-  double timestamp_;
+  double capture_time_;
+  //TODO:
+  //compass
+  //accelerometer
+  double gps_dop_;
+  std::array<double, 3> gps_position_;
+  int orientation_;
+  std::string skey;
+  
 };
 
 class Shot {
@@ -128,7 +136,7 @@ private:
   AlignedVector<Observation> keypoints_;
   // cv::Mat descriptors_;
 
-  ShotMeasurements shot_measurements_;
+  ShotMeasurements shot_measurements_; //metadata
 
 // public:
   DescriptorMatrix descriptors_;

@@ -44,7 +44,7 @@ public:
     const auto& it = shots_.find(shot_id);
     return (it != shots_.end() ? it->second.get() : nullptr);
   }
-  
+
   // Landmark
   Landmark* CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
   void UpdateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos);
@@ -91,6 +91,7 @@ private:
 
   size_t unique_shot_id_ = 0;
   size_t unique_landmark_id_ = 0;
+  // TopoCentricConverter
 };
 
 } // namespace map

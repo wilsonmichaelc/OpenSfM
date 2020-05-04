@@ -759,6 +759,80 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
     report['memory_usage'] = current_memory_usage()
     return reconstruction, graph_inliers, report
 
+def bootstrap_reconstruction2(data, tracks_manager, camera_priors, im1, im2, p1, p2):
+    """Start a reconstruction using two shots."""
+    logger.info("Starting reconstruction with {} and {}".format(im1, im2))
+    report = {
+        'image_pair': (im1, im2),
+        'common_tracks': len(p1),
+    }
+
+    camera_id1 = data.load_exif(im1)['camera']
+    camera_id2 = data.load_exif(im2)['camera']
+    camera1 = camera_priors[camera_id1]
+    camera2 = camera_priors[camera_id2]
+
+    threshold = data.config['five_point_algo_threshold']
+    min_inliers = data.config['five_point_algo_min_inliers']
+    iterations = data.config['five_point_refine_rec_iterations']
+    R, t, inliers, report['two_view_reconstruction'] = \
+        two_view_reconstruction_general(
+            p1, p2, camera1, camera2, threshold, iterations)
+
+    logger.info("Two-view reconstruction inliers: {} / {}".format(
+        len(inliers), len(p1)))
+
+    if len(inliers) <= 5:
+        report['decision'] = "Could not find initial motion"
+        logger.info(report['decision'])
+        return None, None, report
+
+    
+    reconstruction = types.Reconstruction()
+    reconstruction.reference = data.load_reference()
+    reconstruction.cameras = copy.deepcopy(camera_priors)
+
+    shot1 = types.Shot()
+    shot1.id = im1
+    shot1.camera = reconstruction.cameras[camera_id1]
+    shot1.pose = types.Pose()
+    shot1.metadata = get_image_metadata(data, im1)
+    reconstruction.add_shot(shot1)
+
+    shot2 = types.Shot()
+    shot2.id = im2
+    shot2.camera = reconstruction.cameras[camera_id2]
+    shot2.pose = types.Pose(R, t)
+    shot2.metadata = get_image_metadata(data, im2)
+    reconstruction.add_shot(shot2)
+
+    graph_inliers = nx.Graph()
+    triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, im1, data.config)
+
+    logger.info("Triangulated: {}".format(len(reconstruction.points)))
+    report['triangulated_points'] = len(reconstruction.points)
+
+    if len(reconstruction.points) < min_inliers:
+        report['decision'] = "Initial motion did not generate enough points"
+        logger.info(report['decision'])
+        return None, None, report
+
+    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
+                       data.config)
+    retriangulate(tracks_manager, graph_inliers, reconstruction, data.config)
+
+    if len(reconstruction.points) < min_inliers:
+        report['decision'] = "Re-triangulation after initial motion did not generate enough points"
+        logger.info(report['decision'])
+        return None, None, report
+    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
+                       data.config)
+
+    report['decision'] = 'Success'
+    report['memory_usage'] = current_memory_usage()
+    return reconstruction, graph_inliers, report
+
+
 
 def reconstructed_points_for_images(tracks_manager, reconstruction, images):
     """Number of reconstructed points visible on each image.
