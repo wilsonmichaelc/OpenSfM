@@ -84,17 +84,21 @@ class SlamInitializer(object):
         # reconstruction_init, graph_inliers, rec_report['bootstrap'] = \
         #     reconstruction.bootstrap_reconstruction(self.data, tracks_graph, self.data.load_camera_models(),
         #                                             im1, im2, norm_p1, norm_p2)
-        reconstruction_init2, graph_inliers2, rec_report['bootstrap'] = \
+        success, rec_report['bootstrap'] = \
             reconstruction_map.bootstrap_reconstruction(self.data, tracks_graph, self.map, self.data.load_camera_models(),
                                                     im1, im2, norm_p1, norm_p2)
-        exit(0)
+        # exit(0)
         chrono.lap("boot rec")
         print("Init timings: ", chrono.lap_times())
-        if reconstruction_init is not None:
+        if success:
             print("Created init rec from {}<->{} with {} points from {} matches"
-                  .format(im1, im2, len(reconstruction_init.points), len(matches)))
+                  .format(im1, im2, self.map.number_of_landmarks(), len(matches)))
+        return success, matches
+        # if reconstruction_init is not None:
+            # print("Created init rec from {}<->{} with {} points from {} matches"
+                #   .format(im1, im2, len(reconstruction_init.points), len(matches)))
         # slam_debug.visualize_graph(graph_inliers, self.init_shot.name, curr_shot.name, self.data, do_show=True)
-        return reconstruction_init, graph_inliers, matches
+        # return reconstruction_init, graph_inliers, matches
 
     def initialize_openvslam_old(self, curr_shot):
         """Initialize similar to ORB-SLAM and Openvslam"""

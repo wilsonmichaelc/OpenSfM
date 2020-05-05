@@ -138,6 +138,86 @@ public:
     return SlamUtilities::ComputeLocalKeyframes(shot);
   }
 
+
+  static auto
+  BundleSingleView(const map::Shot& shot)
+  {
+    BundleAdjuster ba;
+    //Create the camera
+    BABrownPerspectiveCamera ba_cam;
+    const auto& cam = shot.shot_camera_.camera_model_;
+    constexpr auto cam_name = "cam1";
+    const map::BrownPerspectiveCamera* const b_cam = dynamic_cast<const map::BrownPerspectiveCamera*>(&cam);
+    ba_cam.id = cam_name;
+    ba_cam.SetFocalX(b_cam->fx);
+    ba_cam.SetFocalY(b_cam->fy);
+    ba_cam.SetCX(b_cam->cx);
+    ba_cam.SetCY(b_cam->cy);
+    ba_cam.SetK1(b_cam->k1);
+    ba_cam.SetK2(b_cam->k2);
+    ba_cam.SetP1(b_cam->p1);
+    ba_cam.SetP2(b_cam->p2);
+    ba_cam.SetK3(b_cam->k3);
+    //Priors are the same as the others
+    ba_cam.focal_x_prior = b_cam->fx;
+    ba_cam.focal_y_prior = b_cam->fy;
+    ba_cam.c_x_prior = b_cam->cx;
+    ba_cam.c_y_prior = b_cam->cy;
+    ba_cam.k1_prior = b_cam->k1;
+    ba_cam.k2_prior = b_cam->k2;
+    ba_cam.p1_prior = b_cam->p1;
+    ba_cam.p2_prior = b_cam->p2;
+    ba_cam.k3_prior = b_cam->k3;
+    ba.AddBrownPerspectiveCamera(ba_cam);
+    // add the single shot
+    constexpr auto shot_name = "shot1";
+    constexpr auto set_cam_const{false};
+    const auto& shot_pose = shot.GetPose();
+    ba.AddShot(shot_name, cam_name,
+               shot_pose.RotationWorldToCameraMin(),
+               shot_pose.TranslationWorldToCamera(),
+               set_cam_const);
+    // add the gps
+    // TODO: make configurable
+    const auto& gps_pos = shot.shot_measurements_.gps_position_;
+    ba.AddPositionPrior(shot_name, gps_pos[0], gps_pos[1], gps_pos[2],
+                        shot.shot_measurements_.gps_dop_);
+                        
+    size_t n_points{0};
+    const auto& kpts = shot.GetKeyPoints();
+    const auto& landmarks = shot.GetLandmarks(); 
+    const auto n_landmarks = landmarks.size();
+    constexpr auto set_3D_points_const{true};
+    for (size_t idx = 0; idx < n_landmarks; ++idx)
+    {
+      const auto& lm = landmarks[idx];
+      if (lm != nullptr)
+      {
+        const auto pt_id = std::to_string(n_points);
+        ba.AddPoint(pt_id, lm->GetGlobalPos(), set_3D_points_const);
+        const auto& kpt = kpts[idx];
+        const Eigen::Vector3d norm_pt_scale = cam.NormalizePointAndScale(kpt.point, kpt.size);
+        ba.AddPointProjectionObservation(shot_name, pt_id, 
+                                         norm_pt_scale[0],
+                                         norm_pt_scale[1],
+                                         norm_pt_scale[2]);
+        ++n_points;
+      }
+    }
+    // TODO: BA settings!
+    ba.SetPointProjectionLossFunction("SoftLOneLoss", 1);
+    ba.SetInternalParametersPriorSD(0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01);
+    ba.SetNumThreads(1);
+    ba.SetMaxNumIterations(10);
+    ba.SetLinearSolverType("DENSE_QR");
+    ba.Run();
+    // std::cout << "new bundle: " << ba.FullReport() << std::endl;
+    const auto& opt_shot = ba.GetShot(shot_name);
+    map::Pose opt_pose;
+    opt_pose.SetFromWorldToCamera(opt_shot.GetRotation(), opt_shot.GetTranslation());
+    return opt_pose;
+  }
+
   static auto
   SetUpBAProblem(const map::Shot& shot)
   {

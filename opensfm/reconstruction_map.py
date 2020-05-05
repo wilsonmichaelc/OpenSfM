@@ -28,7 +28,8 @@ from opensfm.align import align_reconstruction, apply_similarity
 from opensfm.context import parallel_map, current_memory_usage
 
 from opensfm import pymap
-
+from opensfm import pyslam
+import slam_debug
 logger = logging.getLogger(__name__)
 
 
@@ -294,9 +295,9 @@ def bundle_single_view(reconstruction: pymap.Map, shot_id, camera, camera_priors
     ba.set_max_num_iterations(10)
     ba.set_linear_solver_type("DENSE_QR")
     ba.run()
-    print(ba.full_report())
-    logger.debug(ba.brief_report())
-
+    # print(ba.full_report())
+    # logger.debug(ba.brief_report())
+    # TODO: uncomment
     s = ba.get_shot(shot_id)
     new_pose = pymap.Pose()
     new_pose.set_from_world_to_cam(s.r, s.t)
@@ -724,7 +725,7 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
     shot2_pose.set_from_world_to_cam(R, t)
     shot2.set_pose(shot2_pose)
 
-    graph_inliers = nx.Graph()
+    # graph_inliers = nx.Graph()
     triangulate_shot_features(
         tracks_manager, reconstruction, im1, data.config, camera1)
 
@@ -735,23 +736,38 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
     if reconstruction.number_of_landmarks() < min_inliers:
         report['decision'] = "Initial motion did not generate enough points"
         logger.info(report['decision'])
-        return None, None, report
-
-    bundle_single_view(reconstruction, im2, camera1,
-                       camera_priors, data.config)
+        return False, report
+        # return None, None, report
+    chrono = slam_debug.Chronometer()
+    new_pose = pyslam.SlamUtilities.bundle_single_view(shot2)
+    shot2.set_pose(new_pose)
+    chrono.lap('new_bundle')
+    # bundle_single_view(reconstruction, im2, camera1,
+    #                    camera_priors, data.config)
+    # chrono.lap('old_bundle')
+    print("timings: ", chrono.lap_times())
+    # print("new_pose: ", new_pose, " old: ", shot2.get_pose().get_world_to_cam())
+    # exit(0)
     retriangulate(tracks_manager, reconstruction, data.config, camera1)
     logger.info("Retriangulated: {}".format(
         reconstruction.number_of_landmarks()))
     if reconstruction.number_of_landmarks() < min_inliers:
         report['decision'] = "Re-triangulation after initial motion did not generate enough points"
         logger.info(report['decision'])
-        return None, None, report
-    bundle_single_view(reconstruction, im2, camera1,
-                       camera_priors, data.config)
-
+        return False, report
+        # return None, None, report
+    chrono.start()
+    new_pose = pyslam.SlamUtilities.bundle_single_view(shot2)
+    shot2.set_pose(new_pose)
+    chrono.lap('new_bundle_2')
+    # bundle_single_view(reconstruction, im2, camera1,
+    #                    camera_priors, data.config)
+    # chrono.lap('old_bundle')
+    print("timings: ", chrono.lap_times())
+    # print("new_pose: ", new_pose.get_world_to_cam(), " old: ", shot2.get_pose().get_world_to_cam())
     report['decision'] = 'Success'
     report['memory_usage'] = current_memory_usage()
-    return reconstruction, graph_inliers, report
+    return True, report
 
 
 def reconstructed_points_for_images(tracks_manager, reconstruction, images):

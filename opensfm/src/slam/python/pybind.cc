@@ -54,6 +54,7 @@ PYBIND11_MODULE(pyslam, m) {
     .def("fuse_duplicated_landmarks", &slam::PySlamUtilities::FuseDuplicatedLandmarks)
     .def("compute_local_keyframes", &slam::PySlamUtilities::ComputeLocalKeyframes, py::return_value_policy::reference_internal)
     .def("bundle_tracking", &slam::PySlamUtilities::SetUpBAProblem)
+    .def("bundle_single_view", &slam::PySlamUtilities::BundleSingleView)
     // .def("get_descriptors", &slam::PySlamUtilities::GetDescriptors)
     // .def("get_keypts_test", &slam::PySlamUtilities::GetKeyptsFromShotTest)
   ;

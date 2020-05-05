@@ -270,13 +270,11 @@ def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
         ba.add_point(track_id, track.coordinates, True)
         point = graph[shot_id][track_id]['feature']
         scale = graph[shot_id][track_id]['feature_scale']
-        print("add", str(shot_id), track_id, point, scale)
         ba.add_point_projection_observation(
             shot_id, track_id, point[0], point[1], scale)
 
     if config['bundle_use_gps']:
         g = shot.metadata.gps_position
-        print("g: ", g, " gps_dop: ", shot.metadata.gps_dop)
         ba.add_position_prior(shot.id, g[0], g[1], g[2],
                               shot.metadata.gps_dop)
 

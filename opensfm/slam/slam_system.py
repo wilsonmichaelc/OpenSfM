@@ -103,7 +103,10 @@ class SlamSystem(object):
         """Find the initial depth estimates for the slam map"""
         print("init_slam_system: ", curr_shot.name)
         if (not self.system_initialized):
-            rec_init, graph, matches = self.slam_init.initialize(curr_shot)
+            # rec_init, graph, matches = self.slam_init.initialize(curr_shot)
+            success, matches = self.slam_init.initialize(curr_shot)
+            print("CONTINUE FROM HERE! -> most of create init map shouldn't be necessary!")
+            exit(0)
             self.system_initialized = (rec_init is not None)
             if self.system_initialized:
                 self.slam_mapper.create_init_map(graph, rec_init,
