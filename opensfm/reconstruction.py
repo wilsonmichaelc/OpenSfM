@@ -270,11 +270,13 @@ def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
         ba.add_point(track_id, track.coordinates, True)
         point = graph[shot_id][track_id]['feature']
         scale = graph[shot_id][track_id]['feature_scale']
+        print("add", str(shot_id), track_id, point, scale)
         ba.add_point_projection_observation(
             shot_id, track_id, point[0], point[1], scale)
 
     if config['bundle_use_gps']:
         g = shot.metadata.gps_position
+        print("g: ", g, " gps_dop: ", shot.metadata.gps_dop)
         ba.add_position_prior(shot.id, g[0], g[1], g[2],
                               shot.metadata.gps_dop)
 
@@ -750,7 +752,8 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
     bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
                        data.config)
     retriangulate(tracks_manager, graph_inliers, reconstruction, data.config)
-
+    logger.info("Retriangulated: {}".format(
+        len(reconstruction.points)))
     if len(reconstruction.points) < min_inliers:
         report['decision'] = "Re-triangulation after initial motion did not generate enough points"
         logger.info(report['decision'])
@@ -969,7 +972,7 @@ class TrackTriangulator:
     def triangulate(self, track, reproj_threshold, min_ray_angle_degrees):
         """Triangulate track and add point to reconstruction."""
         os, bs, ids = [], [], []
-        
+
         for shot_id, obs in self.tracks_manager.get_track_observations(track).items():
             if shot_id in self.reconstruction.shots:
                 shot = self.reconstruction.shots[shot_id]
@@ -977,10 +980,6 @@ class TrackTriangulator:
                 b = shot.camera.pixel_bearing(np.array(obs.point))
                 r = self._shot_rotation_inverse(shot)
                 bs.append(r.dot(b))
-                if shot_id not in self.print_shots:
-                    print("orig shot_id {} with r_inv: {}, origin {}, bearing: {} ".format(shot_id, r, os[-1], bs[-1]))
-                    self.print_shots[shot_id] = True
-                print(len(self.reconstruction.points), ": bearing: ", b)
                 ids.append(shot_id)
 
         if len(os) >= 2:

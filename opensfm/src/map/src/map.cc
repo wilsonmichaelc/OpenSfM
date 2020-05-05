@@ -36,6 +36,23 @@ Map::GetShot(const std::string& shot_name) //const
   return (it != shot_names_.end() ? GetShot(it->second) : nullptr);
 }
 
+void
+Map::ClearObservationsAndLandmarks()
+{
+  // first JUST delete the observations of a landmark
+  for (auto& id_lm : landmarks_)
+  {
+    auto& observations = id_lm.second->GetObservations();
+    for (const auto& obs : observations)
+    {
+      obs.first->RemoveLandmarkObservation(obs.second);
+    }
+    id_lm.second->ClearObservations();
+  }
+  // then clear the landmarks_
+  landmarks_.clear();
+}
+
 /**
  * Creates a shot and returns a pointer to it
  * 
@@ -145,6 +162,7 @@ Map::RemoveLandmark(const Landmark* const lm)
 {
   if (lm != nullptr)
   {
+    std::cout << "Remove observations " << lm->id_ << std::endl;
     //2) Remove all its observation
     const auto& observations = lm->GetObservations();
     for (const auto& obs : observations)
@@ -153,10 +171,11 @@ Map::RemoveLandmark(const Landmark* const lm)
       const auto feat_id = obs.second;
       shot->RemoveLandmarkObservation(feat_id);
     }
-
-        //3) Remove from landmark_names_
+    std::cout << "Remove lm names " << lm->id_ << std::endl;
+    //3) Remove from landmark_names_
     landmark_names_.erase(lm->name_);
 
+    std::cout << "Remove lm " << lm->id_ << std::endl;
     //4) Remove from landmarks
     landmarks_.erase(lm->id_);
   }

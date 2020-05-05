@@ -95,6 +95,8 @@ public:
 
   Camera* CreateCameraModel(const std::string& cam_name, const Camera& cam);
   bool HasShot(const ShotId shot_id) const { return shots_.find(shot_id) != shots_.end(); }
+
+  void ClearObservationsAndLandmarks();
 private:
   std::unordered_map<CameraId, std::unique_ptr<ShotCamera>> cameras_;
   std::unordered_map<ShotId, std::unique_ptr<Shot>> shots_;

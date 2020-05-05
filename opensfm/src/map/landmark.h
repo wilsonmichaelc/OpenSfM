@@ -52,6 +52,7 @@ class Landmark {
   {
     return observations_; 
   }
+  void ClearObservations() { observations_.clear(); }
   void SetRefShot(Shot* ref_shot) {ref_shot_ = ref_shot;}
   Shot* GetRefShot() { return ref_shot_; }
   double ComputeDistanceFromRefFrame() const;

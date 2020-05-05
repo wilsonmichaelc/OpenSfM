@@ -29,8 +29,8 @@ struct ShotMeasurements
   //TODO:
   //compass
   // accelerometer
-  double gps_dop_;
-  std::array<double, 3> gps_position_;
+  double gps_dop_{0};
+  std::array<double, 3> gps_position_{0};
   int orientation_;
   std::string skey;
   
@@ -125,6 +125,7 @@ public:
   const ShotId id_;
   const std::string name_;
   const ShotCamera& shot_camera_;
+  ShotMeasurements shot_measurements_; //metadata
 
 private:
   Pose pose_;
@@ -133,7 +134,6 @@ private:
   AlignedVector<Observation> keypoints_;
   // cv::Mat descriptors_;
 
-  ShotMeasurements shot_measurements_; //metadata
 
 // public:
   DescriptorMatrix descriptors_;

@@ -1,6 +1,7 @@
 from opensfm import pyslam
 from opensfm import pymap
 from opensfm import dataset
+from opensfm import reconstruction
 from slam_initializer import SlamInitializer
 import numpy as np
 import slam_config
@@ -71,9 +72,11 @@ class SlamSystem(object):
         shot_id = self.map.next_unique_shot_id()
         curr_shot: pymap.Shot = self.map.create_shot(
             shot_id, self.shot_cam, im_name)
-        print("Created shot: ", curr_shot.name, curr_shot.id)
+
+        metadata = reconstruction.get_image_metadata(self.data, im_name)
+        curr_shot.shot_measurement.gps_dop = metadata.gps_dop
+        curr_shot.shot_measurement.gps_pos = metadata.gps_position
         self.extractor.extract_to_shot(curr_shot, gray_scale_img, np.array([]))
-        print("Extracted: ", curr_shot.number_of_keypoints())
         curr_shot.undistort_keypts()
         curr_shot.undistorted_keypts_to_bearings()
         self.matcher.distribute_undist_keypts_to_grid(curr_shot)

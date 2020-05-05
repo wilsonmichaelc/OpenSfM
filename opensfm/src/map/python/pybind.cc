@@ -105,7 +105,9 @@ PYBIND11_MODULE(pymap, m) {
       .def("set_reference", &map::Map::SetTopoCentricConverter)
       .def("create_cam_model", &map::Map::CreateCameraModel,
            py::return_value_policy::reference_internal)
-      .def("has_landmark", &map::Map::HasLandmark);
+      .def("has_landmark", &map::Map::HasLandmark)
+      .def("clear_observations_and_landmarks", &map::Map::ClearObservationsAndLandmarks)
+    ;
 
   py::class_<map::Shot>(m, "Shot")
       .def(py::init<const map::ShotId, const map::ShotCamera&, const map::Pose&,
@@ -149,7 +151,9 @@ PYBIND11_MODULE(pymap, m) {
       .def("get_world_to_camera", &map::Shot::GetWorldToCam)
       // TODO: Move completely away from opencv
       .def("get_obs_by_idx", &map::Shot::GetKeyPointEigen)
-      .def("get_camera_name", &map::Shot::GetCameraName);
+      .def("get_camera_name", &map::Shot::GetCameraName)
+      .def_readwrite("shot_measurement", &map::Shot::shot_measurements_)
+  ;
 
   // py::class_<map::ShotCamera>(m, "ShotCamera")
   //     .def(py::init<const map::Camera&, const map::CameraId,
@@ -163,9 +167,11 @@ PYBIND11_MODULE(pymap, m) {
 
   py::class_<map::SLAMLandmarkData>(m, "SlamLandmarkData")
       .def("get_observed_ratio", &map::SLAMLandmarkData::GetObservedRatio)
-      // .def_readonly("")
-      ;
-
+  ;
+  py::class_<map::ShotMeasurements>(m, "ShotMeasurements")
+      .def_readwrite("gps_dop", &map::ShotMeasurements::gps_dop_)
+      .def_readwrite("gps_pos", &map::ShotMeasurements::gps_position_)
+  ;
   py::class_<map::Landmark>(m, "Landmark")
       .def(py::init<const map::LandmarkId&, const Eigen::Vector3d&,
                     const std::string&>())
@@ -183,7 +189,8 @@ PYBIND11_MODULE(pymap, m) {
       .def("number_of_observations", &map::Landmark::NumberOfObservations)
       .def("get_ref_shot", &map::Landmark::GetRefShot,
            py::return_value_policy::reference_internal)
-      .def("set_ref_shot", &map::Landmark::SetRefShot);
+      .def("set_ref_shot", &map::Landmark::SetRefShot)
+  ;
 
   py::class_<map::ShotCamera>(m, "ShotCamera")
       .def(py::init<const map::Camera&, const map::CameraId,
