@@ -22,6 +22,19 @@ Map::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId fe
   lm->RemoveObservation(shot);
 }
 
+Shot* 
+Map::GetShot(const ShotId shot_id) //const 
+{ 
+  const auto& it = shots_.find(shot_id);
+  return (it != shots_.end() ? it->second.get() : nullptr);
+}
+
+Shot* 
+Map::GetShot(const std::string& shot_name) //const 
+{
+  const auto it = shot_names_.find(shot_name);
+  return (it != shot_names_.end() ? GetShot(it->second) : nullptr);
+}
 
 /**
  * Creates a shot and returns a pointer to it
@@ -55,6 +68,13 @@ Shot*
 Map::CreateShot(const ShotId shot_id, const CameraId camera_id, const std::string& name, const Pose& pose)
 {
   return CreateShot(shot_id, *cameras_.at(camera_id), name, pose);
+}
+
+Shot*
+Map::CreateShot(const ShotId shot_id, const std::string& camera_id, const std::string& name, const Pose& pose)
+{
+  // camera_names_.at(camera_id)
+  return CreateShot(shot_id, *cameras_.at(camera_names_.at(camera_id)), name, pose);
 }
 
 void
@@ -298,6 +318,13 @@ Map::RemoveShotCamera(const CameraId cam_id)
   {
     cameras_.erase(cam_it);
   }
+}
+
+Camera*
+Map::CreateCameraModel(const std::string& cam_name, const Camera& cam)
+{
+  auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<Camera>(cam)));
+  return it.first->second.get();
 }
 
 };

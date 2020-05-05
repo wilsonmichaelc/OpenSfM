@@ -7,6 +7,7 @@
 
 #include <map/defines.h>
 #include <map/pose.h>
+#include <map/geo.h>
 namespace map
 {
 class Shot;
@@ -31,19 +32,23 @@ public:
   // Create, Update and Remove
   // Camera
   ShotCamera* CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name = "");
+  // ShotCamera* CreateShotCamera(const CameraId cam_id, const std::string& camera_name, const std::string& name = "");
   void UpdateShotCamera(const CameraId cam_id, const Camera& camera);
   void RemoveShotCamera(const CameraId cam_id);
 
   // Shots
   Shot* CreateShot(const ShotId shot_id, const CameraId camera_id, const std::string& name = "", const Pose& pose = Pose());
   Shot* CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const std::string& name = "", const Pose& pose = Pose());
+  Shot* CreateShot(const ShotId shot_id, const std::string& camera_id, const std::string& name, const Pose& pose = Pose());
+
   void UpdateShotPose(const ShotId shot_id, const Pose& pose);
   void RemoveShot(const ShotId shot_id);
   auto GetNextUniqueShotId() const { return unique_shot_id_; }
-  Shot* GetShot(const ShotId shot_id) const { 
-    const auto& it = shots_.find(shot_id);
-    return (it != shots_.end() ? it->second.get() : nullptr);
-  }
+
+  Shot* GetShot(const ShotId shot_id);
+  
+  Shot* GetShot(const std::string& shot_name);
+
 
   // Landmark
   Landmark* CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
@@ -61,7 +66,7 @@ public:
   const auto& GetAllShots() const { return shots_; }
   const auto& GetAllCameras() const { return cameras_; };
   const auto& GetAllLandmarks() const { return landmarks_; };
-
+  const auto HasLandmark(const FeatureId lm_id) const { return landmarks_.find(lm_id) != landmarks_.end(); }
   const auto GetAllShotPointers() const
   {
     std::unordered_map<ShotId, Shot*> copy;
@@ -81,6 +86,15 @@ public:
     return copy;
   }
 
+  void SetTopoCentricConverter(const double lat, const double longitude, const double alt)
+  {
+    topo_conv_.lat_ = lat;
+    topo_conv_.long_ = longitude;
+    topo_conv_.alt_ = alt;
+  }
+
+  Camera* CreateCameraModel(const std::string& cam_name, const Camera& cam);
+  bool HasShot(const ShotId shot_id) const { return shots_.find(shot_id) != shots_.end(); }
 private:
   std::unordered_map<CameraId, std::unique_ptr<ShotCamera>> cameras_;
   std::unordered_map<ShotId, std::unique_ptr<Shot>> shots_;
@@ -88,10 +102,11 @@ private:
   std::unordered_map<std::string, ShotId> shot_names_;
   std::unordered_map< std::string, LandmarkId> landmark_names_;
   std::unordered_map<std::string, CameraId> camera_names_;
+  std::unordered_map<std::string, std::unique_ptr<Camera>> camera_models_;
 
   size_t unique_shot_id_ = 0;
   size_t unique_landmark_id_ = 0;
-  // TopoCentricConverter
+  TopoCentricConverter topo_conv_;
 };
 
 } // namespace map

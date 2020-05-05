@@ -7,9 +7,10 @@ from opensfm import pymap
 from opensfm import features
 from opensfm import reconstruction
 from opensfm import pysfm
+from opensfm import reconstruction_map
 class SlamInitializer(object):
 
-    def __init__(self, data, camera, matcher):
+    def __init__(self, data, camera, matcher, reconstruction):
         print("initializer")
         self.init_shot = None
         self.prev_pts = None
@@ -17,6 +18,7 @@ class SlamInitializer(object):
         self.camera = camera
         self.matcher = matcher
         self.system_initialized = False
+        self.map = reconstruction
 
     def initialize(self, curr_shot):
         if self.init_shot is None: # and self.system_initialized is False:
@@ -79,9 +81,13 @@ class SlamInitializer(object):
             tracks_graph.add_observation(im2, str(track_id), obs2)
         chrono.lap("track graph")
         rec_report = {}
-        reconstruction_init, graph_inliers, rec_report['bootstrap'] = \
-            reconstruction.bootstrap_reconstruction(self.data, tracks_graph, self.data.load_camera_models(),
+        # reconstruction_init, graph_inliers, rec_report['bootstrap'] = \
+        #     reconstruction.bootstrap_reconstruction(self.data, tracks_graph, self.data.load_camera_models(),
+        #                                             im1, im2, norm_p1, norm_p2)
+        reconstruction_init2, graph_inliers2, rec_report['bootstrap'] = \
+            reconstruction_map.bootstrap_reconstruction(self.data, tracks_graph, self.map, self.data.load_camera_models(),
                                                     im1, im2, norm_p1, norm_p2)
+        exit(0)
         chrono.lap("boot rec")
         print("Init timings: ", chrono.lap_times())
         if reconstruction_init is not None:

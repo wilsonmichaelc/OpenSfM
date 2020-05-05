@@ -23,6 +23,7 @@ from opensfm import tracking
 from opensfm import multiview
 from opensfm import types
 from opensfm import pysfm
+from opensfm import features
 from opensfm.align import align_reconstruction, apply_similarity
 from opensfm.context import parallel_map, current_memory_usage
 
@@ -252,28 +253,29 @@ def bundle(graph, reconstruction, camera_priors, gcp, config):
     return report
 
 
-def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
+def bundle_single_view(reconstruction: pymap.Map, shot_id, camera, camera_priors, config):
     """Bundle adjust a single camera."""
     ba = pybundle.BundleAdjuster()
-    shot = reconstruction.shots[shot_id]
-    camera = shot.camera
+    shot: pymap.Shot = reconstruction.get_shot(shot_id)
+    #camera = shot.get_camera_name()
+    # TODO: Get camera from shot
+    # For now assume that there is one camera for everything
     camera_prior = camera_priors[camera.id]
 
     _add_camera_to_bundle(ba, camera, camera_prior, constant=True)
+    shot_pose: pymap.Pose = shot.get_pose()
+    ba.add_shot(str(shot.id), camera.id, shot_pose.get_R_world_to_cam_min(),
+                shot_pose.get_t_world_to_cam(), False)
+    lms_indices = shot.get_valid_landmarks_and_indices()
 
-    r = shot.pose.rotation
-    t = shot.pose.translation
-    ba.add_shot(shot.id, camera.id, r, t, False)
+    for lm, idx in lms_indices:
+        ba.add_point(str(lm.id), lm.get_global_pos(), True)
+        obs = shot.get_obs_by_idx(idx)
+        obs,_,_ = features.normalize_features(np.reshape(obs,[1,3]), None, None, camera.width, camera.height)
+        ba.add_point_projection_observation(shot_id, str(idx), obs[0,0], obs[0,1], obs[0,2])
 
-    for track_id in graph[shot_id]:
-        track = reconstruction.points[track_id]
-        ba.add_point(track_id, track.coordinates, True)
-        point = graph[shot_id][track_id]['feature']
-        scale = graph[shot_id][track_id]['feature_scale']
-        ba.add_point_projection_observation(
-            shot_id, track_id, point[0], point[1], scale)
-
-    if config['bundle_use_gps']:
+    # TODO: Make this work
+    if config['bundle_use_gps'] and False:
         g = shot.metadata.gps_position
         ba.add_position_prior(shot.id, g[0], g[1], g[2],
                               shot.metadata.gps_dop)
@@ -688,7 +690,7 @@ def two_view_reconstruction_general(p1, p2, camera1, camera2,
         return R_plane, t_plane, inliers_plane, report
 
 
-def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, p2):
+def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors, im1, im2, p1, p2):
     """Start a reconstruction using two shots."""
     logger.info("Starting reconstruction with {} and {}".format(im1, im2))
     report = {
@@ -716,51 +718,55 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
         logger.info(report['decision'])
         return None, None, report
     print("R,t: ", R, t)
+    # Add the cameras
+    # for shot_cam_id, (cam_id, cam) in enumerate(camera_priors.items()):
+    #     # TODO: other camera model
+    #     c = cam
+    #     brown_cam = pymap.BrownPerspectiveCamera(
+    #         c.width, c.height, c.projection_type,
+    #         c.focal_x, c.focal_y, c.c_x, c.c_y, c.k1, c.k2, c.p1, c.p2, c.k3
+    #     )
+    #     cam_model = reconstruction.create_cam_model(cam_id, brown_cam)
+    #     reconstruction.create_shot_camera(shot_cam_id, cam_model, cam_id)
+        # create shot cameras from that
 
-    reconstruction = types.Reconstruction()
-    reconstruction.reference = data.load_reference()
-    reconstruction.cameras = copy.deepcopy(camera_priors)
+    # shot1_id = reconstruction.next_unique_shot_id()
+    # shot1 = reconstruction.create_shot(shot1_id, camera_id1, im1)
+    # TODO: shot1.metadata = get_image_metadata(data, im1)
 
-    shot1 = types.Shot()
-    shot1.id = im1
-    shot1.camera = reconstruction.cameras[camera_id1]
-    shot1.pose = types.Pose()
-    shot1.metadata = get_image_metadata(data, im1)
-    reconstruction.add_shot(shot1)
-
-    shot2 = types.Shot()
-    shot2.id = im2
-    shot2.camera = reconstruction.cameras[camera_id2]
-    shot2.pose = types.Pose(R, t)
-    print("shot2.pose.get_Rt(): ", shot2.pose.get_Rt())
-    shot2.metadata = get_image_metadata(data, im2)
-    reconstruction.add_shot(shot2)
+    shot2 = reconstruction.get_shot(im2)
+    shot2_pose = pymap.Pose()
+    shot2_pose.set_from_world_to_cam(R, t)
+    shot2.set_pose(shot2_pose)
+    # shot2_id = reconstruction.next_unique_shot_id()
+    # shot2 = reconstruction.create_shot(shot2_id, camera_id2, im2)
+    #metadata?
+    # TODO: shot2.metadata = get_image_metadata(data, im2)
 
     graph_inliers = nx.Graph()
-    triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, im1, data.config)
+    triangulate_shot_features(tracks_manager, reconstruction, im1, data.config, camera1)
 
-    logger.info("Triangulated: {}".format(len(reconstruction.points)))
-    report['triangulated_points'] = len(reconstruction.points)
+    logger.info("Triangulated: {}".format(reconstruction.number_of_landmarks()))
+    report['triangulated_points'] = reconstruction.number_of_landmarks()
 
-    if len(reconstruction.points) < min_inliers:
+    if reconstruction.number_of_landmarks() < min_inliers:
         report['decision'] = "Initial motion did not generate enough points"
         logger.info(report['decision'])
         return None, None, report
 
-    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
-                       data.config)
+    bundle_single_view(reconstruction, im2, camera1, camera_priors, data.config)
     retriangulate(tracks_manager, graph_inliers, reconstruction, data.config)
 
     if len(reconstruction.points) < min_inliers:
         report['decision'] = "Re-triangulation after initial motion did not generate enough points"
         logger.info(report['decision'])
         return None, None, report
-    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
-                       data.config)
+    bundle_single_view(reconstruction, im2, camera1, camera_priors, data.config)
 
     report['decision'] = 'Success'
     report['memory_usage'] = current_memory_usage()
     return reconstruction, graph_inliers, report
+
 
 
 def reconstructed_points_for_images(tracks_manager, reconstruction, images):
@@ -895,15 +901,16 @@ class TrackTriangulator:
     Caches shot origin and rotation matrix
     """
 
-    def __init__(self, tracks_manager, graph_inliers, reconstruction):
+    def __init__(self, tracks_manager, reconstruction):
         """Build a triangulator for a specific reconstruction."""
         self.tracks_manager = tracks_manager
-        self.graph_inliers = graph_inliers
-        self.reconstruction = reconstruction
+        # self.graph_inliers = graph_inliers
+        self.reconstruction: pymap.Map = reconstruction
         self.origins = {}
         self.rotation_inverses = {}
         self.Rts = {}
         self.print_shots = {}
+
 
     def triangulate_robust(self, track, reproj_threshold, min_ray_angle_degrees):
         """Triangulate track in a RANSAC way and add point to reconstruction."""
@@ -966,34 +973,35 @@ class TrackTriangulator:
                 if succeed:
                     self._add_track_to_graph_inlier(track, ids[i])
 
-    def triangulate(self, track, reproj_threshold, min_ray_angle_degrees):
+    def triangulate(self, track, reproj_threshold, min_ray_angle_degrees, camera):
         """Triangulate track and add point to reconstruction."""
         os, bs, ids = [], [], []
-        
+        # TODO: don't load the shot every time!
+        # TODO: store it in a dict and maybe with its pose
         for shot_id, obs in self.tracks_manager.get_track_observations(track).items():
-            if shot_id in self.reconstruction.shots:
-                shot = self.reconstruction.shots[shot_id]
-                os.append(self._shot_origin(shot))
-                b = shot.camera.pixel_bearing(np.array(obs.point))
-                r = self._shot_rotation_inverse(shot)
+            shot = self.reconstruction.get_shot(shot_id)
+            if shot is not None:
+                shot_pose: pymap.Pose = shot.get_pose()
+                os.append(shot_pose.get_origin())
+                #convert to bearing
+                #TODO handle multiple camera models
+                b = camera.pixel_bearing(np.array(obs.point))
+                r = shot_pose.get_R_cam_to_world()
                 bs.append(r.dot(b))
-                if shot_id not in self.print_shots:
-                    print("orig shot_id {} with r_inv: {}, origin {}, bearing: {} ".format(shot_id, r, os[-1], bs[-1]))
-                    self.print_shots[shot_id] = True
-                print(len(self.reconstruction.points), ": bearing: ", b)
-                ids.append(shot_id)
-
+                # if shot_id not in self.print_shots:
+                #     # print("shot_id {} with r_inv: {}, origin {}, bearing: {}".format(shot_id, r, shot_pose.get_origin(), bs[-1]))
+                #     self.print_shots[shot_id] = True
+                # # print(self.reconstruction.number_of_landmarks(), ": bearing: ", b)
+                ids.append((shot_id, obs.id))
         if len(os) >= 2:
             thresholds = len(os) * [reproj_threshold]
             e, X = pygeometry.triangulate_bearings_midpoint(
                 os, bs, thresholds, np.radians(min_ray_angle_degrees))
             if X is not None:
-                point = types.Point()
-                point.id = track
-                point.coordinates = X.tolist()
-                self.reconstruction.add_point(point)
-                for shot_id in ids:
-                    self._add_track_to_graph_inlier(track, shot_id)
+                lm = self.reconstruction.create_landmark(int(track), X.tolist())
+                for shot_id, feat_id in ids:
+                    shot = self.reconstruction.get_shot(shot_id)
+                    self.reconstruction.add_observation(shot, lm, feat_id)
 
     def triangulate_dlt(self, track, reproj_threshold, min_ray_angle_degrees):
         """Triangulate track using DLT and add point to reconstruction."""
@@ -1045,16 +1053,16 @@ class TrackTriangulator:
             return r
 
 
-def triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, shot_id, config):
+def triangulate_shot_features(tracks_manager, reconstruction, shot_id, config, camera):
     """Reconstruct as many tracks seen in shot_id as possible."""
     reproj_threshold = config['triangulation_threshold']
     min_ray_angle = config['triangulation_min_ray_angle']
 
-    triangulator = TrackTriangulator(tracks_manager, graph_inliers, reconstruction)
+    triangulator = TrackTriangulator(tracks_manager, reconstruction)
 
     for track in tracks_manager.get_shot_observations(shot_id):
-        if track not in reconstruction.points:
-            triangulator.triangulate(track, reproj_threshold, min_ray_angle)
+        if not reconstruction.has_landmark(int(track)):
+            triangulator.triangulate(track, reproj_threshold, min_ray_angle, camera)
         else:
             print("already has {}", track)
 

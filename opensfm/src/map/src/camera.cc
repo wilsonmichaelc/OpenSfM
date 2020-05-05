@@ -3,21 +3,9 @@
 #include <opencv2/core.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
-
+#include <opencv2/imgproc.hpp>
 namespace map
 {
-// void
-// Camera::UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint> &undist_keypts,
-//                                                     std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> bearings) const
-// {
-
-// }
-// void
-// Camera::UndistortKeypts(const std::vector<cv::KeyPoint> &keypts, std::vector<cv::KeyPoint> &undist_keypts) const
-// {
-
-// }
-
 BrownPerspectiveCamera::BrownPerspectiveCamera(const size_t width_, const size_t height_, const std::string& projection_type_,
                                                const float fx_, const float fy_, const float cx_, const float cy_,
                                                const float k1_, const float k2_, const float p1_, const float p2_, const float k3_): 
@@ -127,15 +115,27 @@ bool
 BrownPerspectiveCamera::ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
                                             Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const
 {
-    //first, transform pt3D into cam
+    // first, transform pt3D into cam
     bearing = R_cw*ptWorld + t_cw;
-    //check z coordinate
+    // check z coordinate
     if (bearing[2] < 0.0) return false;
-    // //now reproject to image
+    // now reproject to image
     pt2D = (K_pixel_eig.cast<double>()*bearing).hnormalized();
     bearing.normalized();
     return true;
 }
+Eigen::Vector3d
+BrownPerspectiveCamera::PixelBearing(const Eigen::Vector2d &point) const
+{
+  cv::Mat out;
+  cv::Mat cv_point = (cv::Mat_<double>(1, 2) << point[0], point[1]);
+  cv::undistortPoints(cv_point, out, K, distCoeff);
+  const auto x = out.at<double>(0), y = out.at<double>(1);
+  const auto l_inv = 1.0 / std::sqrt(x * x + y * y + 1.0);
+  return Eigen::Vector3d(x, y, 1.0) * l_inv;
+}
+
+
 
 
 } // namespace map

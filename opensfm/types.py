@@ -1,5 +1,4 @@
 """Basic types for building a reconstruction."""
-
 import numpy as np
 import cv2
 import math
@@ -872,6 +871,70 @@ class Reconstruction(object):
         :param shot: The shot.
         """
         self.shots[shot.id] = shot
+
+    def get_shot(self, id):
+        """Return a shot by id.
+
+        :return: If exists returns the shot, otherwise None.
+        """
+        return self.shots.get(id)
+
+    def add_point(self, point):
+        """Add a point in the list
+
+        :param point: The point.
+        """
+        self.points[point.id] = point
+
+    def get_point(self, id):
+        """Return a point by id.
+
+        :return: If exists returns the point, otherwise None.
+        """
+        return self.points.get(id)
+
+
+class ReconstructionNew(object):
+    """Defines the reconstructed scene.
+
+    Attributes:
+      cameras (Dict(Camera)): List of cameras.
+      shots (Dict(Shot)): List of reconstructed shots.
+      points (Dict(Point)): List of reconstructed points.
+      reference (TopocentricConverter): Topocentric reference converter.
+    """
+
+    def __init__(self):
+        """Defaut constructor"""
+
+        self.cameras = {}
+        self.shots = {}
+        self.points = {}
+        self.reference = None
+
+    def add_camera(self, camera):
+        """Add a camera in the list
+
+        :param camera: The camera.
+        """
+        self.cameras[camera.id] = camera
+
+    def get_camera(self, id):
+        """Return a camera by id.
+
+        :return: If exists returns the camera, otherwise None.
+        """
+        return self.cameras.get(id)
+
+    def add_shot(self, shot):
+        """Add a shot in the list
+
+        :param shot: The shot.
+        """
+        # new_shot = self.map.create_shot(shot.id, shot.camera, shot.name)
+        # self.shots[shot.id] = new_shot
+        self.shots[shot.id] = shot
+
 
     def get_shot(self, id):
         """Return a shot by id.

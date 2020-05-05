@@ -28,7 +28,7 @@ struct ShotMeasurements
   double capture_time_;
   //TODO:
   //compass
-  //accelerometer
+  // accelerometer
   double gps_dop_;
   std::array<double, 3> gps_position_;
   int orientation_;
@@ -41,7 +41,6 @@ class Shot {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose, const std::string& name = "");
-  // const cv::Mat GetDescriptor(const FeatureId id) const { return descriptors_.row(id); }
   const DescriptorType GetDescriptor(const FeatureId id) const { return descriptors_.row(id); }
   const auto& GetKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
   Eigen::Vector3f GetKeyPointEigen(const FeatureId id) const { 
@@ -51,7 +50,6 @@ class Shot {
   //No reason to set individual keypoints or descriptors
   //read-only access
   const auto& GetKeyPoints() const { return keypoints_; }
-  // const cv::Mat& GetDescriptors() const { return descriptors_; }
   const DescriptorMatrix& GetDescriptors() const { return descriptors_; }
   
   size_t NumberOfKeyPoints() const { return keypoints_.size(); }
@@ -103,8 +101,7 @@ class Shot {
   const Pose& GetPose() const { return pose_; }
   Eigen::Matrix4d GetWorldToCam() const { return pose_.WorldToCamera(); }
   Eigen::Matrix4d GetCamToWorld() const { return pose_.CameraToWorld(); }
-
-  // void InitAndTakeDatastructures(AlignedVector<Observation> keypts, cv::Mat descriptors);
+  
   void InitAndTakeDatastructures(AlignedVector<Observation> keypts, DescriptorMatrix descriptors);
   void InitKeyptsAndDescriptors(const size_t n_keypts);
   
@@ -121,7 +118,7 @@ class Shot {
   bool operator<=(const Shot& shot) const { return id_ <= shot.id_; }
   bool operator>(const Shot& shot) const { return id_ > shot.id_; }
   bool operator>=(const Shot& shot) const { return id_ >= shot.id_; }
-
+  std::string GetCameraName() const { return shot_camera_.camera_name_; }
 public:
   SLAMShotData slam_data_;
   //We could set the const values to public, to avoid writing a getter.

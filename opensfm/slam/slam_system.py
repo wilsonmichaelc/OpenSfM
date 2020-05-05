@@ -20,7 +20,8 @@ class SlamSystem(object):
         self.config_slam = slam_config.default_config()
         self.camera = next(iter(self.data.load_camera_models().items()))
         self.map = pymap.Map()
-
+        ref = self.data.load_reference()
+        self.map.set_reference(ref.lat, ref.lon, ref.alt)
         # Create the camera model
         c = self.camera[1]
         self.cam = pymap.BrownPerspectiveCamera(
@@ -62,7 +63,7 @@ class SlamSystem(object):
         self.slam_mapper = SlamMapper(
             self.data, self.config_slam, self.camera, self.map, self.extractor, self.matcher)
         self.slam_init =\
-            SlamInitializer(self.data, self.camera, self.matcher)
+            SlamInitializer(self.data, self.camera, self.matcher, self.map)
         self.slam_tracker = SlamTracker(self.matcher)
         self.system_initialized = False
     

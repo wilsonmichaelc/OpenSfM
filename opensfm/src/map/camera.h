@@ -3,6 +3,7 @@
 #include <map/observation.h>
 #include <vector>
 #include <opencv2/core.hpp>
+#include <opencv2/calib3d.hpp>
 #include <Eigen/Core>
 namespace map
 {
@@ -60,6 +61,12 @@ public:
   {
     return point[0] >= 0 && point[1] >= 0 && point[0] < width && point[1] < height;
   }
+
+  virtual Eigen::Vector3d
+  PixelBearing(const Eigen::Vector2d& point) const
+  {
+    return Eigen::Vector3d(point[0], point[1], 1.0);
+  }
 };
 
 class BrownPerspectiveCamera : public Camera
@@ -79,6 +86,9 @@ public:
                                   Eigen::Vector3f& bearing, Eigen::Vector2f& pt2D) const;
   virtual bool ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Eigen::Vector3d& t_cw, const Eigen::Vector3d& ptWorld,
                                   Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const;
+
+  virtual Eigen::Vector3d
+  PixelBearing(const Eigen::Vector2d& point) const;
 
   float fx_p, fy_p; // focal lengths in pixels
   float cx_p, cy_p; // principal points in pixels
