@@ -2,7 +2,8 @@
 #include <slam/slam_utilities.h>
 #include <map/shot.h>
 #include <map/landmark.h>
-
+#include <map/camera.h>
+#include <geometry/triangulation.h>
 #include <unordered_set>
 #include <unordered_map>
 namespace slam
@@ -17,6 +18,7 @@ SlamUtilities::to_skew_symmetric_mat(const Eigen::Vector3d &vec)
       -vec(1), vec(0), 0;
   return skew;
 }
+
 // Eigen::Matrix3f
 // SlamUtilities::create_E_21(const Eigen::Matrix3f &rot_1w, const Eigen::Vector3f &trans_1w,
 //                            const Eigen::Matrix3f &rot_2w, const Eigen::Vector3f &trans_2w)
@@ -590,7 +592,74 @@ SlamUtilities::GetSecondOrderCovisibilityForShot(const map::Shot& shot, const si
     // TODO: this copy is unnecessary and only used to keep the order
     std::vector<map::Shot*> fuse_tgt_keyfrms_vec(fuse_tgt_keyfrms.cbegin(), fuse_tgt_keyfrms.cend());
     return fuse_tgt_keyfrms_vec;
-    
 }
+
+void SlamUtilities::TrackTriangulator33(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot,
+                       const double reproj_threshold, const double min_reproj_angle)
+{
+  const auto& tracks = tracks_manager.GetShotObservations(shot->name_);
+  // AlignedVector<Eigen::Vector3d> bs;
+  const auto& cam = shot->shot_camera_.camera_model_;
+  // std::map<std::string, std::pair<Eigen::Vector3d, Eigen::Matrix3d>> buffer;
+  // AlignedVector<Eigen::Vector3d> os;
+  const auto n_shots = map.NumberOfShots();
+  Eigen::Matrix<double, Eigen::Dynamic, 3> os(2, 3);
+  Eigen::Matrix<double, Eigen::Dynamic, 3> bs(2, 3);
+  std::vector<std::pair<map::Shot*, int>> shots;
+  // for track in tracks_manager.get_shot_observations(shot_id):
+  for (const auto& track : tracks)
+  {
+    // if not reconstruction.has_landmark(int(track)):
+    const auto lm_id = std::stoi(track.first);
+    if (!map.HasLandmark(lm_id))
+    {
+      size_t added = 0;
+      shots.clear();
+      // triangulate
+      //for shot_id, obs in self.tracks_manager.get_track_observations(track).items():
+      for (const auto& shot_obs : tracks_manager.GetTrackObservations(track.first))
+      {
+        auto* shot = map.GetShot(shot_obs.first);
+        if (shot != nullptr) 
+        {
+          // Eigen::Vector3d bearing = cam.PixelBearing(shot_obs.second.point);
+          // //compare to compt bearing
+          const auto feat_id = shot_obs.second.id;
+          Eigen::Vector3d bearing = shot->slam_data_.bearings_[feat_id];
+          // std::cout << "bearing: " << bearing << " b2: " << b2 << " obs: " << shot_obs.second.point << std::endl;
+          //TODO: buffer the rot, origin somewhere
+          const auto& shot_pose = shot->GetPose();
+          bs.row(added) = shot_pose.RotationCameraToWorld()*bearing;
+          os.row(added) = shot_pose.GetOrigin();
+          shots.push_back(std::make_pair(shot, feat_id));
+          ++added;
+        }
+      }
+      const auto n_tracks = added;
+      const std::vector<double> thresholds(n_tracks, reproj_threshold);
+      // std::cout << lm_id << ": " << added << ", "<< bs << ", " << os << 
+      //             "reproj_threshold" << reproj_threshold << std::endl;
+
+      // now triangulate_bearings_midpoint
+      if (n_tracks >= 2)
+      {
+        // std::cout << "min_reproj_angle: " << min_reproj_angle << std::endl;
+        const auto tri = geometry::TriangulateBearingsMidpointC(os, bs, thresholds, min_reproj_angle);
+        const auto tri_status = tri.first;
+        // std::cout << "tri_status: " << tri_status << "," << tri.second << std::endl;
+        if (tri_status == geometry::TRIANGULATION_OK)
+        {
+          auto* lm = map.CreateLandmark(lm_id, tri.second);
+          for (const auto& shot_featid : shots)
+          {
+            map.AddObservation(shot_featid.first, lm, shot_featid.second);
+          }
+        }
+      }
+    }
+    // triangulate end 
+  }
+}
+
 
 } // namespace slam

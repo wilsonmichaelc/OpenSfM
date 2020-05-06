@@ -3,6 +3,7 @@
 #include <map/camera.h>
 #include <map/shot.h>
 #include <bundle/bundle_adjuster.h>
+// #include <sfm/tracks_manager.h>
 #include <foundation/types.h>
 #include <Eigen/Core>
 namespace slam
@@ -33,48 +34,14 @@ public:
   {
     SlamUtilities::SetNormalAndDepthFromObservations(landmark, scale_factors);
   }
-  // this is the same as getting it directly from the shot
-  // static AlignedVector<map::Observation>
-  // GetKeyptsFromShotTest(const map::Shot& shot)
-  // {
-  //   return shot.GetKeyPoints();
-  // }
-
-  // static py::object GetValidKeypts(const map::Shot &shot)
-  // {
-  //   const auto &landmarks = shot.GetLandmarks();
-  //   const auto n_landmarks = landmarks.size();
-  //   // const auto n_valid_pts = n_landmarks - std::count(landmarks.cbegin(), landmarks.cend(),nullptr);
-  //   const auto &keypts = shot.GetKeyPoints();
-  //   // Convert to numpy.
-  //   cv::Mat keys(n_landmarks, 3, CV_32F);
-  //   size_t idx2{0};
-  //   for (size_t i = 0; i < n_landmarks; ++i)
-  //   {
-  //     if (landmarks[i] != nullptr)
-  //     {
-  //       keys.at<float>(idx2, 0) = keypts[i].pt.x;
-  //       keys.at<float>(idx2, 1) = keypts[i].pt.y;
-  //       keys.at<float>(idx2, 2) = keypts[i].size;
-  //       idx2++;
-  //     }
-  //   }
-  //   return foundation::py_array_from_data(keys.ptr<float>(0), idx2, keys.cols);
-  // }
-
-  // static py::object GetDescriptors(const map::Shot& shot)
-  // {
-  //   return foundation::py_array_from_data(shot.GetDescriptors().ptr<uchar>(0), shot.NumberOfKeyPoints(), 32);
-  // }
+  
   static Eigen::MatrixXf GetValidKeypts(const map::Shot &shot)
   {
     const auto &landmarks = shot.GetLandmarks();
     const auto n_landmarks = landmarks.size();
-    // const auto n_valid_pts = n_landmarks - std::count(landmarks.cbegin(), landmarks.cend(),nullptr);
     const auto& keypts = shot.GetKeyPoints();
     Eigen::MatrixXf kpts(n_landmarks, 3);
     // Convert to numpy.
-    // cv::Mat keys(n_landmarks, 3, CV_32F);
     size_t idx2{0};
     for (size_t i = 0; i < n_landmarks; ++i)
     {
@@ -82,16 +49,11 @@ public:
       {
         const auto& kpt = keypts[i];
         kpts.row(idx2) = Eigen::Vector3f(kpt.point[0], kpt.point[1], kpt.size);
-        // keys.at<float>(idx2, 0) = keypts[i].pt.x;
-        // keys.at<float>(idx2, 1) = keypts[i].pt.y;
-        // keys.at<float>(idx2, 2) = keypts[i].size;
         idx2++;
       }
     }
     return kpts.topRows(idx2);
-    // return foundation::py_array_from_data(keys.ptr<float>(0), idx2, keys.cols);
   }
-
 
   static auto
   UpdateLocalKeyframes(const map::Shot &shot)
@@ -211,7 +173,6 @@ public:
     ba.SetMaxNumIterations(10);
     ba.SetLinearSolverType("DENSE_QR");
     ba.Run();
-    // std::cout << "new bundle: " << ba.FullReport() << std::endl;
     const auto& opt_shot = ba.GetShot(shot_name);
     map::Pose opt_pose;
     opt_pose.SetFromWorldToCamera(opt_shot.GetRotation(), opt_shot.GetTranslation());
@@ -231,7 +192,6 @@ public:
     const auto& cam = shot.shot_camera_.camera_model_;
     const map::BrownPerspectiveCamera* const b_cam = dynamic_cast<const map::BrownPerspectiveCamera*>(&cam);
 
-    // std::cout << "Trying to create cam" << std::endl;
     std::cout << "cam: " << cam.height << " w: " << cam.width << std::endl;
     std::cout << "b_cam: " << b_cam->height << " w: " << b_cam->width << std::endl;
     //add camera
@@ -364,5 +324,9 @@ public:
     return std::make_pair(opt_pose, n_points - n_outliers);
   }
 
+  static void TrackTriangulator22(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot, const double reproj_threshold, const double min_reproj_angle)
+  {
+    SlamUtilities::TrackTriangulator33(tracks_manager, map, shot, reproj_threshold, min_reproj_angle);
+  }
 };
 } // namespace slam

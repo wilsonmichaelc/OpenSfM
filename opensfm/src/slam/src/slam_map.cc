@@ -1,5 +1,5 @@
-#include <slam/slam_map.h>
 #include <slam/slam_utilities.h>
+#include <slam/slam_map.h>
 #include <map/shot.h>
 #include <map/landmark.h>
 namespace slam

@@ -25,7 +25,7 @@ class SlamInitializer(object):
             self.init_shot = curr_shot
             self.prev_pts =\
                 pyslam.SlamUtilities.undist_keypts_from_shot(curr_shot)[:, 0:2]
-            return None, None, None
+            return False, None
         else:
             return self.initialize_openvslam(curr_shot)
 
@@ -36,7 +36,7 @@ class SlamInitializer(object):
         matches = self.matcher.match_shot_to_shot(self.init_shot, curr_shot, self.prev_pts, 100)
         matches = np.array(matches)
         if (len(matches) < 100):
-            return None, None, None
+            return False, None
         print("Matches: ", len(matches), self.init_shot.name,"<->", curr_shot.name)
         # Update pts
         self.prev_pts[matches[0, :], :] =\
@@ -61,7 +61,7 @@ class SlamInitializer(object):
         i1, i2, r = reconstruction._compute_pair_reconstructability(args[0])
         chrono.lap("pair rec")
         if r == 0:
-            return None, None, None
+            return False, None
         scale_1 = f1_points[matches[:, 0], 2] / norm_size
         scale_2 = f2_points[matches[:, 1], 2] / norm_size
 

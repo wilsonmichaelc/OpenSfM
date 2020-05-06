@@ -105,10 +105,13 @@ class SlamSystem(object):
         if (not self.system_initialized):
             # rec_init, graph, matches = self.slam_init.initialize(curr_shot)
             success, matches = self.slam_init.initialize(curr_shot)
-            print("CONTINUE FROM HERE! -> most of create init map shouldn't be necessary!")
-            exit(0)
-            self.system_initialized = (rec_init is not None)
+            
+            # self.system_initialized = (rec_init is not None)
+            self.system_initialized = success
+
             if self.system_initialized:
+                print("CONTINUE FROM HERE! -> most of create init map shouldn't be necessary!")
+                exit(0)
                 self.slam_mapper.create_init_map(graph, rec_init,
                                                  self.slam_init.init_shot,
                                                  curr_shot)

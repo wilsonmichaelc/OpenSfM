@@ -1,9 +1,10 @@
 #pragma once
 #include <Eigen/Core>
 #include <vector>
-// #include <opencv2/core.hpp>
+#include <sfm/tracks_manager.h>
 #include <slam/guided_matching.h>
 #include <unordered_set>
+
 namespace map
 {
   class Shot;
@@ -20,15 +21,10 @@ public:
 
   static Eigen::Matrix3d to_skew_symmetric_mat(const Eigen::Vector3d& vec);
 
-  
-  // static Eigen::Matrix3f create_E_21(const Eigen::Matrix3f& rot_1w, const Eigen::Vector3f& trans_1w,
-  //                                    const Eigen::Matrix3f& rot_2w, const Eigen::Vector3f& trans_2w);
-
   static Eigen::Matrix3d create_E_21(const Eigen::Matrix3d &rot_1w, const Eigen::Vector3d &trans_1w,
                                      const Eigen::Matrix3d &rot_2w, const Eigen::Vector3d &trans_2w);
 
 
-  // static Eigen::MatrixXf ConvertOpenCVKptsToEigen(const std::vector<cv::KeyPoint>& keypts);
   static Eigen::MatrixXf ConvertOpenCVKptsToEigen(const AlignedVector<map::Observation>& keypts);
   
 
@@ -51,5 +47,8 @@ public:
   static std::vector<map::Shot*> GetSecondOrderCovisibilityForShot(const map::Shot& shot, const size_t first_order_thr, const size_t second_order_thr);                                      
 
   static std::unordered_map<map::ShotId, map::Shot*> ComputeLocalKeyframes(map::Shot& shot);
+  static void TrackTriangulator33(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot,
+                                  const double reproj_threshold, const double min_reproj_angle);
+  // static void TrackTriangulator(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot, const double reproj_threshold, const double min_reproj_angle);
 };
 } // namespace map

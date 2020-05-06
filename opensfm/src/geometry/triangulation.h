@@ -89,5 +89,10 @@ py::object TriangulateBearingsMidpoint(const Eigen::Matrix<double, -1, 3> &cente
                                        const Eigen::Matrix<double, -1, 3> &bearings,
                                        const std::vector<double> &threshold_list,
                                        double min_angle);
+std::pair<int, Eigen::Vector3d>
+TriangulateBearingsMidpointC(const Eigen::Matrix<double, -1, 3> &centers,
+                             const Eigen::Matrix<double, -1, 3> &bearings,
+                             const std::vector<double>&threshold_list,
+                             double min_angle);
 
 }  // namespace geometry

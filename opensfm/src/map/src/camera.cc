@@ -127,10 +127,14 @@ BrownPerspectiveCamera::ReprojectToBearing(const Eigen::Matrix3d& R_cw, const Ei
 Eigen::Vector3d
 BrownPerspectiveCamera::PixelBearing(const Eigen::Vector2d &point) const
 {
-  cv::Mat out;
-  cv::Mat cv_point = (cv::Mat_<double>(1, 2) << point[0], point[1]);
-  cv::undistortPoints(cv_point, out, K, distCoeff);
-  const auto x = out.at<double>(0), y = out.at<double>(1);
+  // cv::Mat out;
+  // cv::Mat cv_point = (cv::Mat_<double>(1, 2) << point[0], point[1]);
+  // cv::unids
+  std::vector<cv::Point2d> out;
+  std::vector<cv::Point2d> in({cv::Point2d(point[0], point[1])});
+  cv::undistortPoints(in, out, K, distCoeff);
+  // const auto x = out.at<double>(0), y = out.at<double>(1);
+  const auto x = out[0].x, y = out[0].y;
   const auto l_inv = 1.0 / std::sqrt(x * x + y * y + 1.0);
   return Eigen::Vector3d(x, y, 1.0) * l_inv;
 }

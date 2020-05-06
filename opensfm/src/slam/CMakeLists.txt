@@ -13,16 +13,19 @@ set(SLAM_FILES
   src/slam_utilities.cc
   guided_matching_bind.h
   guided_matching.h
-  slam_map.h
   src/guided_matching.cc
+  slam_map.h
   src/slam_map.cc
+  pyslam_utilities.h
 )
 add_library(slam ${SLAM_FILES} ${ORB_FILES})
 target_link_libraries(slam
   PUBLIC
     map
+    geometry
+    foundation
+    sfm
     ${OpenCV_LIBS}
-    
 )
 
 target_include_directories(slam 
@@ -35,6 +38,9 @@ pybind11_add_module(pyslam python/pybind.cc)
 target_link_libraries(pyslam 
   PRIVATE
     map
+    geometry
+    foundation
+    sfm
     slam
     bundle
 )

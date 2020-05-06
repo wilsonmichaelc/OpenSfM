@@ -6,6 +6,7 @@
 #include <slam/guided_matching_bind.h>
 #include <slam/slam_utilities.h>
 #include <slam/pyslam_utilities.h>
+#include <sfm/tracks_manager.h>
 namespace py = pybind11;
 
 PYBIND11_MODULE(pyslam, m) {
@@ -55,6 +56,7 @@ PYBIND11_MODULE(pyslam, m) {
     .def("compute_local_keyframes", &slam::PySlamUtilities::ComputeLocalKeyframes, py::return_value_policy::reference_internal)
     .def("bundle_tracking", &slam::PySlamUtilities::SetUpBAProblem)
     .def("bundle_single_view", &slam::PySlamUtilities::BundleSingleView)
+    .def("track_triangulator", &slam::PySlamUtilities::TrackTriangulator22)
     // .def("get_descriptors", &slam::PySlamUtilities::GetDescriptors)
     // .def("get_keypts_test", &slam::PySlamUtilities::GetKeyptsFromShotTest)
   ;

@@ -715,7 +715,7 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
         report['decision'] = "Could not find initial motion"
         logger.info(report['decision'])
         return None, None, report
-    print("R,t: ", R, t)
+    # print("R,t: ", R, t)
 
     reconstruction = types.Reconstruction()
     reconstruction.reference = data.load_reference()

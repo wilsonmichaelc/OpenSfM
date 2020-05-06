@@ -4,7 +4,7 @@
 #include <memory>
 #include <map/defines.h>
 #include <iostream>
-// #include <opencv2/core.hpp>
+#include <map/shot.h>
 namespace map
 {
 class Shot;
@@ -48,6 +48,10 @@ class Landmark {
   void RemoveObservation(Shot* shot) { observations_.erase(shot); }
   bool HasObservations() const { return !observations_.empty(); }
   auto NumberOfObservations() const { return observations_.size(); }
+  Eigen::Vector3f GetObservationInShot(Shot* shot) const {
+    const auto obs_id = observations_.at(shot);
+    return shot->GetKeyPointEigen(obs_id);
+  }
   const auto& GetObservations() const
   {
     return observations_; 
