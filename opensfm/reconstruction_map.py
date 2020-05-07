@@ -731,14 +731,22 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
     min_ray_angle = data.config['triangulation_min_ray_angle']
     shot = reconstruction.get_shot(im1)
     chrono.start()
-    pyslam.SlamUtilities.track_triangulator(
-        tracks_manager, reconstruction, shot, reproj_threshold, np.radians(min_ray_angle))
-    chrono.lap('new_tri')
-    reconstruction.clear_observations_and_landmarks()
-    chrono.lap('clear')
     triangulate_shot_features(
         tracks_manager, reconstruction, im1, data.config, camera1)
     chrono.lap('old_tri')
+    reconstruction.clear_observations_and_landmarks()
+    chrono.lap('clear')
+    lms = reconstruction.get_all_landmarks()
+    for lm_id, lm in lms.items():
+        print(lm_id, ":", lm.get_global_pos())
+    chrono.lap('print')
+    pyslam.SlamUtilities.track_triangulator(
+        tracks_manager, reconstruction, shot, reproj_threshold, np.radians(min_ray_angle))
+    chrono.lap('new_tri')
+    lms = reconstruction.get_all_landmarks()
+    for lm_id, lm in lms.items():
+        print(lm_id, ":", lm.get_global_pos())
+    chrono.lap('print2')
     print(chrono.lap_times())
     exit(0)
     chrono.lap('triangulate_shot_features')

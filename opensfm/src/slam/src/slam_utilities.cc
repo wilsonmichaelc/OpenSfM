@@ -622,10 +622,10 @@ void SlamUtilities::TrackTriangulator33(const TracksManager& tracks_manager, map
         auto* shot = map.GetShot(shot_obs.first);
         if (shot != nullptr) 
         {
-          // Eigen::Vector3d bearing = cam.PixelBearing(shot_obs.second.point);
+          Eigen::Vector3d bearing = cam.PixelBearing(shot_obs.second.point);
           // //compare to compt bearing
           const auto feat_id = shot_obs.second.id;
-          Eigen::Vector3d bearing = shot->slam_data_.bearings_[feat_id];
+          // Eigen::Vector3d bearing = shot->slam_data_.bearings_[feat_id];
           // std::cout << "bearing: " << bearing << " b2: " << b2 << " obs: " << shot_obs.second.point << std::endl;
           //TODO: buffer the rot, origin somewhere
           const auto& shot_pose = shot->GetPose();
