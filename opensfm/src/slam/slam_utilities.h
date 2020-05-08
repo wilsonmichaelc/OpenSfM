@@ -40,15 +40,27 @@ public:
 
   static std::pair<double, double> ComputeMinMaxDepthInShot(const map::Shot& shot);
 
-  static void FuseDuplicatedLandmarks(map::Shot& shot, const std::vector<map::Shot*>& fuse_shots, const slam::GuidedMatcher& matcher, const float margin,
-                                      map::Map& slam_map);
+  static void FuseDuplicatedLandmarks(map::Shot& shot,
+                                      const std::vector<map::Shot*>& fuse_shots,
+                                      const slam::GuidedMatcher& matcher,
+                                      const float margin, map::Map& slam_map);
 
-  // static std::set<map::Shot*, map::KeyCompare> 
-  static std::vector<map::Shot*> GetSecondOrderCovisibilityForShot(const map::Shot& shot, const size_t first_order_thr, const size_t second_order_thr);                                      
+  // static std::set<map::Shot*, map::KeyCompare>
+  static std::vector<map::Shot*> GetSecondOrderCovisibilityForShot(
+      const map::Shot& shot, const size_t first_order_thr,
+      const size_t second_order_thr);
 
-  static std::unordered_map<map::ShotId, map::Shot*> ComputeLocalKeyframes(map::Shot& shot);
-  static void TrackTriangulator33(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot,
-                                  const double reproj_threshold, const double min_reproj_angle);
-  // static void TrackTriangulator(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot, const double reproj_threshold, const double min_reproj_angle);
+  static std::unordered_map<map::ShotId, map::Shot*> ComputeLocalKeyframes(
+      map::Shot& shot);
+  static void TriangulateShotFeatures(const TracksManager& tracks_manager,
+                                      map::Map& map, map::Shot* shot,
+                                      const double reproj_threshold,
+                                      const double min_reproj_angle);
+  static void Triangulate(const TrackId lm_id,
+                          const TracksManager& tracks_manager, map::Map& map,
+                          const double reproj_threshold,
+                          const double min_reproj_angle);
+  static void Retriangulate(const TracksManager& tracks_manager, map::Map& map, const double reproj_threshold, const double min_reproj_angle,
+                            const bool full_triangulation = true);
 };
 } // namespace map

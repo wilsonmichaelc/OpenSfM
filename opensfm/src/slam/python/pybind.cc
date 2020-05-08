@@ -56,7 +56,8 @@ PYBIND11_MODULE(pyslam, m) {
     .def("compute_local_keyframes", &slam::PySlamUtilities::ComputeLocalKeyframes, py::return_value_policy::reference_internal)
     .def("bundle_tracking", &slam::PySlamUtilities::SetUpBAProblem)
     .def("bundle_single_view", &slam::PySlamUtilities::BundleSingleView)
-    .def("track_triangulator", &slam::PySlamUtilities::TrackTriangulator22)
+    .def("triangulate_shot_features", &slam::PySlamUtilities::TriangulateShotFeatures)
+    .def("retriangulate", &slam::PySlamUtilities::Retriangulate)
     // .def("get_descriptors", &slam::PySlamUtilities::GetDescriptors)
     // .def("get_keypts_test", &slam::PySlamUtilities::GetKeyptsFromShotTest)
   ;

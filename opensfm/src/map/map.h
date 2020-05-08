@@ -66,7 +66,7 @@ public:
   const auto& GetAllShots() const { return shots_; }
   const auto& GetAllCameras() const { return cameras_; };
   const auto& GetAllLandmarks() const { return landmarks_; };
-  const auto HasLandmark(const FeatureId lm_id) const { return landmarks_.find(lm_id) != landmarks_.end(); }
+  const auto HasLandmark(const FeatureId lm_id) const { return landmarks_.count(lm_id) > 0; }
   const auto GetAllShotPointers() const
   {
     std::unordered_map<ShotId, Shot*> copy;

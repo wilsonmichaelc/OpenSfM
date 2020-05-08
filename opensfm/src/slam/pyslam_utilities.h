@@ -324,9 +324,15 @@ public:
     return std::make_pair(opt_pose, n_points - n_outliers);
   }
 
-  static void TrackTriangulator22(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot, const double reproj_threshold, const double min_reproj_angle)
+  static void TriangulateShotFeatures(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot, const double reproj_threshold, const double min_reproj_angle)
   {
-    SlamUtilities::TrackTriangulator33(tracks_manager, map, shot, reproj_threshold, min_reproj_angle);
+    SlamUtilities::TriangulateShotFeatures(tracks_manager, map, shot, reproj_threshold, min_reproj_angle);
+  }
+
+  static void Retriangulate(const TracksManager& tracks_manager, map::Map& map, const double reproj_threshold, const double min_reproj_angle,
+                            const bool full_triangulation = true)
+  {
+    SlamUtilities::Retriangulate(tracks_manager, map, reproj_threshold, min_reproj_angle, full_triangulation);
   }
 };
 } // namespace slam

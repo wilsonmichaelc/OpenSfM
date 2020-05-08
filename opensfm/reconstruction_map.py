@@ -709,10 +709,11 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
     threshold = data.config['five_point_algo_threshold']
     min_inliers = data.config['five_point_algo_min_inliers']
     iterations = data.config['five_point_refine_rec_iterations']
+    chrono = slam_debug.Chronometer()
     R, t, inliers, report['two_view_reconstruction'] = \
         two_view_reconstruction_general(
             p1, p2, camera1, camera2, threshold, iterations)
-
+    chrono.lap('two_view_rec')
     logger.info("Two-view reconstruction inliers: {} / {}".format(
         len(inliers), len(p1)))
 
@@ -725,30 +726,33 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
     shot2_pose = pymap.Pose()
     shot2_pose.set_from_world_to_cam(R, t)
     shot2.set_pose(shot2_pose)
-    chrono = slam_debug.Chronometer()
 
     reproj_threshold = data.config['triangulation_threshold']
     min_ray_angle = data.config['triangulation_min_ray_angle']
     shot = reconstruction.get_shot(im1)
-    chrono.start()
-    triangulate_shot_features(
-        tracks_manager, reconstruction, im1, data.config, camera1)
-    chrono.lap('old_tri')
-    reconstruction.clear_observations_and_landmarks()
-    chrono.lap('clear')
-    lms = reconstruction.get_all_landmarks()
-    for lm_id, lm in lms.items():
-        print(lm_id, ":", lm.get_global_pos())
-    chrono.lap('print')
-    pyslam.SlamUtilities.track_triangulator(
+    # chrono.start()
+    # triangulate_shot_features(
+    #     tracks_manager, reconstruction, im1, data.config, camera1)
+    # chrono.lap('old_tri')
+    # lms = reconstruction.get_all_landmarks()
+    # for lm_id in sorted(lms.keys()):
+    #     lm = lms[lm_id]
+    #     print(lm_id, ":", lm.get_global_pos())
+    # chrono.lap('print')
+    # reconstruction.clear_observations_and_landmarks()
+    # print('cleared!')
+    # chrono.lap('clear')
+    chrono.lap('new')
+    pyslam.SlamUtilities.triangulate_shot_features(
         tracks_manager, reconstruction, shot, reproj_threshold, np.radians(min_ray_angle))
-    chrono.lap('new_tri')
-    lms = reconstruction.get_all_landmarks()
-    for lm_id, lm in lms.items():
-        print(lm_id, ":", lm.get_global_pos())
-    chrono.lap('print2')
-    print(chrono.lap_times())
-    exit(0)
+    chrono.lap('triangulate_shot_features')
+    # lms = reconstruction.get_all_landmarks()
+    # for lm_id in sorted(lms.keys()):
+    #     lm = lms[lm_id]
+    #     print(lm_id, ":", lm.get_global_pos())
+    # chrono.lap('print2')
+    # print(chrono.lap_times())
+    # exit(0)
     chrono.lap('triangulate_shot_features')
     logger.info("Triangulated: {}".format(
         reconstruction.number_of_landmarks()))
@@ -762,14 +766,28 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
 
     new_pose = pyslam.SlamUtilities.bundle_single_view(shot2)
     shot2.set_pose(new_pose)
+    chrono.lap('bef_bundle')
+
     # chrono.lap('new_bundle')
     # bundle_single_view(reconstruction, im2, camera1,
     #                    camera_priors, data.config)
-    chrono.lap('old_bundle')
-    retriangulate(tracks_manager, reconstruction, data.config, camera1)
-    chrono.lap('retriangulate')
-
-    print("timings: ", chrono.lap_times())
+    # chrono.lap('old_bundle')
+    # chrono.start()
+    # retriangulate(tracks_manager, reconstruction, data.config, camera1)
+    # chrono.lap('retriangulate')
+    # lms = reconstruction.get_all_landmarks()
+    # for lm_id in sorted(lms.keys()):
+    #     lm = lms[lm_id]
+    #     print(lm_id, ":", lm.get_global_pos())
+    # chrono.lap('print')
+    pyslam.SlamUtilities.retriangulate(tracks_manager, reconstruction, reproj_threshold, np.radians(min_ray_angle), True)
+    chrono.lap('new_retriangulate')
+    # lms = reconstruction.get_all_landmarks()
+    # for lm_id in sorted(lms.keys()):
+    #     lm = lms[lm_id]
+    #     print(lm_id, ":", lm.get_global_pos())
+    # chrono.lap('print2')
+    # print("timings: ", chrono.lap_times())
     logger.info("Retriangulated: {}".format(
         reconstruction.number_of_landmarks()))
     if reconstruction.number_of_landmarks() < min_inliers:
@@ -777,7 +795,8 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
         logger.info(report['decision'])
         return False, report
 
-    chrono.start()
+    # chrono.start()
+    chrono.lap('bef_bundl2')
     new_pose = pyslam.SlamUtilities.bundle_single_view(shot2)
     shot2.set_pose(new_pose)
     chrono.lap('new_bundle_2')
