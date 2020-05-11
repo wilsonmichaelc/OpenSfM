@@ -9,11 +9,21 @@ namespace map
 {
 
 void 
-Map::AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
+Map::AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id)
 {
   shot->AddLandmarkObservation(lm, feat_id);
   lm->AddObservation(shot, feat_id);
 }
+
+void 
+Map::AddObservation(const ShotId shot_id, const LandmarkId lm_id, const FeatureId feat_id)
+{
+  auto* const shot = GetShot(shot_id);
+  auto& lm = landmarks_.at(lm_id);
+  shot->AddLandmarkObservation(lm.get(), feat_id);
+  lm->AddObservation(shot, feat_id);
+}
+
 
 void
 Map::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const
@@ -341,9 +351,36 @@ Map::RemoveShotCamera(const CameraId cam_id)
 
 Camera*
 Map::CreateCameraModel(const std::string& cam_name, const Camera& cam)
-{
-  auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<Camera>(cam)));
+{                                 
+  if (cam.projectionType.compare("perspective") == 0)
+  {
+    const map::PerspectiveCamera* const b_cam = dynamic_cast<const map::PerspectiveCamera*>(&cam);
+
+    auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<PerspectiveCamera>(b_cam->width, b_cam->height, 
+      b_cam->projectionType, b_cam->focal, b_cam->k1, b_cam->k2)));
+    return it.first->second.get();
+  }
+  const map::PerspectiveCamera* const b_cam = dynamic_cast<const map::PerspectiveCamera*>(&cam);
+
+  auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<PerspectiveCamera>(b_cam->width, b_cam->height, 
+    b_cam->projectionType, b_cam->focal, b_cam->k1, b_cam->k2)));
   return it.first->second.get();
+  // else
+  // {
+  //   const map::BrownPerspectiveCamera* const b_cam = dynamic_cast<const map::BrownPerspectiveCamera*>(&cam);
+
+  //   auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<PerspectiveCamera>(b_cam->width, b_cam->height, 
+  //     b_cam->projectionType, b_cam->focal, b_cam->k1, b_cam->k2)));
+  //   return it.first->second.get();
+  // }
+  // auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<Camera>(cam)));
+  // return it.first->second.get();
+}
+
+ShotCamera*
+Map::GetShotCamera(const std::string& cam_name)
+{
+  return cameras_.at(camera_names_.at(cam_name)).get();
 }
 
 };

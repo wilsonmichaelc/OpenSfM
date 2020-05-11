@@ -5,6 +5,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/calib3d.hpp>
 #include <Eigen/Core>
+#include <iostream>
 namespace map
 {
 class Camera
@@ -63,10 +64,12 @@ public:
   }
 
   virtual Eigen::Vector3d
-  PixelBearing(const Eigen::Vector2d& point) const
-  {
-    return Eigen::Vector3d(point[0], point[1], 1.0);
-  }
+  PixelBearing(const Eigen::Vector2d& point) const = 0;
+  // {
+  //   std::cout <<"Camera!" << 
+  //                projectionType << std::endl;
+  //   return Eigen::Vector3d(point[0], point[1], 1.0);
+  // }
 };
 
 class BrownPerspectiveCamera : public Camera
@@ -88,7 +91,7 @@ public:
                                   Eigen::Vector3d& bearing, Eigen::Vector2d& pt2D) const;
 
   virtual Eigen::Vector3d
-  PixelBearing(const Eigen::Vector2d& point) const;
+  PixelBearing(const Eigen::Vector2d& point) const override;
 
   float fx_p, fy_p; // focal lengths in pixels
   float cx_p, cy_p; // principal points in pixels
@@ -131,7 +134,7 @@ class PerspectiveCamera : public Camera {
                                   Eigen::Vector3d& bearing,
                                   Eigen::Vector2d& pt2D) const {}
 
-  virtual Eigen::Vector3d PixelBearing(const Eigen::Vector2d& point) const;
+  virtual Eigen::Vector3d PixelBearing(const Eigen::Vector2d& point) const override;
 
   float focal;  // focal lengths in pixels
   // const float cx, cy;              // principal points

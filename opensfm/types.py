@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import math
 
+from opensfm import pymap
 
 class Pose(object):
     """Defines the pose parameters of a camera.
@@ -834,7 +835,7 @@ class GroundControlPointObservation(object):
         self.projection = None
 
 
-class Reconstruction(object):
+class ReconstructionOld(object):
     """Defines the reconstructed scene.
 
     Attributes:
@@ -893,8 +894,75 @@ class Reconstruction(object):
         """
         return self.points.get(id)
 
+class PointView(object):
 
-class ReconstructionNew(object):
+    def __init__(self, map_mgn):
+        self.map = map_mgn
+
+    def __len__(self):
+        return self.map.number_of_landmarks()
+    
+    def __getitem__(self, index):
+        return self.map.get_landmark(int(index))
+    
+    def __contains__(self, index):
+        
+        return self.map.has_landmark(int(index))
+
+class ShotView(object):
+
+    def __init__(self, map_mgn):
+        self.map = map_mgn
+
+    def __len__(self):
+        print("calling ShotView__len__")
+        return self.map.number_of_shots()
+
+    def __getitem__(self, index):
+        print("calling ShotView__getitem__", index)
+        return self.get(index)
+
+    def get(self, index):
+        return self.map.get_shot(index)
+
+    def __iter__(self):
+        print("calling ShotView__iter__")
+        for shot in self.map.get_all_shots().values():
+            print("shot", shot)
+            yield shot
+
+    def __contains__(self, index):
+        return self.map.get_shot(index) is not None
+
+    def __setitem__(self, item):
+        print("calling ShotView__setitem__")
+
+    def values(self):
+        return self.map.get_all_shots().values()
+
+
+class CameraView(object):
+
+    def __init__(self, map_mgn):
+        self.map: pymap.Map = map_mgn
+    
+    def __len__(self):
+        return self.map.number_of_cameras()
+
+    def add_camera(self, cam):
+        if cam.projection_type == "perspective":
+            cam_tmp = pymap.PerspectiveCamera(640, 480, cam.projection_type, cam.focal, cam.k1, cam.k2)
+            cam_map = self.map.create_cam_model(cam.id, cam_tmp)
+            self.map.create_shot_camera(self.map.number_of_cameras(),
+                                     cam_map, cam.id)
+    
+    def __getitem__(self, index):
+        return self.get(index)
+
+    def get(self, index):
+        return self.map.get_shot_camera(index)
+
+class Reconstruction(object):
     """Defines the reconstructed scene.
 
     Attributes:
@@ -906,11 +974,23 @@ class ReconstructionNew(object):
 
     def __init__(self):
         """Defaut constructor"""
-
-        self.cameras = {}
-        self.shots = {}
+        self.map = pymap.Map()
+        # self.cameras = CameraView(self.map)
+        super(Reconstruction, self).__setattr__("cameras", CameraView(self.map))
+        super(Reconstruction, self).__setattr__("reference", None)
+        self.shots = ShotView(self.map)
         self.points = {}
-        self.reference = None
+        # self.reference = None
+
+    def __setattr__(self, name, value):
+
+        if name == 'cameras':
+            for cam in value.values():
+                self.cameras.add_camera(cam)
+        elif name == 'reference':
+            self.map.set_reference(value.lat, value.lon, value.alt)
+        else:
+            super(Reconstruction, self).__setattr__(name, value)
 
     def add_camera(self, camera):
         """Add a camera in the list
@@ -931,8 +1011,16 @@ class ReconstructionNew(object):
 
         :param shot: The shot.
         """
-        self.shots[shot.id] = shot
-
+        # shot_id = self.map.next_unique_shot_id()
+        map_shot = self.map.get_shot(shot.id)
+        if map_shot is None:
+            shot_id = self.map.next_unique_shot_id()
+            map_shot = self.map.create_shot(shot_id, shot.camera, shot.id)
+        map_shot.shot_measurement.gps_dop = shot.metadata.gps_dop
+        map_shot.shot_measurement.gps_pos = shot.metadata.gps_position
+        pose = pymap.Pose()
+        pose.set_from_world_to_cam(shot.pose.rotation, shot.pose.translation)
+        map_shot.set_pose(pose)
 
     def get_shot(self, id):
         """Return a shot by id.
@@ -946,7 +1034,9 @@ class ReconstructionNew(object):
 
         :param point: The point.
         """
-        self.points[point.id] = point
+        self.map.create_landmark(int(point.id), point.coordinates)
+
+        # self.points[point.id] = point
 
     def get_point(self, id):
         """Return a point by id.

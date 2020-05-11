@@ -1,6 +1,7 @@
 import numpy as np
 from opensfm import pymap
-
+from opensfm import types
+from opensfm import reconstruction
 
 def test_shot_cameras():
     """Test that shot cameras are created and deleted correctly"""
@@ -63,7 +64,7 @@ def test_pose():
 def test_shots():
     shots = []
     map_mgn = pymap.Map()
-    cam_model = pymap.Camera(640, 480, "")
+    cam_model = pymap.CameraModel(640, 480, "")
     cam = map_mgn.create_shot_camera(0, cam_model, "cam" + str(0))
     pose = pymap.Pose()
     n_shots = 10
@@ -204,11 +205,53 @@ def test_larger_problem():
         assert len(np.unique(feat_obs)) == shot.compute_num_valid_pts(1)
 
 
-test_larger_problem()
-test_landmarks()
-test_shot_cameras()
-test_pose()
-test_shots()
+def test_map_wrapper():
+    rec = types.Reconstruction()
+    # reconstruction.reference = data.load_reference()
+    # reconstruction.cameras = copy.deepcopy(camera_priors)
+
+    camera = types.PerspectiveCamera()
+    camera.id = "cam1"
+    camera.width = 640
+    camera.height = 480
+    metadata = types.ShotMetadata()
+    metadata.gps_dop = 0.0
+    metadata.gps_position = [0.0, 0.0, 0.0]
+    camera2 = types.PerspectiveCamera()
+    camera2.id = "cam2"
+    camera2.width = 640
+    camera2.height = 480
+
+    cameras = [camera, camera2]
+    rec.cameras = cameras
+    assert(len(rec.cameras) == 2)
+    shot1 = types.Shot()
+    shot1.id = "im1"
+    shot1.camera = "cam1" 
+    shot1.pose = types.Pose()
+    shot1.metadata = metadata
+    rec.add_shot(shot1)
+
+    shot2 = types.Shot()
+    shot2.id = "im2"
+    shot2.camera = "cam2"
+    shot2.pose = types.Pose()
+    shot2.metadata = metadata
+    rec.add_shot(shot2)
+    assert(len(rec.shots) == 2)
+
+    for shot in rec.shots:
+        print("shot:", shot.id, shot.name)
+    for shot in rec.shots.values():
+        print("shot val:", shot.id, shot.name)
+
+
+test_map_wrapper()
+# test_larger_problem()
+# test_landmarks()
+# test_shot_cameras()
+# test_pose()
+# test_shots()
 
 # new unit tests
 # test name/id retrieval

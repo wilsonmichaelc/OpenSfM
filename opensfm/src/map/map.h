@@ -57,7 +57,9 @@ public:
   void RemoveLandmark(const LandmarkId lm_id);
   auto GetNextUniqueLandmarkId() const { return unique_landmark_id_; }
   void ReplaceLandmark(Landmark* old_lm, Landmark* new_lm);
-  void AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
+  void AddObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id);
+  void AddObservation(const ShotId shot_id, const LandmarkId lm_id, const FeatureId feat_id);
+
   void RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const;
 
   std::map<Landmark*, FeatureId> GetObservationsOfShot(const Shot* shot);
@@ -92,7 +94,7 @@ public:
     topo_conv_.long_ = longitude;
     topo_conv_.alt_ = alt;
   }
-
+  ShotCamera* GetShotCamera(const std::string& cam_name);
   Camera* CreateCameraModel(const std::string& cam_name, const Camera& cam);
   bool HasShot(const ShotId shot_id) const { return shots_.find(shot_id) != shots_.end(); }
 

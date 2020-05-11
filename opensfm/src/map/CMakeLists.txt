@@ -5,6 +5,7 @@ set(MAP_FILES
   observation.h
   defines.h
   camera.h
+  camera_py.h
   src/landmark.cc
   src/map.cc
   src/shot.cc

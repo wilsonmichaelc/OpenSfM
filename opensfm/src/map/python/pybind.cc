@@ -1,5 +1,6 @@
 #include <glog/logging.h>
 #include <map/camera.h>
+#include <map/camera_py.h>
 #include <map/defines.h>
 #include <map/landmark.h>
 #include <map/map.h>
@@ -34,6 +35,7 @@ PYBIND11_MODULE(pymap, m) {
                &map::Pose::SetFromWorldToCamera))
       .def("get_origin", &map::Pose::GetOrigin)
       .def("get_R_cam_to_world", &map::Pose::RotationCameraToWorld)
+      .def("get_rotation_matrix", &map::Pose::RotationWorldToCamera)
       .def("get_R_world_to_cam", &map::Pose::RotationWorldToCamera)
       .def("get_R_cam_to_world_min", &map::Pose::RotationCameraToWorldMin)
       .def("get_R_world_to_cam_min", &map::Pose::RotationWorldToCameraMin)
@@ -57,7 +59,7 @@ PYBIND11_MODULE(pymap, m) {
            py::arg("global_position"), py::arg("name") = "",
            py::return_value_policy::reference_internal)
       .def("update_landmark", &map::Map::UpdateLandmark)
-      .def("remove_landmark", py::overload_cast<const map::Landmark* const>(
+      .def("remove_landmark", py::overload_cast<const map::Landmark *const>(
                                   &map::Map::RemoveLandmark))
       .def("remove_landmark",
            py::overload_cast<const map::LandmarkId>(&map::Map::RemoveLandmark))
@@ -65,21 +67,21 @@ PYBIND11_MODULE(pymap, m) {
       // Shot
       .def("create_shot",
            py::overload_cast<const map::ShotId, const map::CameraId,
-                             const std::string&, const map::Pose&>(
+                             const std::string &, const map::Pose &>(
                &map::Map::CreateShot),
            py::arg("shot_id"), py::arg("shot_cam_id"), py::arg("name") = "",
            py::arg("pose") = map::Pose(),
            py::return_value_policy::reference_internal)
       .def("create_shot",
-           py::overload_cast<const map::ShotId, const map::ShotCamera&,
-                             const std::string&, const map::Pose&>(
+           py::overload_cast<const map::ShotId, const map::ShotCamera &,
+                             const std::string &, const map::Pose &>(
                &map::Map::CreateShot),
            py::arg("shot_id"), py::arg("shot_cam"), py::arg("name") = "",
            py::arg("pose") = map::Pose(),
            py::return_value_policy::reference_internal)
       .def("create_shot",
-           py::overload_cast<const map::ShotId, const std::string&,
-                             const std::string&, const map::Pose&>(
+           py::overload_cast<const map::ShotId, const std::string &,
+                             const std::string &, const map::Pose &>(
                &map::Map::CreateShot),
            py::arg("shot_id"), py::arg("shot_cam"), py::arg("name") = "",
            py::arg("pose") = map::Pose(),
@@ -90,10 +92,16 @@ PYBIND11_MODULE(pymap, m) {
       .def("get_shot", py::overload_cast<const map::ShotId>(&map::Map::GetShot),
            py::arg("shot_id"), py::return_value_policy::reference_internal)
       .def("get_shot",
-           py::overload_cast<const std::string&>(&map::Map::GetShot),
+           py::overload_cast<const std::string &>(&map::Map::GetShot),
            py::arg("shot_name"), py::return_value_policy::reference_internal)
-      .def("add_observation", &map::Map::AddObservation, py::arg("shot"),
-           py::arg("landmark"), py::arg("feature_id"))
+      .def("add_observation",
+           py::overload_cast<const map::ShotId, const map::LandmarkId,
+                             const map::FeatureId>(&map::Map::AddObservation),
+           py::arg("shot"), py::arg("landmark"), py::arg("feature_id"))
+      .def("add_observation",
+           py::overload_cast<map::Shot *const, map::Landmark *const,
+                             const map::FeatureId>(&map::Map::AddObservation),
+           py::arg("shot"), py::arg("landmark"), py::arg("feature_id"))
       .def("remove_observation", &map::Map::RemoveObservation)
       .def("get_all_shots", &map::Map::GetAllShotPointers,
            py::return_value_policy::reference_internal)
@@ -107,7 +115,9 @@ PYBIND11_MODULE(pymap, m) {
            py::return_value_policy::reference_internal)
       .def("has_landmark", &map::Map::HasLandmark)
       .def("clear_observations_and_landmarks",
-           &map::Map::ClearObservationsAndLandmarks);
+           &map::Map::ClearObservationsAndLandmarks)
+      .def("get_shot_camera", &map::Map::GetShotCamera,
+           py::return_value_policy::reference_internal);
 
   py::class_<map::Shot>(m, "Shot")
       .def(py::init<const map::ShotId, const map::ShotCamera&, const map::Pose&,
@@ -152,7 +162,10 @@ PYBIND11_MODULE(pymap, m) {
       // TODO: Move completely away from opencv
       .def("get_obs_by_idx", &map::Shot::GetKeyPointEigen)
       .def("get_camera_name", &map::Shot::GetCameraName)
-      .def_readwrite("shot_measurement", &map::Shot::shot_measurements_);
+      .def_readwrite("shot_measurement", &map::Shot::shot_measurements_)
+      .def_property("pose", &map::Shot::GetPose, &map::Shot::SetPose)
+      .def_property_readonly("camera", &map::Shot::GetCameraModel, py::return_value_policy::reference_internal)
+      ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")
       .def_readonly("undist_keypts", &map::SLAMShotData::undist_keypts_,
@@ -192,10 +205,16 @@ PYBIND11_MODULE(pymap, m) {
                     const std::string&>())
       .def_readonly("id", &map::ShotCamera::id_)
       .def_readonly("camera_name", &map::ShotCamera::camera_name_);
+// py::class_<map::Camera, map::PyCamera>(m, "CameraModel");
+// py::class_<map::BrownPerspectiveCamera, map::PyBrownPerspectiveCamera>(m, "BrownPerspectiveCamera");
+// py::class_<map::PerspectiveCamera, map::PyPerspectiveCamera>(m, "PerspectiveCamera");
 
-  py::class_<map::Camera>(m, "CameraModel")
+//   py::class_<map::Camera>(m, "CameraModel")
+
+  py::class_<map::Camera, map::PyCamera>(m, "CameraModel")
       .def(py::init<const size_t, const size_t, const std::string&>(),
-           py::arg("width"), py::arg("height"), py::arg("projection_type"));
+           py::arg("width"), py::arg("height"), py::arg("projection_type"))
+      .def("pixel_bearing", &map::Camera::PixelBearing);
 
   py::class_<map::BrownPerspectiveCamera, map::Camera>(m,
                                                        "BrownPerspectiveCamera")
@@ -205,12 +224,16 @@ PYBIND11_MODULE(pymap, m) {
            py::arg("width"), py::arg("height"), py::arg("projection_type"),
            py::arg("fx"), py::arg("fy"), py::arg("cx"), py::arg("cy"),
            py::arg("k1"), py::arg("k2"), py::arg("p1"), py::arg("p2"),
-           py::arg("k3"));
+           py::arg("k3"))
+     // .def("pixel_bearing", &map::BrownPerspectiveCamera::PixelBearing)
+     ;
 
   py::class_<map::PerspectiveCamera, map::Camera>(m, "PerspectiveCamera")
       .def(py::init<const size_t, const size_t, const std::string&, const float,
                     const float, const float>(), py::arg("width"), py::arg("height"), py::arg("projection_type")
-                    ,py::arg("focal"),py::arg("k1"), py::arg("k2"));
+                    ,py::arg("focal"),py::arg("k1"), py::arg("k2"))
+     // .def("pixel_bearing", &map::PerspectiveCamera::PixelBearing)
+     ;
 
   py::class_<map::Observation>(m, "Observation")
       .def(py::init<double, double, double, int, int, int, int>())
