@@ -931,8 +931,6 @@ class ReconstructionNew(object):
 
         :param shot: The shot.
         """
-        # new_shot = self.map.create_shot(shot.id, shot.camera, shot.name)
-        # self.shots[shot.id] = new_shot
         self.shots[shot.id] = shot
 
 

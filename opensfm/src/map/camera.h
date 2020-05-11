@@ -101,4 +101,42 @@ public:
   Eigen::Matrix3f K_pixel_eig;
 };
 
+class PerspectiveCamera : public Camera {
+ public:
+  PerspectiveCamera(const size_t width_, const size_t height_,
+                    const std::string& projection_type_, const float focal_,
+                    const float k1_, const float k2_);
+  virtual void UndistortedKeyptsToBearings(
+      const AlignedVector<Observation>& undist_keypts,
+      AlignedVector<Eigen::Vector3d>& bearings) const {}
+  virtual void UndistortKeypts(const AlignedVector<Observation>& keypts,
+                               AlignedVector<Observation>& undist_keypts) const {}
+  virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw,
+                                const Eigen::Vector3f& t_cw,
+                                const Eigen::Vector3f& ptWorld,
+                                Eigen::Vector2f& pt2D) const {}
+  virtual bool ReprojectToImage(const Eigen::Matrix3d& R_cw,
+                                const Eigen::Vector3d& t_cw,
+                                const Eigen::Vector3d& ptWorld,
+                                Eigen::Vector2d& pt2D) const {}
+
+  virtual bool ReprojectToBearing(const Eigen::Matrix3f& R_cw,
+                                  const Eigen::Vector3f& t_cw,
+                                  const Eigen::Vector3f& ptWorld,
+                                  Eigen::Vector3f& bearing,
+                                  Eigen::Vector2f& pt2D) const {}
+  virtual bool ReprojectToBearing(const Eigen::Matrix3d& R_cw,
+                                  const Eigen::Vector3d& t_cw,
+                                  const Eigen::Vector3d& ptWorld,
+                                  Eigen::Vector3d& bearing,
+                                  Eigen::Vector2d& pt2D) const {}
+
+  virtual Eigen::Vector3d PixelBearing(const Eigen::Vector2d& point) const;
+
+  float focal;  // focal lengths in pixels
+  // const float cx, cy;              // principal points
+  const float k1, k2;  // distortion coefficients
+  cv::Mat K; //intrinsic camera matrix
+  cv::Mat distCoeff; //distortion coefficients
+};
 }; //end reconstruction

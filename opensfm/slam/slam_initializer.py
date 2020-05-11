@@ -21,7 +21,7 @@ class SlamInitializer(object):
         self.map = reconstruction
 
     def initialize(self, curr_shot):
-        if self.init_shot is None: # and self.system_initialized is False:
+        if self.init_shot is None:
             self.init_shot = curr_shot
             self.prev_pts =\
                 pyslam.SlamUtilities.undist_keypts_from_shot(curr_shot)[:, 0:2]
@@ -82,10 +82,10 @@ class SlamInitializer(object):
         chrono.lap("track graph")
         rec_report = {}
         # reconstruction_init, graph_inliers, rec_report['bootstrap'] = \
-        #     reconstruction.bootstrap_reconstruction(self.data, tracks_graph, self.data.load_camera_models(),
+        #     reconstruction_old.bootstrap_reconstruction(self.data, tracks_graph, self.data.load_camera_models(),
         #                                             im1, im2, norm_p1, norm_p2)
         success, rec_report['bootstrap'] = \
-            reconstruction_map.bootstrap_reconstruction(self.data, tracks_graph, self.map, self.data.load_camera_models(),
+            reconstruction.bootstrap_reconstruction(self.data, tracks_graph, self.map, self.data.load_camera_models(),
                                                     im1, im2, norm_p1, norm_p2)
         # exit(0)
         chrono.lap("boot rec")

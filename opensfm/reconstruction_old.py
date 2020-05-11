@@ -23,13 +23,11 @@ from opensfm import tracking
 from opensfm import multiview
 from opensfm import types
 from opensfm import pysfm
-from opensfm import features
 from opensfm.align import align_reconstruction, apply_similarity
 from opensfm.context import parallel_map, current_memory_usage
 
 from opensfm import pymap
-from opensfm import pyslam
-import slam_debug
+
 logger = logging.getLogger(__name__)
 
 
@@ -72,7 +70,7 @@ def _add_camera_to_bundle(ba, camera, camera_prior, constant):
         ba.add_dual_camera(
             camera.id, camera.focal, camera.k1, camera.k2,
             camera_prior.focal, camera_prior.k1, camera_prior.k2,
-            camera.transition, constant)
+            camera.transition, constant)     
     elif camera.projection_type in ['equirectangular', 'spherical']:
         ba.add_equirectangular_camera(camera.id)
 
@@ -204,8 +202,7 @@ def bundle(graph, reconstruction, camera_priors, gcp, config):
 
     align_method = config['align_method']
     if align_method == 'auto':
-        align_method = align.detect_alignment_constraints(
-            config, reconstruction, gcp)
+        align_method = align.detect_alignment_constraints(config, reconstruction, gcp)
     if align_method == 'orientation_prior':
         if config['align_orientation_prior'] == 'vertical':
             for shot_id in reconstruction.shots:
@@ -255,32 +252,31 @@ def bundle(graph, reconstruction, camera_priors, gcp, config):
     return report
 
 
-def bundle_single_view(reconstruction: pymap.Map, shot_id, camera, camera_priors, config):
+def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
     """Bundle adjust a single camera."""
     ba = pybundle.BundleAdjuster()
-    shot: pymap.Shot = reconstruction.get_shot(shot_id)
-    # TODO: Get camera from shot
-    # For now assume that there is one camera for everything
+    shot = reconstruction.shots[shot_id]
+    camera = shot.camera
     camera_prior = camera_priors[camera.id]
+
     _add_camera_to_bundle(ba, camera, camera_prior, constant=True)
-    shot_pose: pymap.Pose = shot.get_pose()
-    ba.add_shot(str(shot_id), camera.id, shot_pose.get_R_world_to_cam_min(),
-                shot_pose.get_t_world_to_cam(), False)
-    lms = shot.get_valid_landmarks()
-    for lm in lms:
-        ba.add_point(str(lm.id), lm.get_global_pos(), True)
-        obs = lm.get_obs_in_shot(shot)
-        
-        # TODO: Normalize!
-        obs, _, _ = features.normalize_features(np.reshape(
-            obs, [1, 3]), None, None, camera.width, camera.height)
+
+    r = shot.pose.rotation
+    t = shot.pose.translation
+    ba.add_shot(shot.id, camera.id, r, t, False)
+
+    for track_id in graph[shot_id]:
+        track = reconstruction.points[track_id]
+        ba.add_point(track_id, track.coordinates, True)
+        point = graph[shot_id][track_id]['feature']
+        scale = graph[shot_id][track_id]['feature_scale']
         ba.add_point_projection_observation(
-            str(shot_id), str(lm.id), obs[0, 0], obs[0, 1], obs[0, 2])
+            shot_id, track_id, point[0], point[1], scale)
 
     if config['bundle_use_gps']:
-        g = shot.shot_measurement.gps_pos
-        ba.add_position_prior(shot_id, g[0], g[1], g[2],
-                              shot.shot_measurement.gps_dop)
+        g = shot.metadata.gps_position
+        ba.add_position_prior(shot.id, g[0], g[1], g[2],
+                              shot.metadata.gps_dop)
 
     ba.set_point_projection_loss_function(config['loss_function'],
                                           config['loss_function_threshold'])
@@ -295,14 +291,14 @@ def bundle_single_view(reconstruction: pymap.Map, shot_id, camera, camera_priors
     ba.set_num_threads(config['processes'])
     ba.set_max_num_iterations(10)
     ba.set_linear_solver_type("DENSE_QR")
+
     ba.run()
-    # print(ba.full_report())
-    # logger.debug(ba.brief_report())
-    # TODO: uncomment
+
+    logger.debug(ba.brief_report())
+
     s = ba.get_shot(shot_id)
-    new_pose = pymap.Pose()
-    new_pose.set_from_world_to_cam(s.r, s.t)
-    shot.set_pose(new_pose)
+    shot.pose.rotation = [s.r[0], s.r[1], s.r[2]]
+    shot.pose.translation = [s.t[0], s.t[1], s.t[2]]
 
 
 def bundle_local(graph, reconstruction, camera_priors, gcp, central_shot_id, config):
@@ -551,8 +547,7 @@ def _two_view_reconstruction_inliers(b1, b2, R, t, threshold):
     Returns:
         array: Inlier indices.
     """
-    p = np.array(
-        pygeometry.triangulate_two_bearings_midpoint_many(b1, b2, R, t))
+    p = np.array(pygeometry.triangulate_two_bearings_midpoint_many(b1, b2, R, t))
 
     br1 = p.copy()
     br1 /= np.linalg.norm(br1, axis=1)[:, np.newaxis]
@@ -622,7 +617,7 @@ def two_view_reconstruction(p1, p2, camera1, camera2,
 
     if inliers.sum() > 5:
         T = multiview.relative_pose_optimize_nonlinear(b1[inliers],
-                                                       b2[inliers],
+                                                       b2[inliers], 
                                                        t, R,
                                                        iterations)
         R = T[:, :3]
@@ -693,7 +688,7 @@ def two_view_reconstruction_general(p1, p2, camera1, camera2,
         return R_plane, t_plane, inliers_plane, report
 
 
-def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors, im1, im2, p1, p2):
+def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, p2):
     """Start a reconstruction using two shots."""
     logger.info("Starting reconstruction with {} and {}".format(im1, im2))
     report = {
@@ -709,104 +704,63 @@ def bootstrap_reconstruction(data, tracks_manager, reconstruction, camera_priors
     threshold = data.config['five_point_algo_threshold']
     min_inliers = data.config['five_point_algo_min_inliers']
     iterations = data.config['five_point_refine_rec_iterations']
-    chrono = slam_debug.Chronometer()
     R, t, inliers, report['two_view_reconstruction'] = \
         two_view_reconstruction_general(
             p1, p2, camera1, camera2, threshold, iterations)
-    chrono.lap('two_view_rec')
+
     logger.info("Two-view reconstruction inliers: {} / {}".format(
         len(inliers), len(p1)))
 
     if len(inliers) <= 5:
         report['decision'] = "Could not find initial motion"
         logger.info(report['decision'])
-        return False, report
+        return None, None, report
 
-    shot2 = reconstruction.get_shot(im2)
-    shot2_pose = pymap.Pose()
-    shot2_pose.set_from_world_to_cam(R, t)
-    shot2.set_pose(shot2_pose)
+    reconstruction = types.Reconstruction()
+    reconstruction.reference = data.load_reference()
+    reconstruction.cameras = copy.deepcopy(camera_priors)
 
-    reproj_threshold = data.config['triangulation_threshold']
-    min_ray_angle = data.config['triangulation_min_ray_angle']
-    shot = reconstruction.get_shot(im1)
-    # chrono.start()
-    # triangulate_shot_features(
-    #     tracks_manager, reconstruction, im1, data.config, camera1)
-    # chrono.lap('old_tri')
-    # lms = reconstruction.get_all_landmarks()
-    # for lm_id in sorted(lms.keys()):
-    #     lm = lms[lm_id]
-    #     print(lm_id, ":", lm.get_global_pos())
-    # chrono.lap('print')
-    # reconstruction.clear_observations_and_landmarks()
-    # print('cleared!')
-    # chrono.lap('clear')
-    chrono.lap('new')
-    pyslam.SlamUtilities.triangulate_shot_features(
-        tracks_manager, reconstruction, shot, reproj_threshold, np.radians(min_ray_angle))
-    chrono.lap('triangulate_shot_features')
-    # lms = reconstruction.get_all_landmarks()
-    # for lm_id in sorted(lms.keys()):
-    #     lm = lms[lm_id]
-    #     print(lm_id, ":", lm.get_global_pos())
-    # chrono.lap('print2')
-    # print(chrono.lap_times())
-    # exit(0)
-    chrono.lap('triangulate_shot_features')
-    logger.info("Triangulated: {}".format(
-        reconstruction.number_of_landmarks()))
-    report['triangulated_points'] = reconstruction.number_of_landmarks()
+    shot1 = types.Shot()
+    shot1.id = im1
+    shot1.camera = reconstruction.cameras[camera_id1]
+    shot1.pose = types.Pose()
+    shot1.metadata = get_image_metadata(data, im1)
+    reconstruction.add_shot(shot1)
 
-    if reconstruction.number_of_landmarks() < min_inliers:
+    shot2 = types.Shot()
+    shot2.id = im2
+    shot2.camera = reconstruction.cameras[camera_id2]
+    shot2.pose = types.Pose(R, t)
+    print("shot2.pose.get_Rt(): ", shot2.pose.get_Rt())
+    shot2.metadata = get_image_metadata(data, im2)
+    reconstruction.add_shot(shot2)
+
+    graph_inliers = nx.Graph()
+    triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, im1, data.config)
+
+    logger.info("Triangulated: {}".format(len(reconstruction.points)))
+    report['triangulated_points'] = len(reconstruction.points)
+
+    if len(reconstruction.points) < min_inliers:
         report['decision'] = "Initial motion did not generate enough points"
         logger.info(report['decision'])
-        return False, report
-    chrono.lap('kk')
+        return None, None, report
 
-    new_pose = pyslam.SlamUtilities.bundle_single_view(shot2)
-    shot2.set_pose(new_pose)
-    chrono.lap('bef_bundle')
-
-    # chrono.lap('new_bundle')
-    # bundle_single_view(reconstruction, im2, camera1,
-    #                    camera_priors, data.config)
-    # chrono.lap('old_bundle')
-    # chrono.start()
-    # retriangulate(tracks_manager, reconstruction, data.config, camera1)
-    # chrono.lap('retriangulate')
-    # lms = reconstruction.get_all_landmarks()
-    # for lm_id in sorted(lms.keys()):
-    #     lm = lms[lm_id]
-    #     print(lm_id, ":", lm.get_global_pos())
-    # chrono.lap('print')
-    pyslam.SlamUtilities.retriangulate(tracks_manager, reconstruction, reproj_threshold, np.radians(min_ray_angle), True)
-    chrono.lap('new_retriangulate')
-    # lms = reconstruction.get_all_landmarks()
-    # for lm_id in sorted(lms.keys()):
-    #     lm = lms[lm_id]
-    #     print(lm_id, ":", lm.get_global_pos())
-    # chrono.lap('print2')
-    # print("timings: ", chrono.lap_times())
+    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
+                       data.config)
+    retriangulate(tracks_manager, graph_inliers, reconstruction, data.config)
     logger.info("Retriangulated: {}".format(
-        reconstruction.number_of_landmarks()))
-    if reconstruction.number_of_landmarks() < min_inliers:
+        len(reconstruction.points)))
+    if len(reconstruction.points) < min_inliers:
         report['decision'] = "Re-triangulation after initial motion did not generate enough points"
         logger.info(report['decision'])
-        return False, report
+        return None, None, report
+    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
+                       data.config)
 
-    # chrono.start()
-    chrono.lap('bef_bundl2')
-    new_pose = pyslam.SlamUtilities.bundle_single_view(shot2)
-    shot2.set_pose(new_pose)
-    chrono.lap('new_bundle_2')
-    # bundle_single_view(reconstruction, im2, camera1,
-    #                    camera_priors, data.config)
-    # chrono.lap('old_bundle')
-    print("timings: ", chrono.lap_times())
     report['decision'] = 'Success'
     report['memory_usage'] = current_memory_usage()
-    return True, report
+    return reconstruction, graph_inliers, report
 
 
 def reconstructed_points_for_images(tracks_manager, reconstruction, images):
@@ -941,10 +895,11 @@ class TrackTriangulator:
     Caches shot origin and rotation matrix
     """
 
-    def __init__(self, tracks_manager, reconstruction):
+    def __init__(self, tracks_manager, graph_inliers, reconstruction):
         """Build a triangulator for a specific reconstruction."""
         self.tracks_manager = tracks_manager
-        self.reconstruction: pymap.Map = reconstruction
+        self.graph_inliers = graph_inliers
+        self.reconstruction = reconstruction
         self.origins = {}
         self.rotation_inverses = {}
         self.Rts = {}
@@ -970,12 +925,12 @@ class TrackTriangulator:
         best_point.id = track
 
         combinatiom_tried = set()
-        ransac_tries = 11  # 0.99 proba, 60% inliers
+        ransac_tries = 11 # 0.99 proba, 60% inliers
         all_combinations = list(combinations(range(len(ids)), 2))
 
         thresholds = len(os) * [reproj_threshold]
         for i in range(ransac_tries):
-            random_id = int(np.random.rand() * (len(all_combinations) - 1))
+            random_id = int(np.random.rand()*(len(all_combinations)-1))
             if random_id in combinatiom_tried:
                 continue
 
@@ -989,22 +944,19 @@ class TrackTriangulator:
                 os_t, bs_t, thresholds, np.radians(min_ray_angle_degrees))
 
             if X is not None:
-                reprojected_bs = X - os
-                reprojected_bs /= np.linalg.norm(reprojected_bs,
-                                                 axis=1)[:, np.newaxis]
-                inliers = np.linalg.norm(
-                    reprojected_bs - bs, axis=1) < reproj_threshold
+                reprojected_bs = X-os
+                reprojected_bs /= np.linalg.norm(reprojected_bs, axis=1)[:, np.newaxis]
+                inliers = np.linalg.norm(reprojected_bs - bs, axis=1) < reproj_threshold
 
                 if sum(inliers) > sum(best_inliers):
                     best_inliers = inliers
                     best_point.coordinates = X.tolist()
 
                     pout = 0.99
-                    inliers_ratio = float(sum(best_inliers)) / len(ids)
+                    inliers_ratio = float(sum(best_inliers))/len(ids)
                     if inliers_ratio == 1.0:
                         break
-                    optimal_iter = math.log(
-                        1.0 - pout) / math.log(1.0 - inliers_ratio * inliers_ratio)
+                    optimal_iter = math.log(1.0-pout)/math.log(1.0-inliers_ratio*inliers_ratio)
                     if optimal_iter <= ransac_tries:
                         break
 
@@ -1014,39 +966,30 @@ class TrackTriangulator:
                 if succeed:
                     self._add_track_to_graph_inlier(track, ids[i])
 
-    def triangulate(self, track, reproj_threshold, min_ray_angle_degrees, camera):
+    def triangulate(self, track, reproj_threshold, min_ray_angle_degrees):
         """Triangulate track and add point to reconstruction."""
         os, bs, ids = [], [], []
-        # TODO: don't load the shot every time!
-        # TODO: store it in a dict and maybe with its pose
-        chrono = slam_debug.Chronometer()
+
         for shot_id, obs in self.tracks_manager.get_track_observations(track).items():
-            shot = self.reconstruction.get_shot(shot_id)
-            if shot is not None:
-                shot_pose: pymap.Pose = shot.get_pose()
-                os.append(shot_pose.get_origin())
-                #convert to bearing
-                #TODO handle multiple camera models
-                b = camera.pixel_bearing(np.array(obs.point))
-                r = shot_pose.get_R_cam_to_world()
-                
+            if shot_id in self.reconstruction.shots:
+                shot = self.reconstruction.shots[shot_id]
+                os.append(self._shot_origin(shot))
+                b = shot.camera.pixel_bearing(np.array(obs.point))
+                r = self._shot_rotation_inverse(shot)
                 bs.append(r.dot(b))
-                ids.append((shot_id, obs.id))
-        # print(track, ": ", bs, os)
-        # chrono.lap('bearing')
+                ids.append(shot_id)
+
         if len(os) >= 2:
             thresholds = len(os) * [reproj_threshold]
             e, X = pygeometry.triangulate_bearings_midpoint(
                 os, bs, thresholds, np.radians(min_ray_angle_degrees))
-            # print("status: ", e)
             if X is not None:
-                lm = self.reconstruction.create_landmark(
-                    int(track), X.tolist())
-                for shot_id, feat_id in ids:
-                    shot = self.reconstruction.get_shot(shot_id)
-                    self.reconstruction.add_observation(shot, lm, feat_id)
-        # chrono.lap('pygeo')
-        # print("chrono.laps: ", chrono.lap_times())
+                point = types.Point()
+                point.id = track
+                point.coordinates = X.tolist()
+                self.reconstruction.add_point(point)
+                for shot_id in ids:
+                    self._add_track_to_graph_inlier(track, shot_id)
 
     def triangulate_dlt(self, track, reproj_threshold, min_ray_angle_degrees):
         """Triangulate track using DLT and add point to reconstruction."""
@@ -1071,8 +1014,7 @@ class TrackTriangulator:
                     self._add_track_to_graph_inlier(track, shot_id)
 
     def _add_track_to_graph_inlier(self, track_id, shot_id):
-        copy_graph_data(self.tracks_manager,
-                        self.graph_inliers, shot_id, track_id)
+        copy_graph_data(self.tracks_manager, self.graph_inliers, shot_id, track_id)
 
     def _shot_origin(self, shot):
         if shot.id in self.origins:
@@ -1099,47 +1041,44 @@ class TrackTriangulator:
             return r
 
 
-def triangulate_shot_features(tracks_manager, reconstruction, shot_id, config, camera):
+def triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, shot_id, config):
     """Reconstruct as many tracks seen in shot_id as possible."""
     reproj_threshold = config['triangulation_threshold']
     min_ray_angle = config['triangulation_min_ray_angle']
 
-    triangulator = TrackTriangulator(tracks_manager, reconstruction)
+    triangulator = TrackTriangulator(tracks_manager, graph_inliers, reconstruction)
 
     for track in tracks_manager.get_shot_observations(shot_id):
-        if not reconstruction.has_landmark(int(track)):
-            triangulator.triangulate(
-                track, reproj_threshold, min_ray_angle, camera)
+        if track not in reconstruction.points:
+            triangulator.triangulate(track, reproj_threshold, min_ray_angle)
 
 
-def retriangulate(tracks_manager, reconstruction: pymap.Map, config, camera):
+def retriangulate(tracks_manager, graph_inliers, reconstruction, config):
     """Retrianguate all points"""
     chrono = Chronometer()
     report = {}
-    # len(reconstruction.points)
-    report['num_points_before'] = reconstruction.number_of_landmarks()
+    report['num_points_before'] = len(reconstruction.points)
 
     threshold = config['triangulation_threshold']
     min_ray_angle = config['triangulation_min_ray_angle']
 
-    reconstruction.clear_observations_and_landmarks()
-    all_shots_ids = tracks_manager.get_shot_ids()
+    graph_inliers.clear()
+    reconstruction.points = {}
 
-    triangulator = TrackTriangulator(tracks_manager, reconstruction)
+    all_shots_ids = set(tracks_manager.get_shot_ids())
+
+    triangulator = TrackTriangulator(tracks_manager, graph_inliers, reconstruction)
     tracks = set()
-    for shot_id in reconstruction.get_all_shots():
-        shot = reconstruction.get_shot(shot_id)
-        image = shot.name
+    for image in reconstruction.shots.keys():
         if image in all_shots_ids:
             tracks.update(tracks_manager.get_shot_observations(image).keys())
     for track in tracks:
         if config['triangulation_type'] == 'ROBUST':
             triangulator.triangulate_robust(track, threshold, min_ray_angle)
         elif config['triangulation_type'] == 'FULL':
-            triangulator.triangulate(track, threshold, min_ray_angle, camera)
+            triangulator.triangulate(track, threshold, min_ray_angle)
 
-    # len(reconstruction.points)
-    report['num_points_after'] = reconstruction.number_of_landmarks()
+    report['num_points_after'] = len(reconstruction.points)
     chrono.lap('retriangulate')
     report['wall_time'] = chrono.total_time()
     return report
@@ -1150,8 +1089,7 @@ def get_error_distribution(points):
     for track in points.values():
         all_errors += track.reprojection_errors.values()
     robust_mean = np.median(all_errors, axis=0)
-    robust_std = 1.486 * \
-        np.median(np.linalg.norm(all_errors - robust_mean, axis=1))
+    robust_std = 1.486*np.median(np.linalg.norm(all_errors-robust_mean, axis=1))
     return robust_mean, robust_std
 
 
@@ -1161,7 +1099,7 @@ def get_actual_threshold(config, points):
         return config['bundle_outlier_fixed_threshold']
     elif filter_type == 'AUTO':
         mean, std = get_error_distribution(points)
-        return config['bundle_outlier_auto_ratio'] * np.linalg.norm(mean + std)
+        return config['bundle_outlier_auto_ratio']*np.linalg.norm(mean+std)
     else:
         return 1.0
 
@@ -1279,8 +1217,7 @@ def merge_reconstructions(reconstructions, config):
 def paint_reconstruction(data, tracks_manager, reconstruction):
     """Set the color of the points from the color of the tracks."""
     for k, point in reconstruction.points.items():
-        point.color = map(float, next(
-            iter(tracks_manager.get_track_observations(k).values())).color)
+        point.color = map(float, next(iter(tracks_manager.get_track_observations(k).values())).color)
 
 
 class ShouldBundle:
@@ -1368,8 +1305,7 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
             images.remove(image)
 
             np_before = len(reconstruction.points)
-            triangulate_shot_features(
-                tracks_manager, graph_inliers, reconstruction, image, config)
+            triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, image, config)
             np_after = len(reconstruction.points)
             step['triangulated_points'] = np_after - np_before
 
@@ -1378,8 +1314,7 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
                 align_reconstruction(reconstruction, gcp, config)
                 b1rep = bundle(graph_inliers, reconstruction, camera_priors,
                                None, config)
-                rrep = retriangulate(
-                    tracks_manager, graph_inliers, reconstruction, config)
+                rrep = retriangulate(tracks_manager, graph_inliers, reconstruction, config)
                 b2rep = bundle(graph_inliers, reconstruction, camera_priors,
                                None, config)
                 remove_outliers(graph_inliers, reconstruction, config)
@@ -1432,15 +1367,12 @@ def compute_statistics(reconstruction, graph):
     hist, values = _length_histogram(reconstruction.points, graph)
     stats['observations_count'] = int(sum(hist * values))
     if len(reconstruction.points) > 0:
-        stats['average_track_length'] = float(
-            stats['observations_count']) / len(reconstruction.points)
+        stats['average_track_length'] = float(stats['observations_count'])/len(reconstruction.points)
     else:
         stats['average_track_length'] = -1
-    tracks_notwo = sum(
-        [1 if len(graph[p]) > 2 else 0 for p in reconstruction.points])
+    tracks_notwo = sum([1 if len(graph[p]) > 2 else 0 for p in reconstruction.points])
     if tracks_notwo > 0:
-        stats['average_track_length_notwo'] = float(
-            sum(hist[1:] * values[1:])) / tracks_notwo
+        stats['average_track_length_notwo'] = float(sum(hist[1:]*values[1:]))/tracks_notwo
     else:
         stats['average_track_length_notwo'] = -1
     return stats
@@ -1453,7 +1385,7 @@ def incremental_reconstruction(data, tracks_manager):
     chrono = Chronometer()
 
     images = tracks_manager.get_shot_ids()
-
+    
     if not data.reference_lla_exists():
         data.invent_reference_lla(images)
 
@@ -1482,8 +1414,7 @@ def incremental_reconstruction(data, tracks_manager):
                 reconstructions.append(reconstruction)
                 reconstructions = sorted(reconstructions,
                                          key=lambda x: -len(x.shots))
-                rec_report['stats'] = compute_statistics(
-                    reconstruction, graph_inliers)
+                rec_report['stats'] = compute_statistics(reconstruction, graph_inliers)
                 logger.info(rec_report['stats'])
 
     for k, r in enumerate(reconstructions):
