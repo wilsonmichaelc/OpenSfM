@@ -7,6 +7,7 @@
 #include <map/slam_shot_data.h>
 #include <map/observation.h>
 #include <map/camera.h>
+// #include <map/landmark.h>
 namespace map
 {
 class Pose;
@@ -96,8 +97,21 @@ class Shot {
   }
 
   Landmark* GetLandmark(const FeatureId id) { return landmarks_.at(id);}
-  void RemoveLandmarkObservation(const FeatureId id) { landmarks_.at(id) = nullptr; }
-  void AddLandmarkObservation(Landmark* lm, const FeatureId feat_id) { landmarks_.at(feat_id) = lm; }
+  void RemoveLandmarkObservation(const FeatureId id) 
+  { 
+    landmarks_.at(id) = nullptr; 
+  }
+  void AddLandmarkObservation(Landmark* lm, const FeatureId feat_id) 
+  { 
+    landmarks_.at(feat_id) = lm; 
+  }
+
+  void CreateObservation(Landmark* lm, const Eigen::Vector2d& pt, const double scale,
+                        const Eigen::Matrix<uint8_t, 1, 3>& color, FeatureId id)
+  {
+    landmark_observations_.insert(std::make_pair(lm, std::make_unique<Observation>(pt[0], pt[1], scale, color[0], color[1], color[2], id))); 
+  }
+
   void SetPose(const Pose& pose) { pose_ = pose; }
   const Pose& GetPose() const { return pose_; }
   Eigen::Matrix4d GetWorldToCam() const { return pose_.WorldToCamera(); }
@@ -135,5 +149,8 @@ private:
   std::vector<Landmark*> landmarks_;
   AlignedVector<Observation> keypoints_;
   DescriptorMatrix descriptors_;
+
+  std::map<Landmark*, std::unique_ptr<Observation>>
+      landmark_observations_;
 };
 }

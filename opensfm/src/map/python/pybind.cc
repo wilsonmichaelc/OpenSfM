@@ -102,6 +102,7 @@ PYBIND11_MODULE(pymap, m) {
            py::overload_cast<map::Shot *const, map::Landmark *const,
                              const map::FeatureId>(&map::Map::AddObservation),
            py::arg("shot"), py::arg("landmark"), py::arg("feature_id"))
+
       .def("remove_observation", &map::Map::RemoveObservation)
       .def("get_all_shots", &map::Map::GetAllShotPointers,
            py::return_value_policy::reference_internal)
@@ -165,6 +166,7 @@ PYBIND11_MODULE(pymap, m) {
       .def_readwrite("shot_measurement", &map::Shot::shot_measurements_)
       .def_property("pose", &map::Shot::GetPose, &map::Shot::SetPose)
       .def_property_readonly("camera", &map::Shot::GetCameraModel, py::return_value_policy::reference_internal)
+      .def("create_observation", &map::Shot::CreateObservation)
       ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")

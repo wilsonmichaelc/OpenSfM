@@ -20,10 +20,16 @@ Map::AddObservation(const ShotId shot_id, const LandmarkId lm_id, const FeatureI
 {
   auto* const shot = GetShot(shot_id);
   auto& lm = landmarks_.at(lm_id);
-  shot->AddLandmarkObservation(lm.get(), feat_id);
-  lm->AddObservation(shot, feat_id);
+  AddObservation(shot, lm.get(), feat_id);
+  // shot->AddLandmarkObservation(lm.get(), feat_id);
+  // lm->AddObservation(shot, feat_id);
 }
-
+void 
+Map::AddObservation(Shot *const shot,  Landmark *const lm, const Observation& obs)
+{
+  lm->AddObservation(shot, obs.id);
+  shot->CreateObservation(lm, obs.point, obs.scale, obs.color, obs.id);
+}
 
 void
 Map::RemoveObservation(Shot *const shot,  Landmark *const lm, const FeatureId feat_id) const

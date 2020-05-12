@@ -1011,10 +1011,12 @@ class TrackTriangulator:
     def _add_track_to_graph_inlier(self, track_id, shot_id):
         # copy_graph_data(self.tracks_manager, self.graph_inliers, shot_id, track_id)
         shot = self.reconstruction.get_shot(shot_id)
-        lm = self.reconstruction.get_landmark(track_id)
-        observation = tracks_manager.get_observation(shot_id, track_id)
-        self.reconstruction.add_observation(shot, lm, observation.id)
-
+        # lm = self.reconstruction.get_landmark(track_id)
+        observation = self.tracks_manager.get_observation(shot_id, track_id)
+        # At one point observation from tracks_manager == my observation
+        # TODO: Make the same observation!
+        #self.reconstruction.map.add_observation(shot.id, int(track_id), observation.id)
+        
     def _shot_origin(self, shot):
         if shot.id in self.origins:
             return self.origins[shot.id]
