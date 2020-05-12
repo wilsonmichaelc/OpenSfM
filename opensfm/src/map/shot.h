@@ -150,6 +150,11 @@ class Shot {
   bool operator>=(const Shot& shot) const { return id_ >= shot.id_; }
   std::string GetCameraName() const { return shot_camera_.camera_name_; }
   const Camera& GetCameraModel() const { return shot_camera_.camera_model_; }
+  Observation* GetLandmarkObservation(Landmark* lm)
+  {
+    return landmark_observations_.at(lm).get();
+  }
+
 public:
   SLAMShotData slam_data_;
   //We could set the const values to public, to avoid writing a getter.

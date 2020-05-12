@@ -905,6 +905,9 @@ class PointView(object):
     def __getitem__(self, index):
         return self.get(index)
 
+    def __setitem__(self, item):
+        print("calling PointView__setitem__")
+
     def get(self, index):
         return self.map.get_landmark(int(index))
 
@@ -917,11 +920,9 @@ class ShotView(object):
         self.map = map_mgn
 
     def __len__(self):
-        # print("calling ShotView__len__")
         return self.map.number_of_shots()
 
     def __getitem__(self, index):
-        # print("calling ShotView__getitem__", index)
         return self.get(index)
 
     def get(self, index):
@@ -992,6 +993,9 @@ class Reconstruction(object):
                 self.cameras.add_camera(cam)
         elif name == 'reference':
             self.map.set_reference(value.lat, value.lon, value.alt)
+        elif name == 'points':
+            if len(value) == 0: # clear the landmarks
+                self.map.clear_observations_and_landmarks()
         else:
             super(Reconstruction, self).__setattr__(name, value)
 

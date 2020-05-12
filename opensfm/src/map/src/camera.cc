@@ -151,20 +151,15 @@ PerspectiveCamera::PerspectiveCamera(const size_t width_, const size_t height_, 
                                        k1 = k1_;
                                        k2 = k2_;
                                         K = (cv::Mat_<float>(3,3) << focal, 0, 0, 0, focal, 0, 0, 0, 1);
-                                        distCoeff = (cv::Mat_<float>(1,5) << k1, k2, 0,0 );
+                                        distCoeff = (cv::Mat_<float>(1,5) << k1, k2, 0,0,0 );
                                      }
 
 Eigen::Vector3d
 PerspectiveCamera::PixelBearing(const Eigen::Vector2d &point) const
 {
-  // cv::Mat out;
-  // cv::Mat cv_point = (cv::Mat_<double>(1, 2) << point[0], point[1]);
-  // cv::unids
   std::vector<cv::Point2d> out;
   std::vector<cv::Point2d> in({cv::Point2d(point[0], point[1])});
-  // cv::Mat distCoeff = (Mat_<double>(1,4) << k1, k2, 0, 0);
   cv::undistortPoints(in, out, K, distCoeff);
-  // const auto x = out.at<double>(0), y = out.at<double>(1);
   const auto x = out[0].x, y = out[0].y;
   const auto l_inv = 1.0 / std::sqrt(x * x + y * y + 1.0);
   return Eigen::Vector3d(x, y, 1.0) * l_inv;

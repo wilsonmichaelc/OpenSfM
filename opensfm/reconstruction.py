@@ -264,7 +264,7 @@ def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
     t = shot.pose.translation
     #TODO: id = name
     # ba.add_shot(shot.id, camera.id, r, t, False)
-    ba.add_shot(shot.name, camera.id, r, t, False)
+    ba.add_shot(shot_id, camera.id, r, t, False)
 
     # for track_id in graph[shot_id]:
         # track = reconstruction.points[track_id]
@@ -273,14 +273,17 @@ def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
         track_id = str(track.id)
         ba.add_point(track_id, track.coordinates, True)
         
-        point = graph[shot_id][track_id]['feature']
-        scale = graph[shot_id][track_id]['feature_scale']
+        # point = graph[shot_id][track_id]['feature']
+        # scale = graph[shot_id][track_id]['feature_scale']
+        obs = shot.get_landmark_observation(track)
+        # obs = track.get_obs_in_shot(shot.id)
+        point = obs.point
         ba.add_point_projection_observation(
-            shot_id, track_id, point[0], point[1], scale)
+            shot_id, track_id, point[0], point[1], obs.scale)
 
     if config['bundle_use_gps']:
         g = shot.metadata.gps_position
-        ba.add_position_prior(shot.id, g[0], g[1], g[2],
+        ba.add_position_prior(shot_id, g[0], g[1], g[2],
                               shot.metadata.gps_dop)
 
     ba.set_point_projection_loss_function(config['loss_function'],
@@ -715,7 +718,6 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
 
     logger.info("Two-view reconstruction inliers: {} / {}".format(
         len(inliers), len(p1)))
-    print("R: ", R, " t: ", t)
     if len(inliers) <= 5:
         report['decision'] = "Could not find initial motion"
         logger.info(report['decision'])
@@ -744,7 +746,6 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
 
     logger.info("Triangulated: {}".format(len(reconstruction.points)))
     report['triangulated_points'] = len(reconstruction.points)
-    exit(0)
     if len(reconstruction.points) < min_inliers:
         report['decision'] = "Initial motion did not generate enough points"
         logger.info(report['decision'])
@@ -979,15 +980,11 @@ class TrackTriangulator:
                 r = self._shot_rotation_inverse(shot)
                 bs.append(r.dot(b))
                 ids.append(shot_id)
-                print("obs", obs.id, obs.point, b, shot.camera.k1, shot.camera.k2, shot.camera.focal, r)
-
 
         if len(os) >= 2:
             thresholds = len(os) * [reproj_threshold]
-            print(len(os), reproj_threshold, min_ray_angle_degrees)
             e, X = pygeometry.triangulate_bearings_midpoint(
                 os, bs, thresholds, np.radians(min_ray_angle_degrees))
-            print(e, X)
             if X is not None:
                 point = types.Point()
                 point.id = track

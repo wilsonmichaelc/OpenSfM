@@ -41,8 +41,8 @@ PYBIND11_MODULE(pymap, m) {
       .def("get_R_world_to_cam_min", &map::Pose::RotationWorldToCameraMin)
       .def("get_t_cam_to_world", &map::Pose::TranslationCameraToWorld)
       .def("get_t_world_to_cam", &map::Pose::TranslationWorldToCamera)
-      .def_property_readonly("rotation", &map::Pose::RotationWorldToCameraMin)
-      .def_property_readonly("translation", &map::Pose::TranslationWorldToCamera);
+      .def_property("rotation", &map::Pose::RotationWorldToCameraMin, &map::Pose::SetWorldToCamRotation)
+      .def_property("translation", &map::Pose::TranslationWorldToCamera, &map::Pose::SetWorldToCamTranslation);
 
   py::class_<map::MapIO>(m, "MapIO")
       .def("save_map", &map::MapIO::SaveMapToFile)
@@ -171,9 +171,11 @@ PYBIND11_MODULE(pymap, m) {
       .def("get_obs_by_idx", &map::Shot::GetKeyPointEigen)
       .def("get_camera_name", &map::Shot::GetCameraName)
       .def_readwrite("shot_measurement", &map::Shot::shot_measurements_)
+      .def_readwrite("metadata", &map::Shot::shot_measurements_)
       .def_property("pose", &map::Shot::GetPose, &map::Shot::SetPose)
       .def_property_readonly("camera", &map::Shot::GetCameraModel, py::return_value_policy::reference_internal)
       .def("create_observation", &map::Shot::CreateObservation)
+      .def("get_landmark_observation", &map::Shot::GetLandmarkObservation)
       ;
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")
@@ -187,7 +189,8 @@ PYBIND11_MODULE(pymap, m) {
 
   py::class_<map::ShotMeasurements>(m, "ShotMeasurements")
       .def_readwrite("gps_dop", &map::ShotMeasurements::gps_dop_)
-      .def_readwrite("gps_pos", &map::ShotMeasurements::gps_position_);
+      .def_readwrite("gps_pos", &map::ShotMeasurements::gps_position_)
+      .def_readwrite("gps_position", &map::ShotMeasurements::gps_position_);
 
   py::class_<map::Landmark>(m, "Landmark")
       .def(py::init<const map::LandmarkId&, const Eigen::Vector3d&,
@@ -196,6 +199,7 @@ PYBIND11_MODULE(pymap, m) {
       .def_readonly("name", &map::Landmark::name_)
       .def_readwrite("slam_data", &map::Landmark::slam_data_)
       .def("get_global_pos", &map::Landmark::GetGlobalPos)
+      .def_property_readonly("coordinates", &map::Landmark::GetGlobalPos)
       .def("set_global_pos", &map::Landmark::SetGlobalPos)
       .def("is_observed_in_shot", &map::Landmark::IsObservedInShot)
       .def("add_observation", &map::Landmark::AddObservation)
