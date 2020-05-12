@@ -61,7 +61,7 @@ bool SlamUtilities::check_epipolar_constraint(const Eigen::Vector3f &bearing_1, 
 }
 
 Eigen::MatrixXf
-SlamUtilities::ConvertOpenCVKptsToEigen(const AlignedVector<map::Observation>& keypts)
+SlamUtilities::ConvertOpenCVKptsToEigen(const AlignedVector<Observation>& keypts)
 {
   if (!keypts.empty())
   {
@@ -403,7 +403,7 @@ SlamUtilities::MatchShotToLocalMap(map::Shot &shot, const slam::GuidedMatcher& m
   constexpr float margin{5};
   constexpr float lowe_ratio{10};
   return matcher.AssignLandmarksToShot(shot, local_landmarks, margin,
-                                       AlignedVector<map::Observation>(),GuidedMatcher::NO_ORIENTATION_CHECK,
+                                       AlignedVector<Observation>(),GuidedMatcher::NO_ORIENTATION_CHECK,
                                        lowe_ratio);
 }
 

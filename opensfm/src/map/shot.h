@@ -7,6 +7,7 @@
 #include <map/slam_shot_data.h>
 #include <map/observation.h>
 #include <map/camera.h>
+#include <sfm/observation.h>
 // #include <map/landmark.h>
 namespace map
 {
@@ -62,11 +63,23 @@ class Shot {
   std::vector<Landmark*>& GetLandmarks() { return landmarks_; }
   std::vector<Landmark*> ComputeValidLandmarks()
   {
-    std::vector<Landmark*> valid_landmarks;
-    valid_landmarks.reserve(landmarks_.size());
-    std::copy_if(landmarks_.begin(), landmarks_.end(),
-              std::back_inserter(valid_landmarks), [](const auto* lm){ return lm != nullptr; });
-    return valid_landmarks;
+    //we use the landmark observation
+    if (landmarks_.empty())
+    {
+      std::vector<Landmark*> valid_landmarks;
+      valid_landmarks.reserve(landmark_observations_.size());
+      std::transform(landmark_observations_.begin(), landmark_observations_.end(),
+                std::back_inserter(valid_landmarks), [](const auto& p){ return p.first; });
+      return valid_landmarks;
+    }
+    else
+    {
+      std::vector<Landmark*> valid_landmarks;
+      valid_landmarks.reserve(landmarks_.size());
+      std::copy_if(landmarks_.begin(), landmarks_.end(),
+                std::back_inserter(valid_landmarks), [](const auto* lm){ return lm != nullptr; });
+      return valid_landmarks;
+    }
   }
   std::vector<FeatureId> ComputeValidLandmarksIndices() const
   {
@@ -95,6 +108,8 @@ class Shot {
     }
     return valid_landmarks;
   }
+  
+
 
   Landmark* GetLandmark(const FeatureId id) { return landmarks_.at(id);}
   void RemoveLandmarkObservation(const FeatureId id) 
@@ -107,7 +122,7 @@ class Shot {
   }
 
   void CreateObservation(Landmark* lm, const Eigen::Vector2d& pt, const double scale,
-                        const Eigen::Matrix<uint8_t, 1, 3>& color, FeatureId id)
+                        const Eigen::Vector3i& color, FeatureId id)
   {
     landmark_observations_.insert(std::make_pair(lm, std::make_unique<Observation>(pt[0], pt[1], scale, color[0], color[1], color[2], id))); 
   }

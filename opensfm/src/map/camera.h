@@ -6,18 +6,22 @@
 #include <opencv2/calib3d.hpp>
 #include <Eigen/Core>
 #include <iostream>
+#include <sfm/observation.h>
 namespace map
 {
 class Camera
 {
 public:
-  Camera(const size_t width_, const size_t height_, const std::string& projection_type_):
-          width(width_), height(height_), projectionType(projection_type_)
+  Camera(const size_t width_, const size_t height_, const std::string& projection_type_, const std::string cam_name = ""):
+          width(width_), height(height_), projectionType(projection_type_), id(cam_name)
   {}
   virtual ~Camera() = default;
-
+  std::string id;
   const size_t width;
   const size_t height;
+  // float focal;  // focal lengths in pixels
+  // const float cx, cy;              // principal points
+  // float k1, k2;  // distortion coefficients
   //TODO: Make to enum
   const std::string projectionType;
   // virtual void UndistortedKeyptsToBearings(const std::vector<cv::KeyPoint>& undistKeypts,
@@ -77,7 +81,8 @@ class BrownPerspectiveCamera : public Camera
 public:
   BrownPerspectiveCamera(const size_t width_, const size_t height_, const std::string& projection_type_,
                          const float fx_, const float fy_, const float cx_, const float cy_,
-                         const float k1_, const float k2_, const float p1_, const float p2_, const float k3_);
+                         const float k1_, const float k2_, const float p1_, const float p2_, const float k3_,
+                         const std::string cam_name = "");
   virtual void UndistortedKeyptsToBearings(const AlignedVector<Observation>& undist_keypts, AlignedVector<Eigen::Vector3d>& bearings) const;
   virtual void UndistortKeypts(const AlignedVector<Observation>& keypts, AlignedVector<Observation>& undist_keypts) const;
   virtual bool ReprojectToImage(const Eigen::Matrix3f& R_cw, const Eigen::Vector3f& t_cw, const Eigen::Vector3f& ptWorld,
@@ -98,7 +103,10 @@ public:
   
   const float fx, fy; // focal lengths
   const float cx, cy; // principal points
-  const float k1, k2, p1, p2, k3; // distortion coefficients
+  // const float /*k1, k2,*/ p1, p2, k3; // distortion coefficients
+  
+  float k1, k2, p1, p2, k3; // distortion coefficients
+
   cv::Mat K, K_pixel; //intrinsic camera matrix
   cv::Mat distCoeff; //distortion coefficients
   Eigen::Matrix3f K_pixel_eig;
@@ -108,7 +116,8 @@ class PerspectiveCamera : public Camera {
  public:
   PerspectiveCamera(const size_t width_, const size_t height_,
                     const std::string& projection_type_, const float focal_,
-                    const float k1_, const float k2_);
+                    const float k1_, const float k2_,
+                    const std::string cam_name = "");
   virtual void UndistortedKeyptsToBearings(
       const AlignedVector<Observation>& undist_keypts,
       AlignedVector<Eigen::Vector3d>& bearings) const {}
@@ -137,8 +146,8 @@ class PerspectiveCamera : public Camera {
   virtual Eigen::Vector3d PixelBearing(const Eigen::Vector2d& point) const override;
 
   float focal;  // focal lengths in pixels
-  // const float cx, cy;              // principal points
-  const float k1, k2;  // distortion coefficients
+  // // const float cx, cy;              // principal points
+  float k1, k2;  // distortion coefficients
   cv::Mat K; //intrinsic camera matrix
   cv::Mat distCoeff; //distortion coefficients
 };

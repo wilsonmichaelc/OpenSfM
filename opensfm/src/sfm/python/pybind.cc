@@ -13,10 +13,16 @@ PYBIND11_MODULE(pysfm, m) {
 
   py::class_<Observation>(m, "Observation")
     .def(py::init<double, double, double, int, int, int, int>())
+    .def(py::init<double, double, double, int, int, int, int, float, float,
+              float, int>())
     .def_readwrite("point", &Observation::point)
     .def_readwrite("scale", &Observation::scale)
     .def_readwrite("id", &Observation::id)
     .def_readwrite("color", &Observation::color)
+    .def_readwrite("angle", &Observation::angle)
+    .def_readwrite("response", &Observation::response)
+    .def_readwrite("size", &Observation::size)
+    .def_readwrite("class_id", &Observation::class_id);
   ;
 
   py::class_<TracksManager>(m, "TracksManager")

@@ -72,7 +72,7 @@ orb_extractor::orb_extractor(const orb_params &orb_params)
 }
 
 void orb_extractor::extract(const cv::_InputArray &in_image, const cv::_InputArray &in_image_mask,
-                            AlignedVector<map::Observation> &keypts, //const cv::_OutputArray &out_descriptors,
+                            AlignedVector<Observation> &keypts, //const cv::_OutputArray &out_descriptors,
                             DescriptorMatrix& out_descriptors)
 {
   if (in_image.empty())

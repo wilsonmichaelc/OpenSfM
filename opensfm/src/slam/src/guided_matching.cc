@@ -207,13 +207,13 @@ GuidedMatcher::FindBestMatchForLandmark(const map::Landmark *const lm, map::Shot
 //                                const CellIndices &keypts_indices_in_cells_2,
 //                                const Eigen::MatrixX2f &prevMatched, const size_t margin) const
 // MatchIndices
-// GuidedMatcher::MatchKptsToKpts(const AlignedVector<map::Observation>& undist_keypts_1, const cv::Mat& descriptors_1,
-//                                const AlignedVector<map::Observation>& undist_keypts_2, const cv::Mat& descriptors_2,
+// GuidedMatcher::MatchKptsToKpts(const AlignedVector<Observation>& undist_keypts_1, const cv::Mat& descriptors_1,
+//                                const AlignedVector<Observation>& undist_keypts_2, const cv::Mat& descriptors_2,
 //                                const CellIndices& keypts_indices_in_cells_2,
 //                                const Eigen::MatrixX2f& prevMatched, const size_t margin) const
 MatchIndices
-GuidedMatcher::MatchKptsToKpts(const AlignedVector<map::Observation>& undist_keypts_1, const DescriptorMatrix& descriptors_1,
-                               const AlignedVector<map::Observation>& undist_keypts_2, const DescriptorMatrix& descriptors_2,
+GuidedMatcher::MatchKptsToKpts(const AlignedVector<Observation>& undist_keypts_1, const DescriptorMatrix& descriptors_1,
+                               const AlignedVector<Observation>& undist_keypts_2, const DescriptorMatrix& descriptors_2,
                                const CellIndices& keypts_indices_in_cells_2,
                                const Eigen::MatrixX2f& prevMatched, const size_t margin) const
 {
@@ -331,7 +331,7 @@ GuidedMatcher::MatchKptsToKpts(const AlignedVector<map::Observation>& undist_key
 }
 
 // void GuidedMatcher::DistributeUndistKeyptsToGrid(const std::vector<cv::KeyPoint> &undist_keypts, CellIndices &keypt_indices_in_cells) const
-void GuidedMatcher::DistributeUndistKeyptsToGrid(const AlignedVector<map::Observation>& undist_keypts, CellIndices& keypt_indices_in_cells) const
+void GuidedMatcher::DistributeUndistKeyptsToGrid(const AlignedVector<Observation>& undist_keypts, CellIndices& keypt_indices_in_cells) const
 
 {
   const size_t num_pts = undist_keypts.size();
@@ -358,7 +358,7 @@ void GuidedMatcher::DistributeUndistKeyptsToGrid(const AlignedVector<map::Observ
 }
 
 std::vector<size_t>
-GuidedMatcher::GetKeypointsInCell(const AlignedVector<map::Observation>& undist_keypts,
+GuidedMatcher::GetKeypointsInCell(const AlignedVector<Observation>& undist_keypts,
                                   const CellIndices& keypt_indices_in_cells,
                                   const float ref_x, const float ref_y, const float margin,
                                   const int min_level, const int max_level) const
@@ -435,7 +435,7 @@ GuidedMatcher::GetKeypointsInCell(const AlignedVector<map::Observation>& undist_
 size_t
 // MatchIndices
 GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Landmark*>& landmarks, const float margin,
-                                     const AlignedVector<map::Observation>& other_undist_kpts, bool check_orientation, const float lowe_ratio) const
+                                     const AlignedVector<Observation>& other_undist_kpts, bool check_orientation, const float lowe_ratio) const
 {
   size_t num_matches{0};
   // MatchIndices matches;

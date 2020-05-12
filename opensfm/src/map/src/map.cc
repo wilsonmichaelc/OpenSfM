@@ -52,6 +52,13 @@ Map::GetShot(const std::string& shot_name) //const
   return (it != shot_names_.end() ? GetShot(it->second) : nullptr);
 }
 
+Landmark* 
+Map::GetLandmark(const LandmarkId lm_id)
+{
+  const auto& it = landmarks_.find(lm_id);
+  return (it != landmarks_.end() ? it->second.get() : nullptr);
+}
+
 void
 Map::ClearObservationsAndLandmarks()
 {
@@ -363,13 +370,13 @@ Map::CreateCameraModel(const std::string& cam_name, const Camera& cam)
     const map::PerspectiveCamera* const b_cam = dynamic_cast<const map::PerspectiveCamera*>(&cam);
 
     auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<PerspectiveCamera>(b_cam->width, b_cam->height, 
-      b_cam->projectionType, b_cam->focal, b_cam->k1, b_cam->k2)));
+      b_cam->projectionType, b_cam->focal, b_cam->k1, b_cam->k2, cam_name)));
     return it.first->second.get();
   }
   const map::PerspectiveCamera* const b_cam = dynamic_cast<const map::PerspectiveCamera*>(&cam);
 
   auto it = camera_models_.emplace(std::make_pair(cam_name, std::make_unique<PerspectiveCamera>(b_cam->width, b_cam->height, 
-    b_cam->projectionType, b_cam->focal, b_cam->k1, b_cam->k2)));
+    b_cam->projectionType, b_cam->focal, b_cam->k1, b_cam->k2, cam_name)));
   return it.first->second.get();
   // else
   // {

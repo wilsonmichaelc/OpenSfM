@@ -3,7 +3,7 @@
 #include <Eigen/Core>
 #include <memory>
 #include <map/third_party/data/graph_node.h>
-#include <map/observation.h>
+#include <sfm/observation.h>
 namespace map
 {
 class SLAMShotData

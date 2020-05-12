@@ -214,6 +214,9 @@ def test_map_wrapper():
     camera.id = "cam1"
     camera.width = 640
     camera.height = 480
+    camera.focal = 1
+    camera.k1 = 0
+    camera.k2 = 0
     metadata = types.ShotMetadata()
     metadata.gps_dop = 0.0
     metadata.gps_position = [0.0, 0.0, 0.0]
@@ -221,8 +224,12 @@ def test_map_wrapper():
     camera2.id = "cam2"
     camera2.width = 640
     camera2.height = 480
-
-    cameras = [camera, camera2]
+    camera2.focal = 1
+    camera2.k1 = 0
+    camera2.k2 = 0
+    cameras = {}
+    cameras[camera.id] = camera
+    cameras[camera2.id] = camera2
     rec.cameras = cameras
     assert(len(rec.cameras) == 2)
     shot1 = types.Shot()
@@ -244,7 +251,22 @@ def test_map_wrapper():
         print("shot:", shot.id, shot.name)
     for shot in rec.shots.values():
         print("shot val:", shot.id, shot.name)
+    p = types.Point()
+    p.id = 0
+    p.coordinates = np.array([0, 1, 2])
+    rec.add_point(p)
+    p.id = 1
+    p.coordinates = np.array([0, 1, 3])
+    rec.add_point(p)
+    p.id = 2
+    p.coordinates = np.array([2, 1, 3])
+    rec.add_point(p)
 
+    assert(len(rec.points) == 3)
+    assert(rec.map.number_of_landmarks() == 3)
+
+    my_point = rec.get_point(2)
+    assert(my_point.id == 2)
 
 test_map_wrapper()
 # test_larger_problem()

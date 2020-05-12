@@ -6,7 +6,7 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <map/defines.h>
-#include <map/observation.h>
+#include <sfm/observation.h>
 namespace openvslam
 {
 namespace feature
@@ -31,10 +31,10 @@ public:
 
   //! Extract keypoints and each descriptor of them
   // void extract(const cv::_InputArray &in_image, const cv::_InputArray &in_image_mask,
-  //              AlignedVector<map::Observation> &keypts, const cv::_OutputArray &out_descriptors);
+  //              AlignedVector<Observation> &keypts, const cv::_OutputArray &out_descriptors);
 
   void extract(const cv::_InputArray &in_image, const cv::_InputArray &in_image_mask,
-               AlignedVector<map::Observation> &keypts, //const cv::_OutputArray &out_descriptors,
+               AlignedVector<Observation> &keypts, //const cv::_OutputArray &out_descriptors,
                DescriptorMatrix &out_descriptors_eig);
   //! Get the maximum number of keypoints
   unsigned int get_max_num_keypoints() const;

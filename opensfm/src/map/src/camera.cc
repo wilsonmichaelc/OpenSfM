@@ -8,10 +8,12 @@ namespace map
 {
 BrownPerspectiveCamera::BrownPerspectiveCamera(const size_t width_, const size_t height_, const std::string& projection_type_,
                                                const float fx_, const float fy_, const float cx_, const float cy_,
-                                               const float k1_, const float k2_, const float p1_, const float p2_, const float k3_): 
-                                               Camera(width_, height_, projection_type_), fx(fx_), fy(fy_), cx(cx_), cy(cy_),
-                                               k1(k1_), k2(k2_), p1(p1_), p2(p2_), k3(k3_)
+                                               const float k1_, const float k2_, const float p1_, const float p2_, const float k3_,
+                                               const std::string name): 
+                                               Camera(width_, height_, projection_type_, name), fx(fx_), fy(fy_), cx(cx_), cy(cy_),
+                                               p1(p1_), p2(p2_), k3(k3_)
 {
+    k1 = k1_; k2=k2_;
     K = (cv::Mat_<float>(3,3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
     distCoeff = (cv::Mat_<float>(1,5) << k1, k2, p1, p2, k3);
 
@@ -24,7 +26,7 @@ BrownPerspectiveCamera::BrownPerspectiveCamera(const size_t width_, const size_t
     fy_p = K_pixel_eig(1,1);
     cx_p = K_pixel_eig(0,2);
     cy_p = K_pixel_eig(1,2);
-
+    
 }
 void
 BrownPerspectiveCamera::UndistortedKeyptsToBearings(const AlignedVector<Observation>& undist_keypts, AlignedVector<Eigen::Vector3d>& bearings) const
@@ -141,10 +143,13 @@ BrownPerspectiveCamera::PixelBearing(const Eigen::Vector2d &point) const
 
 
 PerspectiveCamera::PerspectiveCamera(const size_t width_, const size_t height_, const std::string& projection_type_,
-                                     const float focal_, const float k1_, const float k2_):
-                                     Camera(width_, height_, projection_type_),
-                                     focal(focal_), k1(k1_), k2(k2_)
+                                     const float focal_, const float k1_, const float k2_, const std::string name):
+                                     Camera(width_, height_, projection_type_,name)
+                                    //  focal(focal_), k1(k1_), k2(k2_)
                                      {
+                                       focal = focal_;
+                                       k1 = k1_;
+                                       k2 = k2_;
                                         K = (cv::Mat_<float>(3,3) << focal, 0, 0, 0, focal, 0, 0, 0, 1);
                                         distCoeff = (cv::Mat_<float>(1,5) << k1, k2, 0,0 );
                                      }

@@ -48,9 +48,8 @@ public:
   auto GetNextUniqueShotId() const { return unique_shot_id_; }
 
   Shot* GetShot(const ShotId shot_id);
-  
   Shot* GetShot(const std::string& shot_name);
-
+  Landmark* GetLandmark(const LandmarkId lm_id);
 
   // Landmark
   Landmark* CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");

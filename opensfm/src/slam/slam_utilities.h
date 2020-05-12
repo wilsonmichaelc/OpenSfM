@@ -25,7 +25,7 @@ public:
                                      const Eigen::Matrix3d &rot_2w, const Eigen::Vector3d &trans_2w);
 
 
-  static Eigen::MatrixXf ConvertOpenCVKptsToEigen(const AlignedVector<map::Observation>& keypts);
+  static Eigen::MatrixXf ConvertOpenCVKptsToEigen(const AlignedVector<Observation>& keypts);
   
 
   static std::vector<map::Landmark*> update_local_landmarks(const std::vector<map::Shot*>& local_keyframes); //, const size_t curr_frm_id);

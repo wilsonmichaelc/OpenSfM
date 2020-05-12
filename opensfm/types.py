@@ -901,12 +901,14 @@ class PointView(object):
 
     def __len__(self):
         return self.map.number_of_landmarks()
-    
+
     def __getitem__(self, index):
+        return self.get(index)
+
+    def get(self, index):
         return self.map.get_landmark(int(index))
-    
+
     def __contains__(self, index):
-        
         return self.map.has_landmark(int(index))
 
 class ShotView(object):
@@ -915,11 +917,11 @@ class ShotView(object):
         self.map = map_mgn
 
     def __len__(self):
-        print("calling ShotView__len__")
+        # print("calling ShotView__len__")
         return self.map.number_of_shots()
 
     def __getitem__(self, index):
-        print("calling ShotView__getitem__", index)
+        # print("calling ShotView__getitem__", index)
         return self.get(index)
 
     def get(self, index):
@@ -978,8 +980,9 @@ class Reconstruction(object):
         # self.cameras = CameraView(self.map)
         super(Reconstruction, self).__setattr__("cameras", CameraView(self.map))
         super(Reconstruction, self).__setattr__("reference", None)
-        self.shots = ShotView(self.map)
-        self.points = {}
+        super(Reconstruction, self).__setattr__("shots", ShotView(self.map))
+        super(Reconstruction, self).__setattr__("points", PointView(self.map))
+        # self.points = PointView(self.map)
         # self.reference = None
 
     def __setattr__(self, name, value):

@@ -1127,11 +1127,13 @@ class TrackTriangulator:
                 r = self._shot_rotation_inverse(shot)
                 bs.append(r.dot(b))
                 ids.append(shot_id)
+                print("obs", obs.id)
 
         if len(os) >= 2:
             thresholds = len(os) * [reproj_threshold]
             e, X = pygeometry.triangulate_bearings_midpoint(
                 os, bs, thresholds, np.radians(min_ray_angle_degrees))
+            print(e, X)
             if X is not None:
                 point = types.Point()
                 point.id = track

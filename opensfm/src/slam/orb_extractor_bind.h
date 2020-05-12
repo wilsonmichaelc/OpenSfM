@@ -22,7 +22,7 @@ public:
   {
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
-    AlignedVector<map::Observation> kpts;
+    AlignedVector<Observation> kpts;
     DescriptorMatrix desc;
     // cv::Mat desc;
     
@@ -58,7 +58,7 @@ public:
     const cv::Mat img(image.shape(0), image.shape(1), CV_8U, (void *)image.data());
     const cv::Mat mask_img = (mask.shape(0) == 0 ? cv::Mat{} : cv::Mat(mask.shape(0), mask.shape(1), CV_8U, (void *)mask.data()));
     // std::vector<cv::KeyPoint> kpts;
-    AlignedVector<map::Observation> kpts;
+    AlignedVector<Observation> kpts;
     DescriptorMatrix desc;
     // cv::Mat desc;
     extractor_.extract(img, mask_img, kpts, desc); //, dmat);
