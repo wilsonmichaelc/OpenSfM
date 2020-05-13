@@ -109,6 +109,8 @@ test_large_problem(map::Manager& map_manager, const map::Camera& cam)
 }
 
 
+
+
 int main()
 {
   map::Manager map_manager;
@@ -116,7 +118,7 @@ int main()
             << ", " << map_manager.NumberOfLandmarks() << std::endl;
   map::Camera cam;
   test_shot_cameras(10, map_manager, &cam);
-
   test_large_problem(map_manager, cam);
+
   return 0;
 }

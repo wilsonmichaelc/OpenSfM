@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE)
       "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
       FORCE)
 endif()
-
+SET(CMAKE_BUILD_TYPE DEBUG)
 set(CMAKE_MODULE_PATH ${opensfm_SOURCE_DIR}/cmake)
 
 ####### Compilation Options #######

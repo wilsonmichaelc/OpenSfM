@@ -65,7 +65,7 @@ void
 // Shot::InitAndTakeDatastructures(AlignedVector<Observation> keypts, cv::Mat descriptors)
 Shot::InitAndTakeDatastructures(AlignedVector<Observation> keypts, DescriptorMatrix descriptors)
 {
-  assert(keypts.size() == descriptors.rows);
+  assert(keypts.size() == descriptors.rows());
 
   std::swap(keypts, keypoints_);
   std::swap(descriptors, descriptors_);
@@ -109,6 +109,32 @@ Shot::ScalePose(const float scale)
     Eigen::Matrix4d cam_pose_cw = pose_.WorldToCamera();
     cam_pose_cw.block<3, 1>(0, 3) *= scale;
     pose_.SetFromWorldToCamera(cam_pose_cw);
+}
+
+void 
+Shot::RemoveLandmarkObservation(const FeatureId id) 
+{ 
+  if (landmarks_.empty())
+  {
+    auto* lm = landmark_id_.at(id);
+    // std::cout << "Got: " << lm->id_ << ", " << landmark_id_.size() << "/" << landmark_observations_.size() 
+              // << " from shot: " << id_ << ", " << name_ << std::endl;
+    // std::cout << "Erasing: " << lm << " and " << id << std::endl;
+    // if (landmark_id_.find(id) != landmark_id_.end())
+    // {
+    //   std::cout << "found id" << std::endl;
+    // }
+    // if (landmark_observations_.find(lm) != landmark_observations_.end())
+    // {
+    //   std::cout << "found lm" << std::endl;
+    // }
+    landmark_id_.erase(id);
+    landmark_observations_.erase(lm);
+  }
+  else
+  {
+    landmarks_.at(id) = nullptr; 
+  }
 }
 
 } //namespace map

@@ -72,6 +72,12 @@ public:
     world_to_cam_.translation() = t_cw;
     cam_to_world_.translation() = world_to_cam_.inverse().translation();
   }
+
+  void SetWorldToCamRotationMatrix(const Eigen::Matrix3d& R_cw)
+  {
+    world_to_cam_.setRotationMatrix(R_cw);
+    cam_to_world_.setRotationMatrix(R_cw.transpose());
+  }
   void SetFromCameraToWorld(const Eigen::Vector3d& R_wc, const Eigen::Vector3d& t_wc)
   {
     // Sophus::SO3d::exp(R_wc);

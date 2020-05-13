@@ -65,12 +65,15 @@ Map::ClearObservationsAndLandmarks()
   // first JUST delete the observations of a landmark
   for (auto& id_lm : landmarks_)
   {
+    // std::cout << "id_lm: " << id_lm.first << "/" << id_lm.second->id_ << std::endl;
     auto& observations = id_lm.second->GetObservations();
     for (const auto& obs : observations)
     {
       obs.first->RemoveLandmarkObservation(obs.second);
     }
+    // std::cout << "Clearing obs" << std::endl;
     id_lm.second->ClearObservations();
+    // std::cout << "Cleared obs" << std::endl;
   }
   // then clear the landmarks_
   landmarks_.clear();
@@ -340,7 +343,7 @@ Map::ReplaceLandmark(Landmark* old_lm, Landmark* new_lm)
  * @returns           pointer to the created or already existing lm
  */
 ShotCamera* 
-Map::CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name)
+Map::CreateShotCamera(const CameraId cam_id, Camera& camera, const std::string& name)
 {
   auto it = cameras_.emplace(cam_id, std::make_unique<ShotCamera>(camera, cam_id, name));
   
@@ -394,6 +397,32 @@ ShotCamera*
 Map::GetShotCamera(const std::string& cam_name)
 {
   return cameras_.at(camera_names_.at(cam_name)).get();
+}
+
+std::vector<Camera*> 
+Map::GetAllCameraModels()
+{
+  // std::vector<Camera*> cameras;
+  // cameras.reserve(cameras_.size());
+  // for (const auto& shot_cam : cameras_)
+  // {
+  //   cameras.push_back(&(shot_cam.second->camera_model_));
+  //   // cameras.push_back(shot_cam.second->camera_model_);
+  // }
+  // return cameras;
+  std::vector<Camera*> cameras;
+  cameras.reserve(cameras_.size());
+  for (auto& cam_mod : camera_models_)
+  {
+    cameras.push_back(cam_mod.second.get());
+  }
+  return cameras;
+}
+
+Camera*
+Map::GetCameraModel(const std::string& cam)
+{
+  return camera_models_.at(cam).get();
 }
 
 };

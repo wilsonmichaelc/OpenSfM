@@ -908,11 +908,24 @@ class PointView(object):
     def __setitem__(self, item):
         print("calling PointView__setitem__")
 
+    def __iter__(self):
+        for point_id in self.map.get_all_landmark_names().keys():
+            yield str(point_id)
+
     def get(self, index):
         return self.map.get_landmark(int(index))
 
     def __contains__(self, index):
         return self.map.has_landmark(int(index))
+
+    def values(self):
+        return self.map.get_all_landmarks().values()
+
+    def keys(self):
+        return [str(x) for x in self.map.get_all_landmarks().keys()]
+    
+    def items(self):
+        return self.map.get_all_landmarks().items()
 
 class ShotView(object):
 
@@ -929,9 +942,8 @@ class ShotView(object):
         return self.map.get_shot(index)
 
     def __iter__(self):
-        print("calling ShotView__iter__")
-        for shot in self.map.get_all_shots().values():
-            print("shot", shot)
+        for shot in self.map.get_all_shot_names().keys():
+        # for shot in self.map.get_all_shots().values():
             yield shot
 
     def __contains__(self, index):
@@ -942,6 +954,11 @@ class ShotView(object):
 
     def values(self):
         return self.map.get_all_shots().values()
+    
+    def keys(self):
+        #TODO: unify id/name
+        return self.map.get_all_shot_names()
+        # return self.map.get_all_shots().keys()
 
 
 class CameraView(object):
@@ -963,7 +980,11 @@ class CameraView(object):
         return self.get(index)
 
     def get(self, index):
-        return self.map.get_shot_camera(index)
+        # return self.map.get_shot_camera(index)
+        return self.map.get_camera_model(index)
+
+    def values(self):
+        return self.map.get_all_camera_models()
 
 class Reconstruction(object):
     """Defines the reconstructed scene.
@@ -994,6 +1015,7 @@ class Reconstruction(object):
         elif name == 'reference':
             self.map.set_reference(value.lat, value.lon, value.alt)
         elif name == 'points':
+            print("value", len(value))
             if len(value) == 0: # clear the landmarks
                 self.map.clear_observations_and_landmarks()
         else:
@@ -1022,9 +1044,10 @@ class Reconstruction(object):
         map_shot = self.map.get_shot(shot.id)
         if map_shot is None:
             shot_id = self.map.next_unique_shot_id()
-            map_shot = self.map.create_shot(shot_id, shot.camera, shot.id)
+            map_shot = self.map.create_shot(shot_id, shot.camera.id, shot.id)
         map_shot.shot_measurement.gps_dop = shot.metadata.gps_dop
         map_shot.shot_measurement.gps_pos = shot.metadata.gps_position
+        map_shot.shot_measurement.orientation = shot.metadata.orientation
         pose = pymap.Pose()
         pose.set_from_world_to_cam(shot.pose.rotation, shot.pose.translation)
         map_shot.set_pose(pose)

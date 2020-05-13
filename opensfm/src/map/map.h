@@ -33,7 +33,7 @@ public:
 
   // Create, Update and Remove
   // Camera
-  ShotCamera* CreateShotCamera(const CameraId cam_id, const Camera& camera, const std::string& name = "");
+  ShotCamera* CreateShotCamera(const CameraId cam_id, Camera& camera, const std::string& name = "");
   // ShotCamera* CreateShotCamera(const CameraId cam_id, const std::string& camera_name, const std::string& name = "");
   void UpdateShotCamera(const CameraId cam_id, const Camera& camera);
   void RemoveShotCamera(const CameraId cam_id);
@@ -90,6 +90,21 @@ public:
     return copy;
   }
 
+  const auto& GetAllShotNames() const
+  {
+    // std::vector<std::string> shot_names;
+    // shot_names.reserve(shots_.size());
+    // std::transform(shots_.begin(), shots_.end(), std::back_inserter(shot_names),
+    //         [](const auto& shot) { return shot->name_; });
+    // return shot_names;
+    return shot_names_;
+
+  }
+  const auto& GetAllPointNames() const
+  {
+    return landmark_names_;
+  }
+
   void SetTopoCentricConverter(const double lat, const double longitude, const double alt)
   {
     topo_conv_.lat_ = lat;
@@ -99,8 +114,10 @@ public:
   ShotCamera* GetShotCamera(const std::string& cam_name);
   Camera* CreateCameraModel(const std::string& cam_name, const Camera& cam);
   bool HasShot(const ShotId shot_id) const { return shots_.find(shot_id) != shots_.end(); }
-
   void ClearObservationsAndLandmarks();
+
+  std::vector<Camera*> GetAllCameraModels();
+  Camera* GetCameraModel(const std::string& cam);
 private:
   std::unordered_map<CameraId, std::unique_ptr<ShotCamera>> cameras_;
   std::unordered_map<ShotId, std::unique_ptr<Shot>> shots_;

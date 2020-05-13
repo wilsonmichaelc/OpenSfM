@@ -10,6 +10,18 @@ Landmark::Landmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, co
 {
 
 }
+Eigen::Vector3f 
+Landmark::GetObservationInShot(Shot* shot) const {
+  const auto obs_id = observations_.at(shot);
+  return shot->GetKeyPointEigen(obs_id);
+}
+
+void 
+Landmark::SetReprojectionErrors(const std::unordered_map<std::string, Eigen::VectorXd> reproj_errors)
+{
+  reproj_errors_ = reproj_errors;
+}
+
 
 double 
 Landmark::ComputeDistanceFromRefFrame() const

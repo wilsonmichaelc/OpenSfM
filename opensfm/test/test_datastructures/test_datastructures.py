@@ -2,6 +2,7 @@ import numpy as np
 from opensfm import pymap
 from opensfm import types
 from opensfm import reconstruction
+from opensfm import pysfm
 
 def test_shot_cameras():
     """Test that shot cameras are created and deleted correctly"""
@@ -267,6 +268,36 @@ def test_map_wrapper():
 
     my_point = rec.get_point(2)
     assert(my_point.id == 2)
+    shot_1 = rec.get_shot("im1")
+    shot_2 = rec.get_shot("im2")
+    point = rec.get_point(0)
+    point2 = rec.get_point(1)
+    observation_1 = pysfm.Observation(1,2,3,255,255,0,100)
+    observation_2 = pysfm.Observation(1,2,3,255,255,0,51)
+    rec.map.add_observation(shot_1, point, observation_1)
+    rec.map.add_observation(shot_2, point, observation_2)
+    observation_3 = pysfm.Observation(1,2,3,255,255,0,3110)
+    observation_4 = pysfm.Observation(1,2,3,255,255,0,510)
+    rec.map.add_observation(shot_1, point2, observation_3)
+    rec.map.add_observation(shot_2, point2, observation_4)
+    print(len(rec.points))
+    rec.points = {}
+    print(len(rec.points))
+    print(point.id)
+    print(point.get_observations())
+    p = types.Point()
+    p.id = 0
+    p.coordinates = np.array([0, 1, 2])
+    rec.add_point(p)
+    p.id = 1
+    p.coordinates = np.array([0, 1, 3])
+    rec.add_point(p)
+    p.id = 2
+    p.coordinates = np.array([2, 1, 3])
+    rec.add_point(p)
+    print(len(rec.points))
+
+    
 
 test_map_wrapper()
 # test_larger_problem()

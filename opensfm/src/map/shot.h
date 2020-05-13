@@ -2,26 +2,32 @@
 // #include <opencv2/features2d/features2d.hpp>
 // #include <opencv2/core.hpp>
 #include <Eigen/Eigen>
+#include <unordered_map>
 #include <map/defines.h>
 #include <map/pose.h>
 #include <map/slam_shot_data.h>
 #include <map/observation.h>
 #include <map/camera.h>
 #include <sfm/observation.h>
+#include <map/landmark.h>
 // #include <map/landmark.h>
 namespace map
 {
 class Pose;
 // class Camera;
-class Landmark;
+// class Landmark;
 
 struct ShotCamera {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  ShotCamera(const Camera& camera, const CameraId cam_id, const std::string cam_name = ""):
+  ShotCamera(Camera& camera, const CameraId cam_id, const std::string cam_name = ""):
     camera_model_(camera), id_(cam_id), camera_name_(cam_name){}
-  const Camera& camera_model_;
+  Camera& camera_model_;
   const int id_;
   const std::string camera_name_;
+  // Eigen::Vector3d PixelBearing(const Eigen::Vector3d& pt) const
+  // {
+  //   return camera_model_.PixelBearing(pt);
+  // }
 };
 
 struct ShotMeasurements
@@ -112,10 +118,7 @@ class Shot {
 
 
   Landmark* GetLandmark(const FeatureId id) { return landmarks_.at(id);}
-  void RemoveLandmarkObservation(const FeatureId id) 
-  { 
-    landmarks_.at(id) = nullptr; 
-  }
+  void RemoveLandmarkObservation(const FeatureId id);
   void AddLandmarkObservation(Landmark* lm, const FeatureId feat_id) 
   { 
     landmarks_.at(feat_id) = lm; 
@@ -124,7 +127,19 @@ class Shot {
   void CreateObservation(Landmark* lm, const Eigen::Vector2d& pt, const double scale,
                         const Eigen::Vector3i& color, FeatureId id)
   {
-    landmark_observations_.insert(std::make_pair(lm, std::make_unique<Observation>(pt[0], pt[1], scale, color[0], color[1], color[2], id))); 
+    if (landmark_observations_.count(lm) > 0)
+    {
+      std::cout << "Already in there!!" << std::endl;
+    }
+    if (landmark_id_.count(id)  > 0)
+    {
+      std::cout << "id already in there!" << std::endl;
+    }
+    assert(landmark_observations_.count(lm) == 0);
+    assert(landmark_id_.count(id) == 0);
+    // landmark_observations_.insert(std::make_pair(lm, std::make_unique<Observation>(pt[0], pt[1], scale, color[0], color[1], color[2], id)));
+    landmark_observations_.insert(std::make_pair(lm, Observation(pt[0], pt[1], scale, color[0], color[1], color[2], id)));
+    landmark_id_.insert(std::make_pair(id, lm));
   }
 
   void SetPose(const Pose& pose) { pose_ = pose; }
@@ -152,9 +167,8 @@ class Shot {
   const Camera& GetCameraModel() const { return shot_camera_.camera_model_; }
   Observation* GetLandmarkObservation(Landmark* lm)
   {
-    return landmark_observations_.at(lm).get();
+    return &landmark_observations_.at(lm);
   }
-
 public:
   SLAMShotData slam_data_;
   //We could set the const values to public, to avoid writing a getter.
@@ -170,7 +184,10 @@ private:
   AlignedVector<Observation> keypoints_;
   DescriptorMatrix descriptors_;
 
-  std::map<Landmark*, std::unique_ptr<Observation>>
+  // std::map<Landmark*, std::unique_ptr<Observation>>
+  //     landmark_observations_;
+  std::map<Landmark*, Observation, KeyCompare, Eigen::aligned_allocator<Observation>>
       landmark_observations_;
+  std::unordered_map<FeatureId, Landmark*> landmark_id_;
 };
 }

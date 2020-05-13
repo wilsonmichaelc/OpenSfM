@@ -176,25 +176,38 @@ def bundle(graph, reconstruction, camera_priors, gcp, config):
     for shot in reconstruction.shots.values():
         r = shot.pose.rotation
         t = shot.pose.translation
-        ba.add_shot(shot.id, shot.camera.id, r, t, False)
+        #TODO: make name equal to id
+        ba.add_shot(shot.name, shot.camera.id, r, t, False)
+        # ba.add_shot(shot.id, shot.camera.id, r, t, False)
 
     for point in reconstruction.points.values():
-        ba.add_point(point.id, point.coordinates, False)
+        #TODO: make point id to string
+        # ba.add_point(point.id, point.coordinates, False)
+        ba.add_point(str(point.id), point.coordinates, False)
 
     for shot_id in reconstruction.shots:
-        if shot_id in graph:
-            for track in graph[shot_id]:
-                if track in reconstruction.points:
-                    point = graph[shot_id][track]['feature']
-                    scale = graph[shot_id][track]['feature_scale']
-                    ba.add_point_projection_observation(
-                        shot_id, track, point[0], point[1], scale)
+        shot = reconstruction.get_shot(shot_id)
+        for point in shot.get_valid_landmarks():
+            obs = shot.get_landmark_observation(point)
+            ba.add_point_projection_observation(
+                shot.name, str(point.id), obs.point[0], obs.point[1], obs.scale)
+    # for shot_id in reconstruction.shots:
+    #     if shot_id in graph:
+    #         for track in graph[shot_id]:
+    #             if track in reconstruction.points:
+    #                 point = graph[shot_id][track]['feature']
+    #                 scale = graph[shot_id][track]['feature_scale']
+    #                 ba.add_point_projection_observation(
+    #                     shot_id, track, point[0], point[1], scale)
 
     if config['bundle_use_gps']:
         for shot in reconstruction.shots.values():
             g = shot.metadata.gps_position
-            ba.add_position_prior(shot.id, g[0], g[1], g[2],
-                                  shot.metadata.gps_dop)
+            #TODO: shot.id/shot.name
+            ba.add_position_prior(shot.name, g[0], g[1], g[2],
+                        shot.metadata.gps_dop)
+            # ba.add_position_prior(shot.id, g[0], g[1], g[2],
+            #                       shot.metadata.gps_dop)
 
     if config['bundle_use_gcp'] and gcp:
         _add_gcp_to_bundle(ba, gcp, reconstruction.shots)
@@ -232,12 +245,15 @@ def bundle(graph, reconstruction, camera_priors, gcp, config):
         _get_camera_from_bundle(ba, camera)
 
     for shot in reconstruction.shots.values():
-        s = ba.get_shot(shot.id)
+        #TODO: shot.id/shot.name
+        # s = ba.get_shot(shot.id)
+        s = ba.get_shot(shot.name)
         shot.pose.rotation = [s.r[0], s.r[1], s.r[2]]
         shot.pose.translation = [s.t[0], s.t[1], s.t[2]]
 
     for point in reconstruction.points.values():
-        p = ba.get_point(point.id)
+        # p = ba.get_point(point.id)
+        p = ba.get_point(str(point.id))
         point.coordinates = [p.p[0], p.p[1], p.p[2]]
         point.reprojection_errors = p.reprojection_errors
 
@@ -341,27 +357,40 @@ def bundle_local(graph, reconstruction, camera_priors, gcp, central_shot_id, con
         shot = reconstruction.shots[shot_id]
         r = shot.pose.rotation
         t = shot.pose.translation
-        ba.add_shot(shot.id, shot.camera.id, r, t, shot.id in boundary)
+        # TODO: shot.id to shot.name
+        # ba.add_shot(shot.id, shot.camera.id, r, t, shot.id in boundary)
+        ba.add_shot(shot.name, shot.camera.id, r, t, shot.id in boundary)
 
     for point_id in point_ids:
         point = reconstruction.points[point_id]
-        ba.add_point(point.id, point.coordinates, False)
+        #TODO: id/name
+        ba.add_point(str(point.id), point.coordinates, False)
 
     for shot_id in interior | boundary:
-        if shot_id in graph:
-            for track in graph[shot_id]:
-                if track in point_ids:
-                    point = graph[shot_id][track]['feature']
-                    scale = graph[shot_id][track]['feature_scale']
-                    ba.add_point_projection_observation(
-                        shot_id, track, point[0], point[1], scale)
+        shot = reconstruction.get_shot(shot_id)
+        if shot is not None:
+            for point in shot.get_valid_landmarks():
+                obs = shot.get_landmark_observation(point)
+                ba.add_point_projection_observation(
+                    shot.name, str(point.id), obs.point[0], obs.point[1], obs.scale)
+
+        # if shot_id in graph:
+        #     for track in graph[shot_id]:
+        #         if track in point_ids:
+        #             point = graph[shot_id][track]['feature']
+        #             scale = graph[shot_id][track]['feature_scale']
+        #             ba.add_point_projection_observation(
+        #                 shot_id, track, point[0], point[1], scale)
 
     if config['bundle_use_gps']:
         for shot_id in interior:
             shot = reconstruction.shots[shot_id]
             g = shot.metadata.gps_position
-            ba.add_position_prior(shot.id, g[0], g[1], g[2],
-                                  shot.metadata.gps_dop)
+            #TODO: id/name
+            ba.add_position_prior(shot.name, g[0], g[1], g[2],
+                        shot.metadata.gps_dop)
+            # ba.add_position_prior(shot.id, g[0], g[1], g[2],
+            #                       shot.metadata.gps_dop)
 
     if config['bundle_use_gcp'] and gcp:
         _add_gcp_to_bundle(ba, gcp, reconstruction.shots)
@@ -386,13 +415,16 @@ def bundle_local(graph, reconstruction, camera_priors, gcp, central_shot_id, con
 
     for shot_id in interior:
         shot = reconstruction.shots[shot_id]
-        s = ba.get_shot(shot.id)
+        #TODO: id/name
+        s = ba.get_shot(shot.name)
+        #s = ba.get_shot(shot.id)
         shot.pose.rotation = [s.r[0], s.r[1], s.r[2]]
         shot.pose.translation = [s.t[0], s.t[1], s.t[2]]
 
     for point in point_ids:
         point = reconstruction.points[point]
-        p = ba.get_point(point.id)
+        #TODO: id/name
+        p = ba.get_point(str(point.id))
         point.coordinates = [p.p[0], p.p[1], p.p[2]]
         point.reprojection_errors = p.reprojection_errors
 
@@ -1228,7 +1260,8 @@ def merge_reconstructions(reconstructions, config):
 def paint_reconstruction(data, tracks_manager, reconstruction):
     """Set the color of the points from the color of the tracks."""
     for k, point in reconstruction.points.items():
-        point.color = map(float, next(iter(tracks_manager.get_track_observations(k).values())).color)
+        #todo k as string
+        point.color = map(float, next(iter(tracks_manager.get_track_observations(str(k)).values())).color)
 
 
 class ShouldBundle:
