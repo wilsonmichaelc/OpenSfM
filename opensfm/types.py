@@ -986,6 +986,8 @@ class CameraView(object):
     def values(self):
         return self.map.get_all_camera_models()
 
+
+
 class Reconstruction(object):
     """Defines the reconstructed scene.
 
@@ -995,7 +997,12 @@ class Reconstruction(object):
       points (Dict(Point)): List of reconstructed points.
       reference (TopocentricConverter): Topocentric reference converter.
     """
+    # class ReferenceView(object):
+    #     def __init__(self, map_mgn):
+    #         self.map: pymap.Map = map_mgn
 
+    #     def __getitem__
+        
     def __init__(self):
         """Defaut constructor"""
         self.map = pymap.Map()
@@ -1013,20 +1020,23 @@ class Reconstruction(object):
             for cam in value.values():
                 self.cameras.add_camera(cam)
         elif name == 'reference':
+            # print("Reference!!")
             self.map.set_reference(value.lat, value.lon, value.alt)
+            super(Reconstruction, self).__setattr__("reference", self.map.get_reference())
         elif name == 'points':
-            print("value", len(value))
+            # print("value", len(value))
             if len(value) == 0: # clear the landmarks
                 self.map.clear_observations_and_landmarks()
         else:
             super(Reconstruction, self).__setattr__(name, value)
-
+    
     def add_camera(self, camera):
         """Add a camera in the list
 
         :param camera: The camera.
         """
-        self.cameras[camera.id] = camera
+        self.cameras.add_camera(camera)
+        # self.cameras[camera.id] = camera
 
     def get_camera(self, id):
         """Return a camera by id.

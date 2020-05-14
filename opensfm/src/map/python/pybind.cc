@@ -121,6 +121,7 @@ PYBIND11_MODULE(pymap, m) {
            py::return_value_policy::reference_internal)
 
       .def("set_reference", &map::Map::SetTopoCentricConverter)
+      .def("get_reference", &map::Map::GetTopoCentricConverter)
       .def("create_cam_model", &map::Map::CreateCameraModel,
            py::return_value_policy::reference_internal)
       .def("has_landmark", &map::Map::HasLandmark)
@@ -140,6 +141,14 @@ PYBIND11_MODULE(pymap, m) {
            py::return_value_policy::reference_internal)
 
       ;
+
+  py::class_<map::TopoCentricConverter>(m, "TopoCentriConverter")
+    .def(py::init<>())
+    .def(py::init<const double, const double, const double>())
+    .def_readonly("lat", &map::TopoCentricConverter::lat_)
+    .def_readonly("lon", &map::TopoCentricConverter::long_)
+    .def_readonly("alt", &map::TopoCentricConverter::lat_)
+  ;
 
   py::class_<map::Shot>(m, "Shot")
       .def(py::init<const map::ShotId, const map::ShotCamera &,

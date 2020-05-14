@@ -289,7 +289,8 @@ def point_to_json(point):
     Write a point to a json object
     """
     return {
-        'color': list(point.color),
+        # 'color': list(point.color),
+        'color': list(point.color.astype(float)),
         'coordinates': list(point.coordinates)
     }
 
@@ -310,11 +311,15 @@ def reconstruction_to_json(reconstruction):
 
     # Extract shots
     for shot in reconstruction.shots.values():
-        obj['shots'][shot.id] = shot_to_json(shot)
+        #TODO name/id
+        obj['shots'][shot.name] = shot_to_json(shot)
+        # obj['shots'][shot.id] = shot_to_json(shot)
 
     # Extract points
     for point in reconstruction.points.values():
-        obj['points'][point.id] = point_to_json(point)
+        #TODO name/id
+        obj['points'][str(point.id)] = point_to_json(point)
+        # obj['points'][point.id] = point_to_json(point)
 
     # Extract pano_shots
     if hasattr(reconstruction, 'pano_shots'):

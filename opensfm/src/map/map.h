@@ -105,6 +105,10 @@ public:
     return landmark_names_;
   }
 
+  const auto& GetTopoCentricConverter() const
+  {
+    return topo_conv_;
+  }
   void SetTopoCentricConverter(const double lat, const double longitude, const double alt)
   {
     topo_conv_.lat_ = lat;

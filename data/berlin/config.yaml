@@ -7,4 +7,4 @@ depthmap_min_consistent_views: 2      # Min number of views that should reconstr
 depthmap_save_debug_files: yes        # Save debug files with partial reconstruction results
 feature_process_size: 1024
 bundle_use_gcp: yes
-save_partial_reconstructions: yes
+save_partial_reconstructions: no
