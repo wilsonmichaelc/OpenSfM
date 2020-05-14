@@ -2,6 +2,7 @@
 
 #include <foundation/types.h>
 #include <dense/depthmap.h>
+#include <dense/fusion.h>
 
 
 using namespace foundation;
@@ -148,6 +149,50 @@ class DepthmapPrunerWrapper {
 
  private:
   DepthmapPruner dp_;
+};
+
+class DepthmapFusionWrapper {
+ public:
+
+  void AddView(pyarray_d K,
+               pyarray_d R,
+               pyarray_d t,
+               pyarray_f depth,
+               pyarray_f plane,
+               pyarray_uint8 color,
+               pyarray_uint8 label,
+               pyarray_uint8 detection,
+               const std::map<int, int>& shared_num_points) {
+    sf_.AddView(K.data(), R.data(), t.data(),
+                depth.data(), plane.data(),
+                color.data(), label.data(),
+                detection.data(), shared_num_points,
+                depth.shape(1), depth.shape(0));
+  }
+
+  py::object Run() {
+    py::gil_scoped_release release;
+
+    std::vector<float> points;
+    std::vector<float> normals;
+    std::vector<unsigned char> colors;
+    std::vector<unsigned char> labels;
+    std::vector<unsigned char> detections;
+
+    sf_.Run(&points, &normals, &colors, &labels, &detections);
+
+    py::list retn;
+    int n = int(points.size()) / 3;
+    retn.append(py_array_from_data(&points[0], n, 3));
+    retn.append(py_array_from_data(&normals[0], n, 3));
+    retn.append(py_array_from_data(&colors[0], n, 3));
+    retn.append(py_array_from_data(&labels[0], n));
+    retn.append(py_array_from_data(&detections[0], n));
+    return retn;
+  }
+
+ private:
+  StereoFusion sf_;
 };
 
 }

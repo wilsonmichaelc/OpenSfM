@@ -43,4 +43,10 @@ PYBIND11_MODULE(pydense, m) {
     .def("add_view", &dense::DepthmapPrunerWrapper::AddView)
     .def("prune", &dense::DepthmapPrunerWrapper::Prune)
   ;
+
+  py::class_<dense::DepthmapFusionWrapper>(m, "DepthmapFusion")
+    .def(py::init())
+    .def("add_view", &dense::DepthmapFusionWrapper::AddView)
+    .def("run", &dense::DepthmapFusionWrapper::Run)
+  ;
 }

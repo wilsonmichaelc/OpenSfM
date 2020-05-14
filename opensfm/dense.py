@@ -8,6 +8,7 @@ import logging
 import cv2
 import numpy as np
 from six import iteritems
+from collections import defaultdict
 
 from opensfm import pydense
 from opensfm import io
@@ -19,12 +20,12 @@ from opensfm.context import parallel_map
 logger = logging.getLogger(__name__)
 
 
-def compute_depthmaps(data, graph, reconstruction):
+def compute_depthmaps(data, tracks_manager, reconstruction):
     """Compute and refine depthmaps for all shots.
 
     Args:
         data: an UndistortedDataset
-        graph: the tracks graph
+        tracks_manager: the tracks manager
         reconstruction: the undistorted reconstruction
     """
     logger.info('Computing neighbors')
@@ -33,34 +34,35 @@ def compute_depthmaps(data, graph, reconstruction):
     num_neighbors = config['depthmap_num_neighbors']
 
     neighbors = {}
-    common_tracks = common_tracks_double_dict(graph)
+    common_tracks = common_tracks_double_dict(tracks_manager)
     for shot in reconstruction.shots.values():
         neighbors[shot.id] = find_neighboring_images(
             shot, common_tracks, reconstruction, num_neighbors)
 
-    arguments = []
-    for shot in reconstruction.shots.values():
-        if len(neighbors[shot.id]) <= 1:
-            continue
-        mind, maxd = compute_depth_range(graph, reconstruction, shot, config)
-        arguments.append((data, neighbors[shot.id], mind, maxd, shot))
-    parallel_map(compute_depthmap_catched, arguments, processes)
+    # arguments = []
+    # for shot in reconstruction.shots.values():
+    #     if len(neighbors[shot.id]) <= 1:
+    #         continue
+    #     mind, maxd = compute_depth_range(tracks_manager, reconstruction, shot, config)
+    #     arguments.append((data, neighbors[shot.id], mind, maxd, shot))
+    # parallel_map(compute_depthmap_catched, arguments, processes)
 
-    arguments = []
-    for shot in reconstruction.shots.values():
-        if len(neighbors[shot.id]) <= 1:
-            continue
-        arguments.append((data, neighbors[shot.id], shot))
-    parallel_map(clean_depthmap_catched, arguments, processes)
+    # arguments = []
+    # for shot in reconstruction.shots.values():
+    #     if len(neighbors[shot.id]) <= 1:
+    #         continue
+    #     arguments.append((data, neighbors[shot.id], shot))
+    # parallel_map(clean_depthmap_catched, arguments, processes)
 
-    arguments = []
-    for shot in reconstruction.shots.values():
-        if len(neighbors[shot.id]) <= 1:
-            continue
-        arguments.append((data, neighbors[shot.id], shot))
-    parallel_map(prune_depthmap_catched, arguments, processes)
+    # arguments = []
+    # for shot in reconstruction.shots.values():
+    #     if len(neighbors[shot.id]) <= 1:
+    #         continue
+    #     arguments.append((data, neighbors[shot.id], shot))
+    # parallel_map(prune_depthmap_catched, arguments, processes)
 
-    merge_depthmaps(data, reconstruction)
+    # merge_depthmaps(data, reconstruction)
+    fuse_depthmaps(data, reconstruction, tracks_manager)
 
 
 def compute_depthmap_catched(arguments):
@@ -150,6 +152,44 @@ def compute_depthmap(arguments):
         plt.colorbar()
         plt.show()
 
+
+def fuse_depthmaps(data, reconstruction, tracks_manager):
+    """Clean depthmap by checking consistency with neighbors."""
+
+    neighbors_remapped = {}
+    for i, shot in enumerate(reconstruction.shots.values()):
+        neighbors_remapped[shot.id] = i
+
+    neighbors = defaultdict(dict)
+    for(im1, im2), size in tracks_manager.get_all_pairs_connectivity().items():
+        if im1 not in reconstruction.shots or im2 not in reconstruction.shots:
+            continue
+        id1, id2 = neighbors_remapped[im1], neighbors_remapped[im2]
+        neighbors[id1][id2] = size
+        neighbors[id2][id1] = size
+
+    df = pydense.DepthmapFusion()
+    for shot in reconstruction.shots.values():
+        if not data.raw_depthmap_exists(shot.id):
+            continue
+        depth, plane, _, _, _ = data.load_raw_depthmap(shot.id)
+        height, width = depth.shape
+        color_image = data.load_undistorted_image(shot.id)
+        labels = load_segmentation_labels(data, shot)
+        detections = load_detection_labels(data, shot)
+        height, width = depth.shape
+        image = scale_down_image(color_image, width, height)
+        labels = scale_down_image(labels, width, height, cv2.INTER_NEAREST)
+        detections = scale_down_image(detections, width, height, cv2.INTER_NEAREST)
+        K = shot.camera.get_K_in_pixel_coordinates(width, height)
+        R = shot.pose.get_rotation_matrix()
+        t = shot.pose.translation
+        n = neighbors[neighbors_remapped[shot.id]]
+        df.add_view(K, R, t, depth, plane, image, labels, detections, n)
+    points, normals, colors, labels, detections = df.run()
+
+    with io.open_wt(data._depthmap_path() + '/merged.ply') as fp:
+        point_cloud_to_ply(points, normals, colors, labels, detections, fp)
 
 def clean_depthmap(arguments):
     """Clean depthmap by checking consistency with neighbors."""

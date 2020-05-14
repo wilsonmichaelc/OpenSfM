@@ -1,7 +1,9 @@
 set(DENSE_FILES
     depthmap_bind.h
     depthmap.h
+    fusion.h
     src/depthmap.cc
+    src/fusion.cc
 )
 add_library(dense ${DENSE_FILES})
 target_link_libraries(dense PRIVATE foundation)
