@@ -67,6 +67,19 @@ class Shot {
   
   const std::vector<Landmark*>& GetLandmarks() const { return landmarks_; }
   std::vector<Landmark*>& GetLandmarks() { return landmarks_; }
+
+  auto& GetObservation(const FeatureId id) const
+  {
+    // if (landmarks_.empty())
+    // {
+    //   landmark_observations_.at(landmark_id_.at(id));
+    // }
+    // else
+    // {
+      
+    // }
+    return landmarks_.empty() ? landmark_observations_.at(landmark_id_.at(id)) : keypoints_.at(id);
+  }
   std::vector<Landmark*> ComputeValidLandmarks()
   {
     //we use the landmark observation

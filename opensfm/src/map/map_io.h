@@ -13,7 +13,7 @@ class MapIO
 {
 public:
   static void SaveMapToFile(const Map& rec_map, const std::string& path);
-  static void ColorMap(Map& rec_map) {}
+  static void ColorMap(Map& rec_map);
   static json MapToJson(const Map& rec_map);
   static json ShotToJson(const Shot& shot);
   static json LandmarkToJson(const Landmark& landmark);

@@ -23,6 +23,7 @@ from opensfm import tracking
 from opensfm import multiview
 from opensfm import types
 from opensfm import pysfm
+from opensfm import pymap
 from opensfm.align import align_reconstruction, apply_similarity
 from opensfm.context import parallel_map, current_memory_usage
 
@@ -1314,6 +1315,9 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
     should_retriangulate = ShouldRetriangulate(data, reconstruction)
     while True:
         if config['save_partial_reconstructions']:
+            # pymap.MapIO.color_map(reconstruction.map)
+            # pymap.MapIO.save_map(reconstruction.map, 'reconstruction.{}.json'.format(
+            #     datetime.datetime.now().isoformat().replace(':', '_')))
             paint_reconstruction(data, tracks_manager, reconstruction)
             data.save_reconstruction(
                 [reconstruction], 'reconstruction.{}.json'.format(
@@ -1392,7 +1396,8 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
     bundle(graph_inliers, reconstruction, camera_priors, gcp, config)
     remove_outliers(graph_inliers, reconstruction, config)
 
-    paint_reconstruction(data, tracks_manager, reconstruction)
+    # paint_reconstruction(data, tracks_manager, reconstruction)
+    pymap.MapIO.color_map(reconstruction.map)
     return reconstruction, report
 
 

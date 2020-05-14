@@ -42,7 +42,7 @@ json MapIO::MapToJson(const Map& rec_map)
 json MapIO::ShotToJson(const Shot &shot)
 {
   const auto& pose = shot.GetPose();
-  const Eigen::Vector3d r_cw = pose.RotationCameraToWorldMin();
+  const Eigen::Vector3d r_cw = pose.RotationWorldToCameraMin();
   const Eigen::Vector3d t_cw = pose.TranslationWorldToCamera();
   // TODO: Write the metadata like in io.py
   // orientation, capture_time, gps_dop...
@@ -74,10 +74,14 @@ json MapIO::CameraToJson(const ShotCamera& camera)
 
   if (cam_model.projectionType.compare("perspective") == 0)
   {
+    const PerspectiveCamera* const cam = dynamic_cast<const PerspectiveCamera*>(&cam_model);
+
+    cam_json["focal"] = cam->focal;
+    cam_json["k1"] = cam->k1;
+    cam_json["k2"] = cam->k2;
     return cam_json;
   }
-
-  if (cam_model.projectionType.compare("brown") == 0)
+  else if (cam_model.projectionType.compare("brown") == 0)
   {
     const BrownPerspectiveCamera* const cam = dynamic_cast<const BrownPerspectiveCamera*>(&cam_model);
     cam_json["focal_x"] = cam->fx;
@@ -91,19 +95,36 @@ json MapIO::CameraToJson(const ShotCamera& camera)
     cam_json["k3"] = cam->k3;
     return cam_json;
   }
-  
-  if (cam_model.projectionType.compare("fisheye") == 0)
+  else if (cam_model.projectionType.compare("fisheye") == 0)
   {
     return cam_json;
   }
-  if (cam_model.projectionType.compare("dual") == 0)
+  else if (cam_model.projectionType.compare("dual") == 0)
   {
     return cam_json;
   }
-  if (cam_model.projectionType.compare("equirectangular") == 0 || cam_model.projectionType.compare("spherical") == 0)
+  else if (cam_model.projectionType.compare("equirectangular") == 0 || cam_model.projectionType.compare("spherical") == 0)
   {
     return cam_json;
   }
   return cam_json;
+}
+
+void 
+MapIO::ColorMap(Map& rec_map)
+{
+  //color all the landmarks
+
+  for (auto& lm_id : rec_map.GetAllLandmarks())
+  {
+    auto& lm = lm_id.second;
+    //get the first observation
+    const auto& shot_obs = lm->GetObservations();
+    const auto& first_obs_pair = shot_obs.cbegin();
+    auto* first_shot = (*first_obs_pair).first;
+    auto feat_id = (*first_obs_pair).second;
+    const auto& first_obs = first_shot->GetObservation(shot_obs.at(first_shot));
+    lm->SetColor(first_obs.color);
+  }
 }
 } // namespace map

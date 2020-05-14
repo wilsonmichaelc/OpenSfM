@@ -4,7 +4,7 @@ import time
 from opensfm import dataset
 from opensfm import io
 from opensfm import reconstruction
-
+from opensfm import pymap
 logger = logging.getLogger(__name__)
 
 
@@ -25,4 +25,5 @@ class Command:
         with open(data.profile_log(), 'a') as fout:
             fout.write('reconstruct: {0}\n'.format(end - start))
         data.save_reconstruction(reconstructions)
+        # pymap.MapIO.save_map(reconstructions[0].map, data._reconstruction_file(None))
         data.save_report(io.json_dumps(report), 'reconstruction.json')
