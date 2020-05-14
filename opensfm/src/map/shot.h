@@ -30,19 +30,28 @@ struct ShotCamera {
   // }
 };
 
+struct ShotMesh {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  void SetVertices(Eigen::MatrixXd vertices) { vertices_ = vertices; }
+  void SetFaces(Eigen::MatrixXd faces) { faces_ = faces; }
+  Eigen::MatrixXd GetFaces() const { return faces_; }
+  Eigen::MatrixXd GetVertices() const { return vertices_; }
+  Eigen::MatrixXd vertices_;
+  Eigen::MatrixXd faces_;
+};
+
 struct ShotMeasurements
 {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Eigen::Vector3d gps_;
   double capture_time_;
   //TODO:
-  //compass
-  // accelerometer
+  double compass;
+  double accelerometer;
   double gps_dop_{0};
   std::array<double, 3> gps_position_{0};
   int orientation_;
   std::string skey;
-  
 };
 
 class Shot {
@@ -189,7 +198,7 @@ public:
   const std::string name_;
   const ShotCamera& shot_camera_;
   ShotMeasurements shot_measurements_; //metadata
-
+  ShotMesh mesh;
 private:
   Pose pose_;
   size_t num_keypts_;
