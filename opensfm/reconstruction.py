@@ -864,7 +864,8 @@ def resect(tracks_manager, graph_inliers, reconstruction, shot_id,
         reconstruction.add_shot(shot)
         for i, succeed in enumerate(inliers):
             if succeed:
-                copy_graph_data(tracks_manager, graph_inliers, shot_id, ids[i])
+                # copy_graph_data(tracks_manager, graph_inliers, shot_id, ids[i])
+                copy_graph_data(tracks_manager, reconstruction, shot_id, ids[i])
         return True, report
     else:
         return False, report
@@ -913,17 +914,25 @@ def resect_reconstruction(reconstruction1, reconstruction2, tracks_manager1,
     return True, similarity, inliers
 
 
-def copy_graph_data(tracks_manager, graph_inliers, shot_id, track_id):
-    if shot_id not in graph_inliers:
-        graph_inliers.add_node(shot_id, bipartite=0)
-    if track_id not in graph_inliers:
-        graph_inliers.add_node(track_id, bipartite=1)
+# def copy_graph_data(tracks_manager, graph_inliers, shot_id, track_id):
+def copy_graph_data(tracks_manager, reconstruction, shot_id, track_id):
+    # if shot_id not in graph_inliers:
+    #     graph_inliers.add_node(shot_id, bipartite=0)
+    # if track_id not in graph_inliers:
+    #     graph_inliers.add_node(track_id, bipartite=1)
+    # observation = tracks_manager.get_observation(shot_id, track_id)
+    # graph_inliers.add_edge(shot_id, track_id,
+    #                        feature=observation.point,
+    #                        feature_scale=observation.scale,
+    #                        feature_id=observation.id,
+    #                        feature_color=observation.color)
+    shot = reconstruction.get_shot(shot_id)
+    lm = reconstruction.get_point(track_id)
     observation = tracks_manager.get_observation(shot_id, track_id)
-    graph_inliers.add_edge(shot_id, track_id,
-                           feature=observation.point,
-                           feature_scale=observation.scale,
-                           feature_id=observation.id,
-                           feature_color=observation.color)
+    # At one point observation from tracks_manager == my observation
+    # TODO: Make the same observation!
+    #self.reconstruction.map.add_observation(shot.id, int(track_id), observation.id)
+    reconstruction.map.add_observation(shot, lm, observation)
 
 
 class TrackTriangulator:
@@ -1169,6 +1178,7 @@ def remove_outliers(graph, reconstruction, config, points=None):
     for track, _ in outliers:
         if track not in reconstruction.points:
             continue
+        # TODO: implement delete!
         if len(graph[track]) < 2:
             del reconstruction.points[track]
             graph.remove_node(track)
@@ -1302,14 +1312,14 @@ class ShouldRetriangulate:
         self.num_points_last = len(self.reconstruction.points)
 
 
-def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, images, camera_priors, gcp):
+def grow_reconstruction(data, tracks_manager, reconstruction, images, camera_priors, gcp):
     """Incrementally add shots to an initial reconstruction."""
     config = data.config
     report = {'steps': []}
 
     align_reconstruction(reconstruction, gcp, config)
-    bundle(graph_inliers, reconstruction, camera_priors, None, config)
-    remove_outliers(graph_inliers, reconstruction, config)
+    bundle(reconstruction, camera_priors, None, config)
+    remove_outliers(reconstruction, config)
 
     should_bundle = ShouldBundle(data, reconstruction)
     should_retriangulate = ShouldRetriangulate(data, reconstruction)
@@ -1335,12 +1345,12 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
 
             camera = reconstruction.cameras[data.load_exif(image)['camera']]
             metadata = get_image_metadata(data, image)
-            ok, resrep = resect(tracks_manager, graph_inliers, reconstruction, image,
+            ok, resrep = resect(tracks_manager, reconstruction, image,
                                 camera, metadata, threshold, min_inliers)
             if not ok:
                 continue
 
-            bundle_single_view(graph_inliers, reconstruction, image,
+            bundle_single_view(reconstruction, image,
                                camera_priors, data.config)
 
             logger.info("Adding {0} to the reconstruction".format(image))
@@ -1353,19 +1363,19 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
             images.remove(image)
 
             np_before = len(reconstruction.points)
-            triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, image, config)
+            triangulate_shot_features(tracks_manager, reconstruction, image, config)
             np_after = len(reconstruction.points)
             step['triangulated_points'] = np_after - np_before
 
             if should_retriangulate.should():
                 logger.info("Re-triangulating")
                 align_reconstruction(reconstruction, gcp, config)
-                b1rep = bundle(graph_inliers, reconstruction, camera_priors,
+                b1rep = bundle(reconstruction, camera_priors,
                                None, config)
-                rrep = retriangulate(tracks_manager, graph_inliers, reconstruction, config)
-                b2rep = bundle(graph_inliers, reconstruction, camera_priors,
+                rrep = retriangulate(tracks_manager, reconstruction, config)
+                b2rep = bundle(reconstruction, camera_priors,
                                None, config)
-                remove_outliers(graph_inliers, reconstruction, config)
+                remove_outliers(reconstruction, config)
                 step['bundle'] = b1rep
                 step['retriangulation'] = rrep
                 step['bundle_after_retriangulation'] = b2rep
@@ -1373,16 +1383,16 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
                 should_bundle.done()
             elif should_bundle.should():
                 align_reconstruction(reconstruction, gcp, config)
-                brep = bundle(graph_inliers, reconstruction, camera_priors,
+                brep = bundle(reconstruction, camera_priors,
                               None, config)
-                remove_outliers(graph_inliers, reconstruction, config)
+                remove_outliers(reconstruction, config)
                 step['bundle'] = brep
                 should_bundle.done()
             elif config['local_bundle_radius'] > 0:
                 bundled_points, brep = bundle_local(
-                    graph_inliers, reconstruction, camera_priors, None, image, config)
+                    reconstruction, camera_priors, None, image, config)
                 remove_outliers(
-                    graph_inliers, reconstruction, config, bundled_points)
+                    reconstruction, config, bundled_points)
                 step['local_bundle'] = brep
 
             break
@@ -1393,8 +1403,8 @@ def grow_reconstruction(data, tracks_manager, graph_inliers, reconstruction, ima
     logger.info("-------------------------------------------------------")
 
     align_reconstruction(reconstruction, gcp, config)
-    bundle(graph_inliers, reconstruction, camera_priors, gcp, config)
-    remove_outliers(graph_inliers, reconstruction, config)
+    bundle(reconstruction, camera_priors, gcp, config)
+    remove_outliers(reconstruction, config)
 
     # paint_reconstruction(data, tracks_manager, reconstruction)
     pymap.MapIO.color_map(reconstruction.map)
@@ -1459,11 +1469,11 @@ def incremental_reconstruction(data, tracks_manager):
                 remaining_images.remove(im1)
                 remaining_images.remove(im2)
                 reconstruction, rec_report['grow'] = grow_reconstruction(
-                    data, tracks_manager, graph_inliers, reconstruction, remaining_images, camera_priors, gcp)
+                    data, tracks_manager, reconstruction, remaining_images, camera_priors, gcp)
                 reconstructions.append(reconstruction)
                 reconstructions = sorted(reconstructions,
                                          key=lambda x: -len(x.shots))
-                rec_report['stats'] = compute_statistics(reconstruction, graph_inliers)
+                rec_report['stats'] = compute_statistics(reconstruction)
                 logger.info(rec_report['stats'])
 
     for k, r in enumerate(reconstructions):
