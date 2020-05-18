@@ -39,14 +39,6 @@ Vec3<T> RotatePoint(const Vec3<T>& R, const Vec3<T>& x) {
   return rotated;
 }
 
-// Convert world coordinates to camera coordinates given the camera rotation and
-// center in world coordinates:
-//   x_camera = R^T * (x_world - c)
-template <typename T>
-Vec3<T> WorldToCamera(const Vec3<T>& R, const Vec3<T>& c, const Vec3<T>& x) {
-  return RotatePoint((-R).eval(), (x - c).eval());
-}
-
 // Apply a similarity transform of scale s, rotation R and translation t to a
 // point x as s * R * x + t
 template <class T>
