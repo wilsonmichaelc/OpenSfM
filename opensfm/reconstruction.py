@@ -163,7 +163,7 @@ def _add_gcp_to_bundle(ba, gcp, shots):
                     scale)
 
 
-def bundle(graph, reconstruction, camera_priors, gcp, config):
+def bundle(reconstruction, camera_priors, gcp, config):
     """Bundle adjust a reconstruction."""
     fix_cameras = not config['optimize_camera_parameters']
 
@@ -268,7 +268,7 @@ def bundle(graph, reconstruction, camera_priors, gcp, config):
     return report
 
 
-def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
+def bundle_single_view(reconstruction, shot_id, camera_priors, config):
     """Bundle adjust a single camera."""
     ba = pybundle.BundleAdjuster()
     shot = reconstruction.shots[shot_id]
@@ -326,12 +326,13 @@ def bundle_single_view(graph, reconstruction, shot_id, camera_priors, config):
     shot.pose.translation = [s.t[0], s.t[1], s.t[2]]
 
 
-def bundle_local(graph, reconstruction, camera_priors, gcp, central_shot_id, config):
+def bundle_local(reconstruction, camera_priors, gcp, central_shot_id, config):
     """Bundle adjust the local neighborhood of a shot."""
     chrono = Chronometer()
 
+    # shot neighborhodd?
     interior, boundary = shot_neighborhood(
-        graph, reconstruction, central_shot_id,
+        reconstruction, central_shot_id,
         config['local_bundle_radius'],
         config['local_bundle_min_common_points'],
         config['local_bundle_max_shots'])
@@ -343,10 +344,14 @@ def bundle_local(graph, reconstruction, camera_priors, gcp, central_shot_id, con
 
     point_ids = set()
     for shot_id in interior:
-        if shot_id in graph:
-            for track in graph[shot_id]:
-                if track in reconstruction.points:
-                    point_ids.add(track)
+        shot = reconstruction.shots[shot_id]
+        valid_landmarks = shot.get_valid_landmarks()
+        for lm in valid_landmarks:
+            point_ids.add(lm.id)
+        # if shot_id in graph:
+        #     for track in graph[shot_id]:
+        #         if track in reconstruction.points:
+        #             point_ids.add(track)
 
     ba = pybundle.BundleAdjuster()
 
@@ -443,7 +448,7 @@ def bundle_local(graph, reconstruction, camera_priors, gcp, central_shot_id, con
     return point_ids, report
 
 
-def shot_neighborhood(graph, reconstruction, central_shot_id, radius,
+def shot_neighborhood(reconstruction, central_shot_id, radius,
                       min_common_points, max_interior_size):
     """Reconstructed shots near a given shot.
 
@@ -462,34 +467,40 @@ def shot_neighborhood(graph, reconstruction, central_shot_id, radius,
         if remaining <= 0:
             break
         neighbors = direct_shot_neighbors(
-            graph, reconstruction, interior, min_common_points, remaining)
+            reconstruction, interior, min_common_points, remaining)
         interior.update(neighbors)
     boundary = direct_shot_neighbors(
-        graph, reconstruction, interior, 1, max_boundary_size)
+        reconstruction, interior, 1, max_boundary_size)
     return interior, boundary
 
 
-def direct_shot_neighbors(graph, reconstruction, shot_ids,
+def direct_shot_neighbors(reconstruction, shot_ids,
                           min_common_points, max_neighbors):
     """Reconstructed shots sharing reconstructed points with a shot set."""
     points = set()
     for shot_id in shot_ids:
-        for track_id in graph[shot_id]:
+        shot = reconstruction.shots[shot_id]
+        valid_landmarks = shot.get_valid_landmarks()
+        for track in valid_landmarks:
+            track_id = track.id
             if track_id in reconstruction.points:
-                points.add(track_id)
+                points.add(track)
 
     candidate_shots = set(reconstruction.shots) - set(shot_ids)
     common_points = defaultdict(int)
-    for track_id in points:
-        for neighbor in graph[track_id]:
-            if neighbor in candidate_shots:
+    for track in points:
+        neighbors = track.get_observations()
+        for neighbor in neighbors:  #graph[track_id]:
+            #TODO: name/id
+            if neighbor.name in candidate_shots:
                 common_points[neighbor] += 1
 
     pairs = sorted(common_points.items(), key=lambda x: -x[1])
     neighbors = set()
     for neighbor, num_points in pairs[:max_neighbors]:
         if num_points >= min_common_points:
-            neighbors.add(neighbor)
+            #TODO: name/id
+            neighbors.add(neighbor.name)
         else:
             break
     return neighbors
@@ -774,8 +785,8 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
     shot2.metadata = get_image_metadata(data, im2)
     reconstruction.add_shot(shot2)
 
-    graph_inliers = nx.Graph()
-    triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, im1, data.config)
+    # graph_inliers = nx.Graph()
+    triangulate_shot_features(tracks_manager, reconstruction, im1, data.config)
 
     logger.info("Triangulated: {}".format(len(reconstruction.points)))
     report['triangulated_points'] = len(reconstruction.points)
@@ -784,20 +795,20 @@ def bootstrap_reconstruction(data, tracks_manager, camera_priors, im1, im2, p1, 
         logger.info(report['decision'])
         return None, None, report
 
-    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
+    bundle_single_view(reconstruction, im2, camera_priors,
                        data.config)
-    retriangulate(tracks_manager, graph_inliers, reconstruction, data.config)
+    retriangulate(tracks_manager, reconstruction, data.config)
 
     if len(reconstruction.points) < min_inliers:
         report['decision'] = "Re-triangulation after initial motion did not generate enough points"
         logger.info(report['decision'])
         return None, None, report
-    bundle_single_view(graph_inliers, reconstruction, im2, camera_priors,
+    bundle_single_view(reconstruction, im2, camera_priors,
                        data.config)
 
     report['decision'] = 'Success'
     report['memory_usage'] = current_memory_usage()
-    return reconstruction, graph_inliers, report
+    return reconstruction, report
 
 
 def reconstructed_points_for_images(tracks_manager, reconstruction, images):
@@ -813,7 +824,7 @@ def reconstructed_points_for_images(tracks_manager, reconstruction, images):
     return sorted(res.items(), key=lambda x: -x[1])
 
 
-def resect(tracks_manager, graph_inliers, reconstruction, shot_id,
+def resect(tracks_manager, reconstruction, shot_id,
            camera, metadata, threshold, min_inliers):
     """Try resecting and adding a shot to the reconstruction.
 
@@ -941,10 +952,10 @@ class TrackTriangulator:
     Caches shot origin and rotation matrix
     """
 
-    def __init__(self, tracks_manager, graph_inliers, reconstruction):
+    def __init__(self, tracks_manager, reconstruction):
         """Build a triangulator for a specific reconstruction."""
         self.tracks_manager = tracks_manager
-        self.graph_inliers = graph_inliers
+        # self.graph_inliers = graph_inliers
         self.reconstruction = reconstruction
         self.origins = {}
         self.rotation_inverses = {}
@@ -1094,19 +1105,19 @@ class TrackTriangulator:
             return r
 
 
-def triangulate_shot_features(tracks_manager, graph_inliers, reconstruction, shot_id, config):
+def triangulate_shot_features(tracks_manager, reconstruction, shot_id, config):
     """Reconstruct as many tracks seen in shot_id as possible."""
     reproj_threshold = config['triangulation_threshold']
     min_ray_angle = config['triangulation_min_ray_angle']
 
-    triangulator = TrackTriangulator(tracks_manager, graph_inliers, reconstruction)
+    triangulator = TrackTriangulator(tracks_manager, reconstruction)
 
     for track in tracks_manager.get_shot_observations(shot_id):
         if track not in reconstruction.points:
             triangulator.triangulate(track, reproj_threshold, min_ray_angle)
 
 
-def retriangulate(tracks_manager, graph_inliers, reconstruction, config):
+def retriangulate(tracks_manager, reconstruction, config):
     """Retrianguate all points"""
     chrono = Chronometer()
     report = {}
@@ -1115,12 +1126,12 @@ def retriangulate(tracks_manager, graph_inliers, reconstruction, config):
     threshold = config['triangulation_threshold']
     min_ray_angle = config['triangulation_min_ray_angle']
 
-    graph_inliers.clear()
+    # graph_inliers.clear()
     reconstruction.points = {}
 
     all_shots_ids = set(tracks_manager.get_shot_ids())
 
-    triangulator = TrackTriangulator(tracks_manager, graph_inliers, reconstruction)
+    triangulator = TrackTriangulator(tracks_manager, reconstruction)
     tracks = set()
     for image in reconstruction.shots.keys():
         if image in all_shots_ids:
@@ -1157,7 +1168,7 @@ def get_actual_threshold(config, points):
         return 1.0
 
 
-def remove_outliers(graph, reconstruction, config, points=None):
+def remove_outliers(reconstruction, config, points=None):
     """Remove points with large reprojection error.
 
     A list of point ids to be processed can be given in ``points``.
@@ -1172,16 +1183,29 @@ def remove_outliers(graph, reconstruction, config, points=None):
             if error_sqr > threshold_sqr:
                 outliers.append((point_id, shot_id))
 
+    # TODO: implement delete reprojecion errors
     for track, shot_id in outliers:
-        del reconstruction.points[track].reprojection_errors[shot_id]
-        graph.remove_edge(track, shot_id)
+        # del reconstruction.points[track].reprojection_errors[shot_id]
+        # reconstruction.map.remove_reprojection_error(shot_id)
+        #TODO: revise this!
+        shot = reconstruction.shots[shot_id]
+        lm = reconstruction.points[track]
+        lm.remove_reprojection_error(shot_id)
+        obs = shot.get_landmark_observation(lm)
+        reconstruction.map.remove_observation(shot, lm, obs.id)
+        #
+        # graph.remove_edge(track, shot_id)
     for track, _ in outliers:
-        if track not in reconstruction.points:
-            continue
+        # if track not in reconstruction.points:
+            # continue
         # TODO: implement delete!
-        if len(graph[track]) < 2:
-            del reconstruction.points[track]
-            graph.remove_node(track)
+        lm = reconstruction.points[track]
+        if lm is not None and lm.number_of_observations() < 2:
+        # if lm.number_of_observations() < 2:
+            reconstruction.map.remove_landmark(lm)
+        # if len(graph[track]) < 2:
+            # del reconstruction.points[track]
+            # graph.remove_node(track)
     logger.info("Removed outliers: {}".format(len(outliers)))
     return len(outliers)
 
@@ -1411,25 +1435,29 @@ def grow_reconstruction(data, tracks_manager, reconstruction, images, camera_pri
     return reconstruction, report
 
 
-def _length_histogram(points, graph):
+def _length_histogram(points):
     hist = defaultdict(int)
     for p in points:
-        hist[len(graph[p])] += 1
+        hist[p.number_of_observations()] += 1
+        
+        # hist[len(graph[p])] += 1
     return np.array(list(hist.keys())), np.array(list(hist.values()))
 
 
-def compute_statistics(reconstruction, graph):
+def compute_statistics(reconstruction):
     stats = {}
     stats['points_count'] = len(reconstruction.points)
     stats['cameras_count'] = len(reconstruction.shots)
 
-    hist, values = _length_histogram(reconstruction.points, graph)
+    hist, values = _length_histogram(reconstruction.points)
     stats['observations_count'] = int(sum(hist * values))
     if len(reconstruction.points) > 0:
         stats['average_track_length'] = float(stats['observations_count'])/len(reconstruction.points)
     else:
         stats['average_track_length'] = -1
-    tracks_notwo = sum([1 if len(graph[p]) > 2 else 0 for p in reconstruction.points])
+    # tracks_notwo = sum([1 if len(graph[p]) > 2 else 0 for p in reconstruction.points])
+    tracks_notwo = sum([1 if p.number_of_observations() > 2 else 0 for p in reconstruction.points])
+
     if tracks_notwo > 0:
         stats['average_track_length_notwo'] = float(sum(hist[1:]*values[1:]))/tracks_notwo
     else:
@@ -1462,7 +1490,7 @@ def incremental_reconstruction(data, tracks_manager):
             rec_report = {}
             report['reconstructions'].append(rec_report)
             _, p1, p2 = common_tracks[im1, im2]
-            reconstruction, graph_inliers, rec_report['bootstrap'] = bootstrap_reconstruction(
+            reconstruction, rec_report['bootstrap'] = bootstrap_reconstruction(
                 data, tracks_manager, camera_priors, im1, im2, p1, p2)
 
             if reconstruction:

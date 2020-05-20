@@ -254,6 +254,7 @@ PYBIND11_MODULE(pymap, m) {
       .def_property("reprojection_errors",
                     &map::Landmark::GetReprojectionErrors,
                     &map::Landmark::SetReprojectionErrors)
+      .def("remove_reprojection_error", &map::Landmark::RemoveReprojectionError)
       .def_property("color", &map::Landmark::GetColor,
                     &map::Landmark::SetColor);
 

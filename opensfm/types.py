@@ -894,6 +894,7 @@ class ReconstructionOld(object):
         """
         return self.points.get(id)
 
+
 class PointView(object):
 
     def __init__(self, map_mgn):
@@ -926,6 +927,7 @@ class PointView(object):
     
     def items(self):
         return self.map.get_all_landmarks().items()
+
 
 class ShotView(object):
 

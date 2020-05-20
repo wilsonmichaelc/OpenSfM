@@ -69,6 +69,10 @@ class Landmark {
   bool operator>=(const Landmark& lm) const { return id_ >= lm.id_; }
   void SetReprojectionErrors(const std::unordered_map<std::string, Eigen::VectorXd> reproj_errors);
   auto GetReprojectionErrors() const { return reproj_errors_; }
+  void RemoveReprojectionError(const std::string& shot_id)
+  {
+    reproj_errors_.erase(shot_id);
+  }
 
 public:
   //We could set the const values to public, to avoid writing a getter.
