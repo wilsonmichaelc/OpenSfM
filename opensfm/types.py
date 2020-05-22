@@ -1017,7 +1017,8 @@ class Reconstruction(object):
         :param point: The point.
         """
         new_pt = self.map.create_landmark(point.id, point.coordinates)
-        new_pt.color = point.color
+        if point.color is not None:
+            new_pt.color = point.color
 
     def get_point(self, id):
         """Return a point by id.

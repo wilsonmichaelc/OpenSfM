@@ -23,8 +23,8 @@ struct ShotCamera {
 
 struct ShotMesh {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  void SetVertices(const Eigen::MatrixXd vertices) { vertices_ = vertices; }
-  void SetFaces(const Eigen::MatrixXd faces) { faces_ = faces; }
+  void SetVertices(const Eigen::MatrixXd& vertices) { vertices_ = vertices; }
+  void SetFaces(const Eigen::MatrixXd& faces) { faces_ = faces; }
   Eigen::MatrixXd GetFaces() const { return faces_; }
   Eigen::MatrixXd GetVertices() const { return vertices_; }
   Eigen::MatrixXd vertices_;
