@@ -45,7 +45,10 @@ PYBIND11_MODULE(pymap, m) {
                     &map::Pose::SetWorldToCamRotation)
       .def_property("translation", &map::Pose::TranslationWorldToCamera,
                     &map::Pose::SetWorldToCamTranslation)
-      .def("set_rotation_matrix", &map::Pose::SetWorldToCamRotationMatrix);
+      .def("set_rotation_matrix", &map::Pose::SetWorldToCamRotationMatrix)
+      .def("transform", &map::Pose::TransformWorldToCamera)
+      .def("transform_inverse", &map::Pose::TransformCameraToWorld)
+      ;
 
   py::class_<map::MapIO>(m, "MapIO")
       .def("save_map", &map::MapIO::SaveMapToFile)
@@ -62,44 +65,36 @@ PYBIND11_MODULE(pymap, m) {
       .def("remove_shot_camera", &map::Map::RemoveShotCamera)
       // Landmark
       .def("create_landmark", &map::Map::CreateLandmark, py::arg("lm_id"),
-           py::arg("global_position"), py::arg("name") = "",
+           py::arg("global_position"),
            py::return_value_policy::reference_internal)
       .def("update_landmark", &map::Map::UpdateLandmark)
       .def("remove_landmark", py::overload_cast<const map::Landmark *const>(
                                   &map::Map::RemoveLandmark))
       .def("remove_landmark",
            py::overload_cast<const map::LandmarkId>(&map::Map::RemoveLandmark))
-      .def("next_unique_landmark_id", &map::Map::GetNextUniqueLandmarkId)
       // Shot
       .def("create_shot",
            py::overload_cast<const map::ShotId, const map::CameraId,
-                             const std::string &, const map::Pose &>(
-               &map::Map::CreateShot),
-           py::arg("shot_id"), py::arg("shot_cam_id"), py::arg("name") = "",
+                             const map::Pose &>(&map::Map::CreateShot),
+           py::arg("shot_id"), py::arg("shot_cam_id"),
            py::arg("pose") = map::Pose(),
            py::return_value_policy::reference_internal)
       .def("create_shot",
            py::overload_cast<const map::ShotId, const map::ShotCamera &,
-                             const std::string &, const map::Pose &>(
-               &map::Map::CreateShot),
-           py::arg("shot_id"), py::arg("shot_cam"), py::arg("name") = "",
+                             const map::Pose &>(&map::Map::CreateShot),
+           py::arg("shot_id"), py::arg("shot_cam"),
            py::arg("pose") = map::Pose(),
            py::return_value_policy::reference_internal)
       .def("create_shot",
            py::overload_cast<const map::ShotId, const std::string &,
-                             const std::string &, const map::Pose &>(
-               &map::Map::CreateShot),
-           py::arg("shot_id"), py::arg("shot_cam"), py::arg("name") = "",
+                             const map::Pose &>(&map::Map::CreateShot),
+           py::arg("shot_id"), py::arg("shot_cam"),
            py::arg("pose") = map::Pose(),
            py::return_value_policy::reference_internal)
       .def("update_shot_pose", &map::Map::UpdateShotPose)
       .def("remove_shot", &map::Map::RemoveShot)
-      .def("next_unique_shot_id", &map::Map::GetNextUniqueShotId)
-      .def("get_shot", py::overload_cast<const map::ShotId>(&map::Map::GetShot),
-           py::arg("shot_id"), py::return_value_policy::reference_internal)
-      .def("get_shot",
-           py::overload_cast<const std::string &>(&map::Map::GetShot),
-           py::arg("shot_name"), py::return_value_policy::reference_internal)
+      .def("get_shot", &map::Map::GetShot,
+           py::return_value_policy::reference_internal)
       .def("add_observation",
            py::overload_cast<const map::ShotId, const map::LandmarkId,
                              const map::FeatureId>(&map::Map::AddObservation),
@@ -119,7 +114,6 @@ PYBIND11_MODULE(pymap, m) {
            py::return_value_policy::reference_internal)
       .def("get_all_landmarks", &map::Map::GetAllLandmarkPointers,
            py::return_value_policy::reference_internal)
-
       .def("set_reference", &map::Map::SetTopoCentricConverter)
       .def("get_reference", &map::Map::GetTopoCentricConverter)
       .def("create_cam_model", &map::Map::CreateCameraModel,
@@ -131,10 +125,6 @@ PYBIND11_MODULE(pymap, m) {
            &map::Map::ClearObservationsAndLandmarks)
       .def("get_shot_camera", &map::Map::GetShotCamera,
            py::return_value_policy::reference_internal)
-      .def("get_all_shot_names", &map::Map::GetAllShotNames,
-           py::return_value_policy::reference_internal)
-      .def("get_all_landmark_names", &map::Map::GetAllPointNames,
-           py::return_value_policy::reference_internal)
       .def("get_all_camera_models", &map::Map::GetAllCameraModels,
            py::return_value_policy::reference_internal)
       .def("get_camera_model", &map::Map::GetCameraModel,
@@ -143,18 +133,17 @@ PYBIND11_MODULE(pymap, m) {
       ;
 
   py::class_<map::TopoCentricConverter>(m, "TopoCentriConverter")
-    .def(py::init<>())
-    .def(py::init<const double, const double, const double>())
-    .def_readonly("lat", &map::TopoCentricConverter::lat_)
-    .def_readonly("lon", &map::TopoCentricConverter::long_)
-    .def_readonly("alt", &map::TopoCentricConverter::lat_)
-  ;
+      .def(py::init<>())
+      .def(py::init<const double, const double, const double>())
+      .def_readonly("lat", &map::TopoCentricConverter::lat_)
+      .def_readonly("lon", &map::TopoCentricConverter::long_)
+      .def_readonly("alt", &map::TopoCentricConverter::lat_);
 
   py::class_<map::Shot>(m, "Shot")
       .def(py::init<const map::ShotId, const map::ShotCamera &,
-                    const map::Pose &, const std::string &>())
+                    const map::Pose &>())
       .def_readonly("id", &map::Shot::id_)
-      .def_readonly("name", &map::Shot::name_)
+      .def_readonly("unique_id", &map::Shot::unique_id_)
       .def_readonly("slam_data", &map::Shot::slam_data_,
                     py::return_value_policy::reference_internal)
       .def_readwrite("mesh", &map::Shot::mesh)
@@ -201,7 +190,8 @@ PYBIND11_MODULE(pymap, m) {
                              py::return_value_policy::reference_internal)
       .def("create_observation", &map::Shot::CreateObservation)
       .def("get_landmark_observation", &map::Shot::GetLandmarkObservation,
-           py::return_value_policy::reference_internal);
+           py::return_value_policy::reference_internal)
+      .def("project", &map::Shot::Project);
 
   py::class_<map::SLAMShotData>(m, "SlamShotData")
       .def_readonly("undist_keypts", &map::SLAMShotData::undist_keypts_,
@@ -220,21 +210,17 @@ PYBIND11_MODULE(pymap, m) {
       .def_readwrite("capture_time", &map::ShotMeasurements::capture_time_)
       .def_readwrite("accelerometer", &map::ShotMeasurements::accelerometer)
       .def_readwrite("compass", &map::ShotMeasurements::compass)
-      // .def_property_readonly("mesh", &map::ShotMeasurements::GetMesh) //, &map::ShotMeasurements::SetMesh)
-      .def_readwrite("skey", &map::ShotMeasurements::skey)
-
-  ;
+      .def_readwrite("skey", &map::ShotMeasurements::skey);
 
   py::class_<map::ShotMesh>(m, "ShotMesh")
       .def_property("faces", &map::ShotMesh::GetFaces, &map::ShotMesh::SetFaces)
-      .def_property("vertices", &map::ShotMesh::GetFaces,
-                    &map::ShotMesh::SetFaces);
+      .def_property("vertices", &map::ShotMesh::GetVertices,
+                    &map::ShotMesh::SetVertices);
 
   py::class_<map::Landmark>(m, "Landmark")
-      .def(py::init<const map::LandmarkId &, const Eigen::Vector3d &,
-                    const std::string &>())
+      .def(py::init<const map::LandmarkId &, const Eigen::Vector3d &>())
       .def_readonly("id", &map::Landmark::id_)
-      .def_readonly("name", &map::Landmark::name_)
+      .def_readonly("unique_id", &map::Landmark::unique_id_)
       .def_readwrite("slam_data", &map::Landmark::slam_data_)
       .def("get_global_pos", &map::Landmark::GetGlobalPos)
       .def_property("coordinates", &map::Landmark::GetGlobalPos,
@@ -262,14 +248,6 @@ PYBIND11_MODULE(pymap, m) {
       .def(py::init<map::Camera &, const map::CameraId, const std::string &>())
       .def_readonly("id", &map::ShotCamera::id_)
       .def_readonly("camera_name", &map::ShotCamera::camera_name_);
-  //  .def_readonly("camera_model", &map::ShotCamera::camera_model_);
-  //  .def("pixel_bearing", &map::ShotCamera::PixelBearing);
-  // py::class_<map::Camera, map::PyCamera>(m, "CameraModel");
-  // py::class_<map::BrownPerspectiveCamera, map::PyBrownPerspectiveCamera>(m,
-  // "BrownPerspectiveCamera"); py::class_<map::PerspectiveCamera,
-  // map::PyPerspectiveCamera>(m, "PerspectiveCamera");
-
-  //   py::class_<map::Camera>(m, "CameraModel")
 
   py::class_<map::Camera, map::PyCamera>(m, "CameraModel")
       .def(py::init<const size_t, const size_t, const std::string &>(),
@@ -278,11 +256,8 @@ PYBIND11_MODULE(pymap, m) {
       .def_readonly("id", &map::Camera::id)
       .def_readonly("projection_type", &map::Camera::projectionType)
       .def_readonly("width", &map::Camera::width)
-      .def_readonly("height", &map::Camera::height);
-  //  .def_readonly("focal", &map::Camera::focal)
-  //  .def_readonly("k1", &map::Camera::k1)
-  //  .def_readonly("k2", &map::Camera::k2)
-  ;
+      .def_readonly("height", &map::Camera::height)
+      .def("get_K", &map::Camera::GetK);
 
   py::class_<map::BrownPerspectiveCamera, map::Camera>(m,
                                                        "BrownPerspectiveCamera")
@@ -293,9 +268,7 @@ PYBIND11_MODULE(pymap, m) {
           py::arg("width"), py::arg("height"), py::arg("projection_type"),
           py::arg("fx"), py::arg("fy"), py::arg("cx"), py::arg("cy"),
           py::arg("k1"), py::arg("k2"), py::arg("p1"), py::arg("p2"),
-          py::arg("k3"))
-      // .def("pixel_bearing", &map::BrownPerspectiveCamera::PixelBearing)
-      ;
+          py::arg("k3"));
 
   py::class_<map::PerspectiveCamera, map::Camera>(m, "PerspectiveCamera")
       .def(py::init<const size_t, const size_t, const std::string &,
@@ -306,4 +279,3 @@ PYBIND11_MODULE(pymap, m) {
       .def_readwrite("k1", &map::PerspectiveCamera::k1)
       .def_readwrite("k2", &map::PerspectiveCamera::k2);
 }
-//   py::class_<map::Observation>(m, "Observation")ll

@@ -27,13 +27,13 @@ json MapIO::MapToJson(const Map& rec_map)
   // Add shots
   for (const auto& id_and_shot : rec_map.GetAllShots())
   {
-    map_json["shots"][id_and_shot.second->name_] = ShotToJson(*id_and_shot.second);
+    map_json["shots"][id_and_shot.second->id_] = ShotToJson(*id_and_shot.second);
   }
 
   // Add landmarks
   for (const auto& id_and_lm : rec_map.GetAllLandmarks())
   {
-    map_json["points"][std::to_string(id_and_lm.first)] = LandmarkToJson(*id_and_lm.second);
+    map_json["points"][id_and_lm.first] = LandmarkToJson(*id_and_lm.second);
   }
 
   return map_json;

@@ -11,6 +11,7 @@ namespace map
 class Shot;
 
 class SLAMLandmarkData{
+
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // cv::Mat descriptor_;
@@ -37,9 +38,13 @@ private:
 };
 
 class Landmark {
+public:
+  static LandmarkUniqueId landmark_unique_id_;
+
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  Landmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
+  // Landmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name = "");
+  Landmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos);
   Eigen::Vector3d GetGlobalPos() const { return global_pos_; }
   void SetGlobalPos(const Eigen::Vector3d& global_pos) { global_pos_ = global_pos; }
 
@@ -77,7 +82,8 @@ class Landmark {
 public:
   //We could set the const values to public, to avoid writing a getter.
   const LandmarkId id_;
-  const std::string name_;
+  const LandmarkUniqueId unique_id_;
+  // const std::string name_;
   SLAMLandmarkData slam_data_;
 private:
   Eigen::Vector3d global_pos_; // point in global
@@ -85,5 +91,6 @@ private:
   Shot* ref_shot_; //shot in which the landmark was first seen
   Eigen::Vector3i color_;
   std::unordered_map<std::string, Eigen::VectorXd> reproj_errors_;
+
 };
 }

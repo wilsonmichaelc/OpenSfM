@@ -177,38 +177,23 @@ def bundle(reconstruction, camera_priors, gcp, config):
     for shot in reconstruction.shots.values():
         r = shot.pose.rotation
         t = shot.pose.translation
-        #TODO: make name equal to id
-        ba.add_shot(shot.name, shot.camera.id, r, t, False)
-        # ba.add_shot(shot.id, shot.camera.id, r, t, False)
+        ba.add_shot(shot.id, shot.camera.id, r, t, False)
 
     for point in reconstruction.points.values():
-        #TODO: make point id to string
-        # ba.add_point(point.id, point.coordinates, False)
-        ba.add_point(str(point.id), point.coordinates, False)
+        ba.add_point(point.id, point.coordinates, False)
 
     for shot_id in reconstruction.shots:
         shot = reconstruction.get_shot(shot_id)
         for point in shot.get_valid_landmarks():
             obs = shot.get_landmark_observation(point)
             ba.add_point_projection_observation(
-                shot.name, str(point.id), obs.point[0], obs.point[1], obs.scale)
-    # for shot_id in reconstruction.shots:
-    #     if shot_id in graph:
-    #         for track in graph[shot_id]:
-    #             if track in reconstruction.points:
-    #                 point = graph[shot_id][track]['feature']
-    #                 scale = graph[shot_id][track]['feature_scale']
-    #                 ba.add_point_projection_observation(
-    #                     shot_id, track, point[0], point[1], scale)
+                shot.id, point.id, obs.point[0], obs.point[1], obs.scale)
 
     if config['bundle_use_gps']:
         for shot in reconstruction.shots.values():
             g = shot.metadata.gps_position
-            #TODO: shot.id/shot.name
-            ba.add_position_prior(shot.name, g[0], g[1], g[2],
-                        shot.metadata.gps_dop)
-            # ba.add_position_prior(shot.id, g[0], g[1], g[2],
-            #                       shot.metadata.gps_dop)
+            ba.add_position_prior(shot.id, g[0], g[1], g[2],
+                                  shot.metadata.gps_dop)
 
     if config['bundle_use_gcp'] and gcp:
         _add_gcp_to_bundle(ba, gcp, reconstruction.shots)
@@ -246,15 +231,12 @@ def bundle(reconstruction, camera_priors, gcp, config):
         _get_camera_from_bundle(ba, camera)
 
     for shot in reconstruction.shots.values():
-        #TODO: shot.id/shot.name
-        # s = ba.get_shot(shot.id)
-        s = ba.get_shot(shot.name)
+        s = ba.get_shot(shot.id)
         shot.pose.rotation = [s.r[0], s.r[1], s.r[2]]
         shot.pose.translation = [s.t[0], s.t[1], s.t[2]]
 
     for point in reconstruction.points.values():
-        # p = ba.get_point(point.id)
-        p = ba.get_point(str(point.id))
+        p = ba.get_point(point.id)
         point.coordinates = [p.p[0], p.p[1], p.p[2]]
         point.reprojection_errors = p.reprojection_errors
 
@@ -279,15 +261,13 @@ def bundle_single_view(reconstruction, shot_id, camera_priors, config):
 
     r = shot.pose.rotation
     t = shot.pose.translation
-    #TODO: id = name
-    # ba.add_shot(shot.id, camera.id, r, t, False)
     ba.add_shot(shot_id, camera.id, r, t, False)
 
     # for track_id in graph[shot_id]:
         # track = reconstruction.points[track_id]
     # for track in reconstruction.points:
     for track in shot.get_valid_landmarks():
-        track_id = str(track.id)
+        track_id = track.id
         ba.add_point(track_id, track.coordinates, True)
         
         # point = graph[shot_id][track_id]['feature']
@@ -363,14 +343,11 @@ def bundle_local(reconstruction, camera_priors, gcp, central_shot_id, config):
         shot = reconstruction.shots[shot_id]
         r = shot.pose.rotation
         t = shot.pose.translation
-        # TODO: shot.id to shot.name
-        # ba.add_shot(shot.id, shot.camera.id, r, t, shot.id in boundary)
-        ba.add_shot(shot.name, shot.camera.id, r, t, shot.id in boundary)
+        ba.add_shot(shot.id, shot.camera.id, r, t, shot.id in boundary)
 
     for point_id in point_ids:
         point = reconstruction.points[point_id]
-        #TODO: id/name
-        ba.add_point(str(point.id), point.coordinates, False)
+        ba.add_point(point.id, point.coordinates, False)
 
     for shot_id in interior | boundary:
         shot = reconstruction.get_shot(shot_id)
@@ -378,7 +355,7 @@ def bundle_local(reconstruction, camera_priors, gcp, central_shot_id, config):
             for point in shot.get_valid_landmarks():
                 obs = shot.get_landmark_observation(point)
                 ba.add_point_projection_observation(
-                    shot.name, str(point.id), obs.point[0], obs.point[1], obs.scale)
+                    shot.id, point.id, obs.point[0], obs.point[1], obs.scale)
 
         # if shot_id in graph:
         #     for track in graph[shot_id]:
@@ -392,11 +369,8 @@ def bundle_local(reconstruction, camera_priors, gcp, central_shot_id, config):
         for shot_id in interior:
             shot = reconstruction.shots[shot_id]
             g = shot.metadata.gps_position
-            #TODO: id/name
-            ba.add_position_prior(shot.name, g[0], g[1], g[2],
-                        shot.metadata.gps_dop)
-            # ba.add_position_prior(shot.id, g[0], g[1], g[2],
-            #                       shot.metadata.gps_dop)
+            ba.add_position_prior(shot.id, g[0], g[1], g[2],
+                                  shot.metadata.gps_dop)
 
     if config['bundle_use_gcp'] and gcp:
         _add_gcp_to_bundle(ba, gcp, reconstruction.shots)
@@ -421,16 +395,13 @@ def bundle_local(reconstruction, camera_priors, gcp, central_shot_id, config):
 
     for shot_id in interior:
         shot = reconstruction.shots[shot_id]
-        #TODO: id/name
-        s = ba.get_shot(shot.name)
-        #s = ba.get_shot(shot.id)
+        s = ba.get_shot(shot.id)
         shot.pose.rotation = [s.r[0], s.r[1], s.r[2]]
         shot.pose.translation = [s.t[0], s.t[1], s.t[2]]
 
     for point in point_ids:
         point = reconstruction.points[point]
-        #TODO: id/name
-        p = ba.get_point(str(point.id))
+        p = ba.get_point(point.id)
         point.coordinates = [p.p[0], p.p[1], p.p[2]]
         point.reprojection_errors = p.reprojection_errors
 
@@ -484,23 +455,22 @@ def direct_shot_neighbors(reconstruction, shot_ids,
         for track in valid_landmarks:
             track_id = track.id
             if track_id in reconstruction.points:
+                #TODO: Take a closer look
                 points.add(track)
 
     candidate_shots = set(reconstruction.shots) - set(shot_ids)
     common_points = defaultdict(int)
     for track in points:
         neighbors = track.get_observations()
-        for neighbor in neighbors:  #graph[track_id]:
-            #TODO: name/id
-            if neighbor.name in candidate_shots:
+        for neighbor in neighbors:
+            if neighbor.id in candidate_shots:
                 common_points[neighbor] += 1
 
     pairs = sorted(common_points.items(), key=lambda x: -x[1])
     neighbors = set()
     for neighbor, num_points in pairs[:max_neighbors]:
         if num_points >= min_common_points:
-            #TODO: name/id
-            neighbors.add(neighbor.name)
+            neighbors.add(neighbor.id)
         else:
             break
     return neighbors
@@ -1437,8 +1407,9 @@ def grow_reconstruction(data, tracks_manager, reconstruction, images, camera_pri
 
 def _length_histogram(points):
     hist = defaultdict(int)
-    for p in points:
-        hist[p.number_of_observations()] += 1
+    for point in points.values():
+        # point = reconstruction.points[point_id]
+        hist[point.number_of_observations()] += 1
         
         # hist[len(graph[p])] += 1
     return np.array(list(hist.keys())), np.array(list(hist.values()))
@@ -1456,7 +1427,7 @@ def compute_statistics(reconstruction):
     else:
         stats['average_track_length'] = -1
     # tracks_notwo = sum([1 if len(graph[p]) > 2 else 0 for p in reconstruction.points])
-    tracks_notwo = sum([1 if p.number_of_observations() > 2 else 0 for p in reconstruction.points])
+    tracks_notwo = sum([1 if p.number_of_observations() > 2 else 0 for p in reconstruction.points.values()])
 
     if tracks_notwo > 0:
         stats['average_track_length_notwo'] = float(sum(hist[1:]*values[1:]))/tracks_notwo

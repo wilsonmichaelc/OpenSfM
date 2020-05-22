@@ -19,6 +19,7 @@ public:
   std::string id;
   const size_t width;
   const size_t height;
+  Eigen::Matrix3d K_eig;
   // float focal;  // focal lengths in pixels
   // const float cx, cy;              // principal points
   // float k1, k2;  // distortion coefficients
@@ -69,6 +70,11 @@ public:
 
   virtual Eigen::Vector3d
   PixelBearing(const Eigen::Vector2d& point) const = 0;
+
+  Eigen::Matrix3d GetK() const
+  {
+    return K_eig;
+  }
   // {
   //   std::cout <<"Camera!" << 
   //                projectionType << std::endl;

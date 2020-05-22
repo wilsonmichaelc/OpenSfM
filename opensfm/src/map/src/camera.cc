@@ -26,6 +26,8 @@ BrownPerspectiveCamera::BrownPerspectiveCamera(const size_t width_, const size_t
     fy_p = K_pixel_eig(1,1);
     cx_p = K_pixel_eig(0,2);
     cy_p = K_pixel_eig(1,2);
+
+    cv::cv2eigen(K, K_eig);
     
 }
 void
@@ -152,6 +154,7 @@ PerspectiveCamera::PerspectiveCamera(const size_t width_, const size_t height_, 
                                        k2 = k2_;
                                         K = (cv::Mat_<float>(3,3) << focal, 0, 0, 0, focal, 0, 0, 0, 1);
                                         distCoeff = (cv::Mat_<float>(1,5) << k1, k2, 0,0,0 );
+                                        cv::cv2eigen(K, K_eig);
                                      }
 
 Eigen::Vector3d

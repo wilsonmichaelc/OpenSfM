@@ -1,6 +1,4 @@
 #pragma once
-// #include <opencv2/features2d/features2d.hpp>
-// #include <opencv2/core.hpp>
 #include <Eigen/Eigen>
 #include <unordered_map>
 #include <map/defines.h>
@@ -10,13 +8,10 @@
 #include <map/camera.h>
 #include <sfm/observation.h>
 #include <map/landmark.h>
-// #include <map/landmark.h>
+
 namespace map
 {
 class Pose;
-// class Camera;
-// class Landmark;
-
 struct ShotCamera {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ShotCamera(Camera& camera, const CameraId cam_id, const std::string cam_name = ""):
@@ -24,26 +19,22 @@ struct ShotCamera {
   Camera& camera_model_;
   const int id_;
   const std::string camera_name_;
-  // Eigen::Vector3d PixelBearing(const Eigen::Vector3d& pt) const
-  // {
-  //   return camera_model_.PixelBearing(pt);
-  // }
 };
 
 struct ShotMesh {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  // void SetVertices(Eigen::MatrixXd vertices) { vertices_ = vertices; }
-  // void SetFaces(Eigen::MatrixXd faces) { faces_ = faces; }
-  // Eigen::MatrixXd GetFaces() const { return faces_; }
-  // Eigen::MatrixXd GetVertices() const { return vertices_; }
-  // Eigen::MatrixXd vertices_;
-  // Eigen::MatrixXd faces_;
-  void SetVertices(double vertices) { vertices_ = vertices; }
-  void SetFaces(double faces) { faces_ = faces; }
-  double GetFaces() const { return faces_; }
-  double GetVertices() const { return vertices_; }
-  double vertices_;
-  double faces_;
+  void SetVertices(const Eigen::MatrixXd vertices) { vertices_ = vertices; }
+  void SetFaces(const Eigen::MatrixXd faces) { faces_ = faces; }
+  Eigen::MatrixXd GetFaces() const { return faces_; }
+  Eigen::MatrixXd GetVertices() const { return vertices_; }
+  Eigen::MatrixXd vertices_;
+  Eigen::MatrixXd faces_;
+  // void SetVertices(double vertices) { vertices_ = vertices; }
+  // void SetFaces(double faces) { faces_ = faces; }
+  // double GetFaces() const { return faces_; }
+  // double GetVertices() const { return vertices_; }
+  // double vertices_;
+  // double faces_;
 };
 
 struct ShotMeasurements
@@ -61,10 +52,12 @@ struct ShotMeasurements
 };
 
 class Shot {
+  public: 
+  static ShotUniqueId shot_unique_id_;
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose, const std::string& name = "");
+  Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose);
   const DescriptorType GetDescriptor(const FeatureId id) const { return descriptors_.row(id); }
   const auto& GetKeyPoint(const FeatureId id) const { return keypoints_.at(id); }
   Eigen::Vector3f GetKeyPointEigen(const FeatureId id) const { 
@@ -85,16 +78,9 @@ class Shot {
 
   auto& GetObservation(const FeatureId id) const
   {
-    // if (landmarks_.empty())
-    // {
-    //   landmark_observations_.at(landmark_id_.at(id));
-    // }
-    // else
-    // {
-      
-    // }
     return landmarks_.empty() ? landmark_observations_.at(landmark_id_.at(id)) : keypoints_.at(id);
   }
+
   std::vector<Landmark*> ComputeValidLandmarks()
   {
     //we use the landmark observation
@@ -128,6 +114,7 @@ class Shot {
     }
     return valid_landmarks;
   }
+
   std::vector<std::pair<Landmark*,FeatureId>> ComputeValidLandmarksAndIndices() const
   {
     std::vector<std::pair<Landmark*,FeatureId>> valid_landmarks;
@@ -142,8 +129,6 @@ class Shot {
     }
     return valid_landmarks;
   }
-  
-
 
   Landmark* GetLandmark(const FeatureId id) { return landmarks_.at(id);}
   void RemoveLandmarkObservation(const FeatureId id);
@@ -197,11 +182,15 @@ class Shot {
   {
     return &landmark_observations_.at(lm);
   }
+  
+  Eigen::Vector2d Project(const Eigen::Vector3d& global_pos) const;
+
 public:
   SLAMShotData slam_data_;
   //We could set the const values to public, to avoid writing a getter.
-  const ShotId id_;
-  const std::string name_;
+  const ShotId id_;  //basically the name!
+  const ShotUniqueId unique_id_;
+  // const std::string name_;
   const ShotCamera& shot_camera_;
   ShotMeasurements shot_measurements_; //metadata
   ShotMesh mesh;

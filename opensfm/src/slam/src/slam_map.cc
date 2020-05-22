@@ -21,7 +21,7 @@ void SlamMap::UpdateLandmarksAfterKfInsert(map::Shot *shot)
       {
 
         fresh_landmarks_.push_back(lm);
-        std::cout << "Actually inserted something!" << shot->name_ << std::endl;
+        std::cout << "Actually inserted something!" << shot->id_ << std::endl;
         continue;
       }
       // if `lm` does not have the observation information from `cur_keyfrm_`,

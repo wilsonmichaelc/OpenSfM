@@ -441,7 +441,7 @@ GuidedMatcher::AssignLandmarksToShot(map::Shot& shot, const std::vector<map::Lan
   // MatchIndices matches;
   std::unique_ptr<openvslam::match::angle_checker<int>> angle_checker;
 
-  std::cout << "AssignLandmarksToShot: " << shot.name_ << " local_lm: " << landmarks.size() << std::endl;
+  std::cout << "AssignLandmarksToShot: " << shot.id_ << ", " << shot.unique_id_ << " local_lm: " << landmarks.size() << std::endl;
   if (landmarks.empty())
   {
     return 0;

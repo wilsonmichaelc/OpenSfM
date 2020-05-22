@@ -5,13 +5,17 @@
 
 namespace map
 {
-Landmark::Landmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name):
-  id_(lm_id), name_(name), global_pos_(global_pos), color_(255,0,0)
-{
+LandmarkUniqueId Landmark::landmark_unique_id_ = 0;
 
+Landmark::Landmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos)
+    : id_(lm_id),
+      unique_id_(Landmark::landmark_unique_id_),
+      global_pos_(global_pos),
+      color_(255, 0, 0) {
+  ++Landmark::landmark_unique_id_;
 }
-Eigen::Vector3f 
-Landmark::GetObservationInShot(Shot* shot) const {
+
+Eigen::Vector3f Landmark::GetObservationInShot(Shot* shot) const {
   const auto obs_id = observations_.at(shot);
   return shot->GetKeyPointEigen(obs_id);
 }

@@ -45,12 +45,12 @@ Map::GetShot(const ShotId shot_id) //const
   return (it != shots_.end() ? it->second.get() : nullptr);
 }
 
-Shot* 
-Map::GetShot(const std::string& shot_name) //const 
-{
-  const auto it = shot_names_.find(shot_name);
-  return (it != shot_names_.end() ? GetShot(it->second) : nullptr);
-}
+// Shot* 
+// Map::GetShot(const std::string& shot_name) //const 
+// {
+//   const auto it = shot_names_.find(shot_name);
+//   return (it != shot_names_.end() ? GetShot(it->second) : nullptr);
+// }
 
 Landmark* 
 Map::GetLandmark(const LandmarkId lm_id)
@@ -90,34 +90,34 @@ Map::ClearObservationsAndLandmarks()
  * @returns             returns pointer to created or existing shot
  */
 Shot*
-Map::CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const std::string& name, const Pose& pose)
+Map::CreateShot(const ShotId shot_id, const ShotCamera& shot_cam, const Pose& pose)
 {
-  auto it = shots_.emplace(shot_id, std::make_unique<Shot>(shot_id, shot_cam, pose, name));
+  auto it = shots_.emplace(shot_id, std::make_unique<Shot>(shot_id, shot_cam, pose));
 
-  if (!name.empty())
-  {  
-    shot_names_.emplace(name, shot_id);
-  }
-  if (it.second) //only if insert really happened
-  {
-    // prevent problems when, e.g. [1,2,3] are present 
-    // and id 1000 comes in!
-    unique_shot_id_ = std::max(shot_id+1, unique_shot_id_);
-  } 
+  // if (!name.empty())
+  // {  
+  //   shot_names_.emplace(name, shot_id);
+  // }
+  // if (it.second) //only if insert really happened
+  // {
+  //   // prevent problems when, e.g. [1,2,3] are present 
+  //   // and id 1000 comes in!
+  //   unique_shot_id_ = std::max(shot_id+1, unique_shot_id_);
+  // } 
   return it.first->second.get();
 }
 
 Shot*
-Map::CreateShot(const ShotId shot_id, const CameraId camera_id, const std::string& name, const Pose& pose)
+Map::CreateShot(const ShotId shot_id, const CameraId camera_id, const Pose& pose)
 {
-  return CreateShot(shot_id, *cameras_.at(camera_id), name, pose);
+  return CreateShot(shot_id, *cameras_.at(camera_id), pose);
 }
 
 Shot*
-Map::CreateShot(const ShotId shot_id, const std::string& camera_id, const std::string& name, const Pose& pose)
+Map::CreateShot(const ShotId shot_id, const std::string& camera_id, const Pose& pose)
 {
   // camera_names_.at(camera_id)
-  return CreateShot(shot_id, *cameras_.at(camera_names_.at(camera_id)), name, pose);
+  return CreateShot(shot_id, *cameras_.at(camera_names_.at(camera_id)), pose);
 }
 
 void
@@ -144,7 +144,7 @@ Map::RemoveShot(const ShotId shot_id)
     }
 
     //3) Remove from shot_names
-    shot_names_.erase(shot->name_);
+    // shot_names_.erase(shot->name_);
 
     //4) Remove from shots
     shots_.erase(shot_it);
@@ -162,18 +162,19 @@ Map::RemoveShot(const ShotId shot_id)
  * @returns           pointer to the created or already existing lm
  */
 Landmark*
-Map::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos, const std::string& name)
+Map::CreateLandmark(const LandmarkId lm_id, const Eigen::Vector3d& global_pos) //, const std::string& name)
 {
-  auto it = landmarks_.emplace(lm_id, std::make_unique<Landmark>(lm_id, global_pos, name));
-  if (!name.empty())
-  {  
-    landmark_names_.emplace(name, lm_id);
-  }
+  auto it = landmarks_.emplace(lm_id, std::make_unique<Landmark>(lm_id, global_pos)); //, name));
+  // if (!name.empty())
+  // {  
+  //   landmark_names_.emplace(name, lm_id);
+  // }
   if (it.second) //only if insert really happened
   {
     // prevent problems when, e.g. [1,2,3] are present 
     // and id 1000 comes in!
-    unique_landmark_id_ = std::max(lm_id+1, unique_landmark_id_);
+    // unique_landmark_id_ = std::max(lm_id+1, unique_landmark_id_);
+    ++landmark_unique_id_;
   }
   return it.first->second.get(); //the raw pointer
 }
@@ -188,7 +189,6 @@ Map::RemoveLandmark(const Landmark* const lm)
 {
   if (lm != nullptr)
   {
-    std::cout << "Remove observations " << lm->id_ << std::endl;
     //2) Remove all its observation
     const auto& observations = lm->GetObservations();
     for (const auto& obs : observations)
@@ -197,11 +197,9 @@ Map::RemoveLandmark(const Landmark* const lm)
       const auto feat_id = obs.second;
       shot->RemoveLandmarkObservation(feat_id);
     }
-    std::cout << "Remove lm names " << lm->id_ << std::endl;
     //3) Remove from landmark_names_
-    landmark_names_.erase(lm->name_);
+    // landmark_names_.erase(lm->name_);
 
-    std::cout << "Remove lm " << lm->id_ << std::endl;
     //4) Remove from landmarks
     landmarks_.erase(lm->id_);
   }
@@ -224,7 +222,7 @@ Map::RemoveLandmark(const LandmarkId lm_id)
     }
 
     //3) Remove from landmark_names_
-    landmark_names_.erase(landmark->name_);
+    // landmark_names_.erase(landmark->name_);
 
     //4) Remove from landmarks
     landmarks_.erase(lm_it);
@@ -250,76 +248,76 @@ Map::ReplaceLandmark(Landmark* old_lm, Landmark* new_lm)
   {
     Shot* obs_shot = observation.first;
     FeatureId obs_feat_id = observation.second;
-    Landmark* test_lm2 = obs_shot->GetLandmark(obs_feat_id);
-    if (test_lm2 != old_lm)
-    {
-      std::cout << "id failure" << obs_feat_id << std::endl;
-      exit(0);
-    }
-    {
+    // Landmark* test_lm2 = obs_shot->GetLandmark(obs_feat_id);
+    // if (test_lm2 != old_lm)
+    // {
+    //   std::cout << "id failure" << obs_feat_id << std::endl;
+    //   exit(0);
+    // }
+    // {
       //check if the old_lm is still somewhere
-      const auto& obs_lms = obs_shot->GetLandmarks();
-      std::unordered_map<Landmark*,FeatureId> test_set;
-      for (size_t i = 0; i < obs_shot->NumberOfKeyPoints(); ++i)
-      {
+      // const auto& obs_lms = obs_shot->GetLandmarks();
+      // std::unordered_map<Landmark*,FeatureId> test_set;
+      // for (size_t i = 0; i < obs_shot->NumberOfKeyPoints(); ++i)
+      // {
         
-        auto* lm = obs_lms[i];
-        if (lm != nullptr)
-        {
-          auto it = test_set.find(lm);
-          if (it == test_set.end())
-          {
-            //insert
-            test_set[lm] = i;
-          }
-          else
-          {
-            std::cout << "Double landmark " << lm->id_ << " match in shot " << obs_shot->name_ << " at " << i << " <-> " << it->second<< std::endl;
-            std::cout<< obs_shot->GetLandmark(i) << ", " << obs_shot->GetLandmark(it->second) << std::endl;
-          }
-        }
-        // if (lm == old_lm)
-        // {
-        //   std::cout << "Not replaced correctly!!! at " << i << std::endl;
-        //   exit(0);
-        // }
-      }
-    }
+      //   auto* lm = obs_lms[i];
+      //   if (lm != nullptr)
+      //   {
+      //     auto it = test_set.find(lm);
+      //     if (it == test_set.end())
+      //     {
+      //       //insert
+      //       test_set[lm] = i;
+      //     }
+      //     else
+      //     {
+      //       std::cout << "Double landmark " << lm->id_ << " match in shot " << obs_shot->name_ << " at " << i << " <-> " << it->second<< std::endl;
+      //       std::cout<< obs_shot->GetLandmark(i) << ", " << obs_shot->GetLandmark(it->second) << std::endl;
+      //     }
+      //   }
+      //   // if (lm == old_lm)
+      //   // {
+      //   //   std::cout << "Not replaced correctly!!! at " << i << std::endl;
+      //   //   exit(0);
+      //   // }
+      // }
+    // }
 
     // if the new one is seen in obs_shot, there was a mismatch
     // Thus, erase the observation of the old_lm
     if (new_lm->IsObservedInShot(obs_shot))
     {
       obs_shot->RemoveLandmarkObservation(obs_feat_id);
-      std::cout << "removing old lm " << old_lm->id_ << " at " << obs_feat_id 
-                << " at shot: " << obs_shot->name_ << "/" << obs_shot->id_<< std::endl;
+      // std::cout << "removing old lm " << old_lm->id_ << " at " << obs_feat_id 
+      //           << " at shot: " << obs_shot->name_ << "/" << obs_shot->id_<< std::endl;
     }
     else
     {
       // replace, should be the same as AddObservation
       obs_shot->AddLandmarkObservation(new_lm, obs_feat_id);
       new_lm->AddObservation(obs_shot, obs_feat_id);
-      std::cout << "replacing old lm " <<  old_lm->id_ << "at "<< obs_feat_id 
-                << " at shot: " << obs_shot->name_ << "/" << obs_shot->id_<< std::endl;
+      // std::cout << "replacing old lm " <<  old_lm->id_ << "at "<< obs_feat_id 
+      //           << " at shot: " << obs_shot->name_ << "/" << obs_shot->id_<< std::endl;
     }
     //check if the old_lm is still somewhere
-    const auto& obs_lms = obs_shot->GetLandmarks(); 
-    for (size_t i = 0; i < obs_shot->NumberOfKeyPoints(); ++i)
-    {
-      const auto* lm = obs_lms[i];
-      if (lm == old_lm)
-      {
-        std::cout << "Not replaced correctly!!! at " << i << std::endl;
-        exit(0);
-      }
-    }
-    // just for testing
-    auto* test_lm = obs_shot->GetLandmark(obs_feat_id);
-    if (test_lm == old_lm)
-    {
-      std::cout << "Error during replace!" << std::endl;
-      exit(0);
-    }
+    // const auto& obs_lms = obs_shot->GetLandmarks(); 
+    // for (size_t i = 0; i < obs_shot->NumberOfKeyPoints(); ++i)
+    // {
+    //   const auto* lm = obs_lms[i];
+    //   if (lm == old_lm)
+    //   {
+    //     std::cout << "Not replaced correctly!!! at " << i << std::endl;
+    //     exit(0);
+    //   }
+    // }
+    // // just for testing
+    // auto* test_lm = obs_shot->GetLandmark(obs_feat_id);
+    // if (test_lm == old_lm)
+    // {
+    //   std::cout << "Error during replace!" << std::endl;
+    //   exit(0);
+    // }
   }
   // TODO: This basically takes all the observations from the old lm
   // Might not be completely correct
@@ -327,7 +325,7 @@ Map::ReplaceLandmark(Landmark* old_lm, Landmark* new_lm)
   new_lm->slam_data_.IncreaseNumObservable(old_lm->slam_data_.GetNumObservable());
   std::cout << "Erasing: " << old_lm->id_ << " and replacing with" << new_lm->id_ << std::endl;
   //3) Remove from landmark_names_
-  landmark_names_.erase(old_lm->name_);
+  // landmark_names_.erase(old_lm->name_);
   //4) Remove from landmarks
   landmarks_.erase(old_lm->id_);
 

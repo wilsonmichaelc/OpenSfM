@@ -88,7 +88,7 @@ void graph_node::update_connections() {
     map::Shot* nearest_covisibility = nullptr;
 
     // vector for sorting
-    std::vector<std::pair<unsigned int, map::Shot*>> weight_covisibility_pairs;
+    std::vector<std::pair<map::ShotUniqueId, map::Shot*>> weight_covisibility_pairs;
     weight_covisibility_pairs.reserve(shot_weights.size());
     for (const auto& shot_weight : shot_weights) {
         auto shot = shot_weight.first;
@@ -114,27 +114,27 @@ void graph_node::update_connections() {
         const auto weight = weight_covisibility.first;
         covisibility->slam_data_.graph_node_->add_connection(owner_shot_, weight);
     }
-    for (const auto& wc : weight_covisibility_pairs)
-    {
-        std::cout << "wc: " << wc.first << " sec: " << wc.second->name_ << "/" << wc.second->id_ << std::endl;
-    }
+    // for (const auto& wc : weight_covisibility_pairs)
+    // {
+    //     std::cout << "wc: " << wc.first << " sec: " << wc.second->name_ << "/" << wc.second->id_ << std::endl;
+    // }
     // sort with weights
     std::sort(weight_covisibility_pairs.rbegin(), weight_covisibility_pairs.rend(), 
     [](const auto &x,const auto &y) { 
         if ( x.first < y.first) return true;
         if (x.first == y.first) return x.second->id_ < y.second->id_;
         return false;} );
-    for (const auto& wc : weight_covisibility_pairs)
-    {
-        std::cout << "wc after sort: " << wc.first << " sec: " << wc.second->name_ << "/" << wc.second->id_ << std::endl;
-    }
+    // for (const auto& wc : weight_covisibility_pairs)
+    // {
+    //     std::cout << "wc after sort: " << wc.first << " sec: " << wc.second->name_ << "/" << wc.second->id_ << std::endl;
+    // }
     decltype(ordered_covisibilities_) ordered_covisibilities;
     ordered_covisibilities.reserve(weight_covisibility_pairs.size());
     decltype(ordered_weights_) ordered_weights;
     ordered_weights.reserve(weight_covisibility_pairs.size());
     for (const auto& weight_shot_pair : weight_covisibility_pairs)
     {
-        std::cout << "Push ord. cov: " << weight_shot_pair.second->name_ << std::endl;
+        // std::cout << "Push ord. cov: " << weight_shot_pair.second->name_ << std::endl;
         ordered_covisibilities.push_back(weight_shot_pair.second);
         ordered_weights.push_back(weight_shot_pair.first);
     }
@@ -146,7 +146,7 @@ void graph_node::update_connections() {
         ordered_covisibilities_ = ordered_covisibilities;
         ordered_weights_ = ordered_weights;
 
-        if (spanning_parent_is_not_set_ && owner_shot_->id_ != 0) {
+        if (spanning_parent_is_not_set_ && owner_shot_->unique_id_ != 0) {
             // set the parent of spanning tree
             assert(*nearest_covisibility == *ordered_covisibilities.front());
             spanning_parent_ = nearest_covisibility;

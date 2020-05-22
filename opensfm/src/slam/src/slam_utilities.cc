@@ -539,7 +539,7 @@ SlamUtilities::FuseDuplicatedLandmarks(map::Shot& shot, const std::vector<map::S
   for (const auto& fuse_shot: fuse_shots)
   {
     const auto n_fused = matcher.ReplaceDuplicatedLandmarks(*fuse_shot, landmarks, margin, slam_map);
-    std::cout << "Fused " << n_fused << " landmarks for " << fuse_shot->name_ << ", " << fuse_shot->id_ << std::endl;
+    std::cout << "Fused " << n_fused << " landmarks for " << fuse_shot->id_ << ", " << fuse_shot->unique_id_ << std::endl;
   }
 }
 
@@ -566,7 +566,7 @@ SlamUtilities::GetSecondOrderCovisibilityForShot(const map::Shot& shot, const si
         if (fuse_tgt_keyfrms.count(first_order_covis) == 0)
         {
           fuse_tgt_keyfrms.insert(first_order_covis);
-          std::cout << "fuse_tgt_keyfrms.insert(first_order_covis): " << first_order_covis->name_ << std::endl;
+          std::cout << "fuse_tgt_keyfrms.insert(first_order_covis): " << first_order_covis->id_ << std::endl;
 
           // get the covisibilities of the covisibility of the current keyframe
           const auto ngh_covisibilities = first_order_covis->slam_data_.graph_node_->get_top_n_covisibilities(second_order_thr);
@@ -578,7 +578,7 @@ SlamUtilities::GetSecondOrderCovisibilityForShot(const map::Shot& shot, const si
               // "the covisibilities of the covisibility" contains the current keyframe
               if (*second_order_covis != shot) {
                 fuse_tgt_keyfrms.insert(second_order_covis);
-                std::cout << "fuse_tgt_keyfrms.insert(second_order_covis): " << second_order_covis->name_ << std::endl;
+                std::cout << "fuse_tgt_keyfrms.insert(second_order_covis): " << second_order_covis->id_ << std::endl;
               }
           }
         }
@@ -586,7 +586,7 @@ SlamUtilities::GetSecondOrderCovisibilityForShot(const map::Shot& shot, const si
 
     for (const auto& frm: fuse_tgt_keyfrms)
     {
-        std::cout << "frm: " << frm->name_ << std::endl;
+        std::cout << "frm: " << frm->id_ << "/" << frm->unique_id_ << std::endl;
     }
     // return fuse_tgt_keyfrms;
     // TODO: this copy is unnecessary and only used to keep the order
@@ -638,7 +638,9 @@ void SlamUtilities::Triangulate(const TrackId track, const TracksManager& tracks
     // std::cout << "tri_status: " << tri_status << "," << tri.second << std::endl;
     if (tri_status == geometry::TRIANGULATION_OK)
     {
-      auto* lm = map.CreateLandmark(std::stoi(track), tri.second);
+      // auto* lm = map.CreateLandmark(std::stoi(track), tri.second);
+      auto* lm = map.CreateLandmark(track, tri.second);
+
       for (const auto& shot_featid : shots)
       {
         map.AddObservation(shot_featid.first, lm, shot_featid.second);
@@ -650,7 +652,7 @@ void SlamUtilities::Triangulate(const TrackId track, const TracksManager& tracks
 void SlamUtilities::TriangulateShotFeatures(const TracksManager& tracks_manager, map::Map& map, map::Shot* shot,
                        const double reproj_threshold, const double min_reproj_angle)
 {
-  const auto& tracks = tracks_manager.GetShotObservations(shot->name_);
+  const auto& tracks = tracks_manager.GetShotObservations(shot->id_);
   // AlignedVector<Eigen::Vector3d> bs;
   const auto& cam = shot->shot_camera_.camera_model_;
   // std::map<std::string, std::pair<Eigen::Vector3d, Eigen::Matrix3d>> buffer;
@@ -663,8 +665,8 @@ void SlamUtilities::TriangulateShotFeatures(const TracksManager& tracks_manager,
   for (const auto& track : tracks)
   {
     // if track not in reconstruction.points:
-    const auto lm_id = std::stoi(track.first);
-    if (!map.HasLandmark(lm_id))
+    // const auto lm_id = track.first; //std::stoi(track.first);
+    if (!map.HasLandmark(track.first))
     {
       //triangulate!
       Triangulate(track.first, tracks_manager, map, reproj_threshold, min_reproj_angle);
@@ -735,15 +737,16 @@ void SlamUtilities::Retriangulate(const TracksManager& tracks_manager, map::Map&
   // for image in reconstruction.shots.keys():
   for (const auto& id_shot : map_shots)
   {
-    const auto& shot = id_shot.second;
+    // const auto& shot = id_shot.second;
+    const auto& shot_id = id_shot.first;
     // if image in all_shots_ids:
     // typically the number of shots in the map is far lower than in the tracks manager
     // TODO: think about a faster implementation!
     // if (all_shot_ids.count(shot.name_) > 0)
-    if (tracks_manager.HasShotObservations(shot->name_))
+    if (tracks_manager.HasShotObservations(shot_id))
     {
       //tracks.update(tracks_manager.get_shot_observations(image).keys())
-      const auto& lm_id_obs = tracks_manager.GetShotObservations(shot->name_);
+      const auto& lm_id_obs = tracks_manager.GetShotObservations(shot_id);
       std::transform(lm_id_obs.cbegin(), lm_id_obs.cend(), std::inserter(tracks, tracks.begin()),
                 [](const auto& p){ return p.first; });
     }

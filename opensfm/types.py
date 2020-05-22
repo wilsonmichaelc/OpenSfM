@@ -835,66 +835,6 @@ class GroundControlPointObservation(object):
         self.projection = None
 
 
-class ReconstructionOld(object):
-    """Defines the reconstructed scene.
-
-    Attributes:
-      cameras (Dict(Camera)): List of cameras.
-      shots (Dict(Shot)): List of reconstructed shots.
-      points (Dict(Point)): List of reconstructed points.
-      reference (TopocentricConverter): Topocentric reference converter.
-    """
-
-    def __init__(self):
-        """Defaut constructor"""
-        self.cameras = {}
-        self.shots = {}
-        self.points = {}
-        self.reference = None
-
-    def add_camera(self, camera):
-        """Add a camera in the list
-
-        :param camera: The camera.
-        """
-        self.cameras[camera.id] = camera
-
-    def get_camera(self, id):
-        """Return a camera by id.
-
-        :return: If exists returns the camera, otherwise None.
-        """
-        return self.cameras.get(id)
-
-    def add_shot(self, shot):
-        """Add a shot in the list
-
-        :param shot: The shot.
-        """
-        self.shots[shot.id] = shot
-
-    def get_shot(self, id):
-        """Return a shot by id.
-
-        :return: If exists returns the shot, otherwise None.
-        """
-        return self.shots.get(id)
-
-    def add_point(self, point):
-        """Add a point in the list
-
-        :param point: The point.
-        """
-        self.points[point.id] = point
-
-    def get_point(self, id):
-        """Return a point by id.
-
-        :return: If exists returns the point, otherwise None.
-        """
-        return self.points.get(id)
-
-
 class PointView(object):
 
     def __init__(self, map_mgn):
@@ -903,21 +843,23 @@ class PointView(object):
     def __len__(self):
         return self.map.number_of_landmarks()
 
-    def __getitem__(self, index):
-        return self.get(index)
+    def __getitem__(self, point_id):
+        return self.get(point_id)
 
     def __setitem__(self, item):
         print("calling PointView__setitem__")
 
     def __iter__(self):
-        for point_id in self.map.get_all_landmark_names().keys():
-            yield str(point_id)
+        # print("Calling it")
+        for point_id in self.map.get_all_landmarks().keys():
+            # yield str(point_id)
+            yield point_id
 
-    def get(self, index):
-        return self.map.get_landmark(int(index))
+    def get(self, point_id):
+        return self.map.get_landmark(point_id)
 
-    def __contains__(self, index):
-        return self.map.has_landmark(int(index))
+    def __contains__(self, point_id):
+        return self.map.has_landmark(point_id)
 
     def values(self):
         return self.map.get_all_landmarks().values()
@@ -944,9 +886,9 @@ class ShotView(object):
         return self.map.get_shot(index)
 
     def __iter__(self):
-        for shot in self.map.get_all_shot_names().keys():
+        for shot_id in self.map.get_all_shots().keys():
         # for shot in self.map.get_all_shots().values():
-            yield shot
+            yield shot_id
 
     def __contains__(self, index):
         return self.map.get_shot(index) is not None
@@ -959,8 +901,8 @@ class ShotView(object):
     
     def keys(self):
         #TODO: unify id/name
-        return self.map.get_all_shot_names()
-        # return self.map.get_all_shots().keys()
+        # return self.map.get_all_shot_names()
+        return self.map.get_all_shots().keys()
 
 
 class CameraView(object):
@@ -1038,7 +980,6 @@ class Reconstruction(object):
         :param camera: The camera.
         """
         self.cameras.add_camera(camera)
-        # self.cameras[camera.id] = camera
 
     def get_camera(self, id):
         """Return a camera by id.
@@ -1052,11 +993,7 @@ class Reconstruction(object):
 
         :param shot: The shot.
         """
-        # shot_id = self.map.next_unique_shot_id()
-        map_shot = self.map.get_shot(shot.id)
-        if map_shot is None:
-            shot_id = self.map.next_unique_shot_id()
-            map_shot = self.map.create_shot(shot_id, shot.camera.id, shot.id)
+        map_shot = self.map.create_shot(shot.id, shot.camera.id)
         map_shot.shot_measurement.gps_dop = shot.metadata.gps_dop
         map_shot.shot_measurement.gps_pos = shot.metadata.gps_position
         map_shot.shot_measurement.orientation = shot.metadata.orientation
@@ -1076,9 +1013,8 @@ class Reconstruction(object):
 
         :param point: The point.
         """
-        self.map.create_landmark(int(point.id), point.coordinates)
-
-        # self.points[point.id] = point
+        new_pt = self.map.create_landmark(point.id, point.coordinates)
+        new_pt.color = point.color
 
     def get_point(self, id):
         """Return a point by id.

@@ -5,10 +5,11 @@
 #include <numeric>
 namespace map
 {
-Shot::Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose, const std::string& name):
-            id_(shot_id), name_(name), shot_camera_(shot_camera), slam_data_(this), pose_(pose)
+ShotUniqueId Shot::shot_unique_id_ = 0;
+Shot::Shot(const ShotId shot_id, const ShotCamera& shot_camera, const Pose& pose):
+            id_(shot_id), unique_id_(shot_unique_id_), shot_camera_(shot_camera), slam_data_(this), pose_(pose)
 {
-  
+  ++Shot::shot_unique_id_;
 }
 
 size_t
@@ -21,7 +22,6 @@ Shot::ComputeNumValidLandmarks(const int min_obs_thr) const
                           return prior + 1;
                         return prior;
                     });
-  // return landmarks_.size() - std::count(landmarks_.cbegin(), landmarks_.cend(), nullptr);
 }
 
 float
@@ -135,6 +135,15 @@ Shot::RemoveLandmarkObservation(const FeatureId id)
   {
     landmarks_.at(id) = nullptr; 
   }
+}
+
+Eigen::Vector2d Shot::Project(const Eigen::Vector3d& global_pos) const {
+  // TODO: Think about oob reprojeciotn
+  Eigen::Vector2d new_pt;
+  shot_camera_.camera_model_.ReprojectToImage(pose_.RotationWorldToCamera(),
+                                              pose_.TranslationWorldToCamera(),
+                                              global_pos, new_pt);
+  return new_pt;
 }
 
 } //namespace map

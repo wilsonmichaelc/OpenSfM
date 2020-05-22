@@ -89,6 +89,18 @@ public:
   {
     SetFromWorldToCamera(Sophus::SO3d::exp(R_cw).matrix(), t_cw);
   }
+
+  Eigen::Vector3d TransformWorldToCamera(const Eigen::Vector3d& global_pos) const
+  {
+    return world_to_cam_.rotationMatrix()*global_pos + world_to_cam_.translation();
+  }
+
+  Eigen::Vector3d TransformCameraToWorld(const Eigen::Vector3d& point) const
+  {
+    // equal to: world_to_cam_.rotationMatrix().t (point - world_to_cam_.translation())
+    return cam_to_world_.rotationMatrix()*point + cam_to_world_.translation();
+  }
+
   // TODO: set from min representation!
 private:
   Sophus::SE3d cam_to_world_;
