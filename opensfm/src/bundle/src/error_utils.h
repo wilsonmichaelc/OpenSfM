@@ -4,6 +4,7 @@
 
 #include "ceres/ceres.h"
 #include "ceres/rotation.h"
+#include <foundation/types.h>
 
 // Multiply a set of N rotation R1*R2*...Rn-1=R.  Rotations are expected to be
 // angle-axis
