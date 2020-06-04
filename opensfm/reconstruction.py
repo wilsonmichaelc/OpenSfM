@@ -76,25 +76,8 @@ def _add_camera_to_bundle(ba, camera, camera_prior, constant):
 
 def _get_camera_from_bundle(ba, camera):
     """Read camera parameters from a bundle adjustment problem."""
-    if camera.projection_type == 'perspective':
-        c = ba.get_perspective_camera(camera.id)
-        camera.focal = c.focal
-        camera.distortion = [c.k1, c.k2]
-    elif camera.projection_type == 'brown':
-        c = ba.get_brown_perspective_camera(camera.id)
-        camera.principal_point = [c.c_x, c.c_y]
-        camera.focal = c.focal_x
-        camera.aspect_ratio = c.focal_y/c.focal_x
-        camera.distortion = [c.k1, c.k2, c.k3, c.p1, c.p2]
-    elif camera.projection_type == 'fisheye':
-        c = ba.get_fisheye_camera(camera.id)
-        camera.focal = c.focal
-        camera.distortion = [c.k1, c.k2]
-    elif camera.projection_type == 'dual':
-        c = ba.get_dual_camera(camera.id)
-        camera.focal = c.focal
-        camera.distortion = [c.k1, c.k2]
-        camera.projection_params = [c.transition]
+    c = ba.get_camena(camera.id)
+    camera.parameters = c.parameters
 
 
 def triangulate_gcp(point, shots):

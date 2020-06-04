@@ -261,60 +261,92 @@ struct Identity {
 struct ProjectFunction {
   template <class TYPE>
   static Eigen::Vector2d Apply(const Eigen::Vector3d& point,
-                               const Eigen::VectorXd& projection,
-                               const Eigen::Matrix2d& affine,
-                               const Eigen::Vector2d& principal_point,
-                               const Eigen::VectorXd& distortion) {
-    return TYPE::Forward(point, projection, affine, principal_point,
-                         distortion);
+                               const Eigen::VectorXd& parameters) {
+    return TYPE::Forward(point, parameters);
   }
 };
 
 struct BearingFunction {
   template <class TYPE>
   static Eigen::Vector3d Apply(const Eigen::Vector2d& point,
-                               const Eigen::VectorXd& projection,
-                               const Eigen::Matrix2d& affine,
-                               const Eigen::Vector2d& principal_point,
-                               const Eigen::VectorXd& distortion) {
-    return TYPE::Backward(point, projection, affine, principal_point,
-                          distortion);
+                               const Eigen::VectorXd& parameters) {
+    return TYPE::Backward(point, parameters);
   }
 };
 
-/* This struct helps define most cameras models as they tend to follow the
- * pattern PROJ - > DISTO -> AFFINE. However, its is not mandatory for any
- * camera model to follow it. You can add any new camera models as long as it
- * implements the Forward and Backward functions. */
-template <class PROJ, class DISTO, class AFF>
-struct ProjectGeneric {
+struct PerspectiveCameraT {
   static Eigen::Vector2d Forward(const Eigen::Vector3d& point,
-                                 const Eigen::VectorXd& projection,
-                                 const Eigen::Matrix2d& affine,
-                                 const Eigen::Vector2d& principal_point,
-                                 const Eigen::VectorXd& distortion) {
-    return AFF::Forward(
-        DISTO::Forward(PROJ::Forward(point, projection), distortion), affine,
-        principal_point);
+                                 const Eigen::VectorXd& parameters) {
+    const double focal = parameters[0];
+    VecXd distortion(2);
+    distortion << parameters[0], parameters[1];
+
+    Vec2d undist = PerspectiveProjection::Forward(point, VecXd(0));
+    Vec2d dist = Disto24::Forward(undist, distortion);
+    dist *= focal;
+    return dist;
   };
 
   static Eigen::Vector3d Backward(const Eigen::Vector2d& point,
-                                  const Eigen::VectorXd& projection,
-                                  const Eigen::Matrix2d& affine,
-                                  const Eigen::Vector2d& principal_point,
-                                  const Eigen::VectorXd& distortion) {
-    return PROJ::Backward(
-        DISTO::Backward(AFF::Backward(point, affine, principal_point),
-                        distortion),
-        projection);
+                                  const Eigen::VectorXd& parameters) {
+    const double focal = parameters[0];
+    VecXd distortion(2);
+    distortion << parameters[0], parameters[1];
+
+    Vec2d dist = point / focal;
+    Vec2d undist = Disto24::Backward(dist, distortion);
+    return PerspectiveProjection::Backward(undist, VecXd(0));
   }
 };
 
-using PerspectiveCameraT = ProjectGeneric<PerspectiveProjection, Disto24, Affine>;
-using BrownCameraT = ProjectGeneric<PerspectiveProjection, DistoBrown, Affine>;
-using FisheyeCameraT = ProjectGeneric<FisheyeProjection, Disto24, Affine>;
-using DualCameraT = ProjectGeneric<DualProjection, Disto24, Affine>;
-using SphericalCameraT = ProjectGeneric<SphericalProjection, Identity, Identity>;
+struct BrownCameraT {
+  static Eigen::Vector2d Forward(const Eigen::Vector3d& point,
+                                 const Eigen::VectorXd& parameters) {
+    return Eigen::Vector2d();
+  };
+
+  static Eigen::Vector3d Backward(const Eigen::Vector2d& point,
+                                  const Eigen::VectorXd& parameters) {
+    return Eigen::Vector3d();
+  }
+};
+
+struct FisheyeCameraT {
+  static Eigen::Vector2d Forward(const Eigen::Vector3d& point,
+                                 const Eigen::VectorXd& parameters) {
+    return Eigen::Vector2d();
+  };
+
+  static Eigen::Vector3d Backward(const Eigen::Vector2d& point,
+                                  const Eigen::VectorXd& parameters) {
+    return Eigen::Vector3d();
+  }
+};
+
+struct DualCameraT {
+  static Eigen::Vector2d Forward(const Eigen::Vector3d& point,
+                                 const Eigen::VectorXd& parameters) {
+    return Eigen::Vector2d();
+  };
+
+  static Eigen::Vector3d Backward(const Eigen::Vector2d& point,
+                                  const Eigen::VectorXd& parameters) {
+    return Eigen::Vector3d();
+  }
+};
+
+struct SphericalCameraT {
+  static Eigen::Vector2d Forward(const Eigen::Vector3d& point,
+                                 const Eigen::VectorXd& parameters) {
+    return Eigen::Vector2d();
+  };
+
+  static Eigen::Vector3d Backward(const Eigen::Vector2d& point,
+                                  const Eigen::VectorXd& parameters) {
+    return Eigen::Vector3d();
+  }
+};
+
 
 /* This is where the pseudo-strategy pattern takes place. If you want to add
  * your own new camera model, just add a new enum value, the corresponding

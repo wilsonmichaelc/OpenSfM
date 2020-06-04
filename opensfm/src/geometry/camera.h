@@ -1,10 +1,12 @@
 #pragma once
 
+#include <foundation/types.h>
 #include <geometry/camera_functions.h>
 #include <Eigen/Eigen>
 
 class Camera {
  public:
+  Camera(ProjectionType t, VecXd parameters);
   static Camera CreatePerspectiveCamera(double focal, double k1, double k2);
   static Camera CreateBrownCamera(double focal, double aspect_ratio,
                                   const Eigen::Vector2d& principal_point,
@@ -19,23 +21,11 @@ class Camera {
   Eigen::Vector3d Bearing(const Eigen::Vector2d& point) const;
   Eigen::MatrixX3d BearingsMany(const Eigen::MatrixX2d& points) const;
 
-  void SetProjectionParams(const Eigen::VectorXd& projection);
-  const Eigen::VectorXd& GetProjectionParams() const;
-
-  void SetDistortion(const Eigen::VectorXd& distortion);
-  const Eigen::VectorXd& GetDistortion() const;
-
-  void SetPrincipalPoint(const Eigen::Vector2d& principal_point);
-  Eigen::Vector2d GetPrincipalPoint() const;
-
-  void SetFocal(double focal);
-  double GetFocal() const;
-
-  void SetAspectRatio(double focal);
-  double GetAspectRatio() const;
-
   ProjectionType GetProjectionType()const;
   std::string GetProjectionString()const;
+
+  VecXd GetParameters() const;
+  void SetParameters(const VecXd &p);
 
   Eigen::Matrix3d GetProjectionMatrix()const;
   Eigen::Matrix3d GetProjectionMatrixScaled(int width, int height)const;
@@ -45,13 +35,8 @@ class Camera {
   std::string id;
 
  private:
-  Camera();
-
   ProjectionType type_;
-  Eigen::VectorXd projection_;      // dual transition (1 = perspective, 0 = fisheye)
-  Eigen::Matrix2d affine_;          // fx, skew, skew, fy = (ar*fx)
-  Eigen::Vector2d principal_point_; // cx, cy
-  Eigen::VectorXd distortion_;      // r^2, r^4, r^6, p1, p2
+  VecXd parameters_;
 };
 
 std::pair<Eigen::MatrixXf, Eigen::MatrixXf> ComputeCameraMapping(const Camera& from, const Camera& to, int width, int height);
