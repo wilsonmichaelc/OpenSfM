@@ -15,19 +15,22 @@ struct BARelativeMotionError {
   Eigen::Matrix<T, 6, 1> Error(const T* const shot_i, const T* const scale,
                                const T* const shot_j) const {
     // Get rotation and translation values.
-    Eigen::Map< const Eigen::Matrix<T,3,1> > Ri(shot_i + BA_SHOT_RX);
-    Eigen::Map< const Eigen::Matrix<T,3,1> > Rj(shot_j + BA_SHOT_RX);
+    const T *Ri = shot_i + BA_SHOT_RX;
+    const T *Rj = shot_j + BA_SHOT_RX;
     Eigen::Map< const Eigen::Matrix<T,3,1> > ti(shot_i + BA_SHOT_TX);
     Eigen::Map< const Eigen::Matrix<T,3,1> > tj(shot_j + BA_SHOT_TX);
     Eigen::Matrix<T,6,1> residual;
 
     // Compute rotation residual: log( Rij Ri Rj^t )  ->  log( Rij Ri^t Rj)
-    const Eigen::Matrix<T,3,1> Rij = Rtij_.segment<3>(BA_SHOT_RX).cast<T>();
-    residual.segment(0, 3) = MultRotations(Rij, (-Ri).eval(), Rj.eval());
+    const T Rij[3] = {T(Rtij_[BA_SHOT_RX]), T(Rtij_[BA_SHOT_RY]),
+                      T(Rtij_[BA_SHOT_RZ])};
+    const T Rit[3] = {-Ri[0], -Ri[1], -Ri[2]};
+    MultRotations(Rij, Rit, Rj, &residual[0]);
 
     // Compute translation residual: tij - scale * ( tj - Rj Ri^t ti )  ->  tij - scale * Rj^t * (ti - tj)
     const auto tij = Rtij_.segment<3>(BA_SHOT_TX).cast<T>();
-    residual.segment(3, 3) = tij - scale[0] * RotatePoint((-Rj).eval(), (ti - tj).eval());
+    Eigen::Map< const Vec3<T> > Rj_vec(shot_j + BA_SHOT_RX);
+    residual.segment(3, 3) = tij - scale[0] * RotatePoint((-Rj_vec).eval(), (ti - tj).eval());
     return residual;
   }
 
@@ -76,13 +79,16 @@ struct BARelativeRotationError {
                   const T* const shot_j,
                   T* r) const {
     // Get rotation and translation values.
-    Eigen::Map< const Eigen::Matrix<T,3,1> > Ri(shot_i + BA_SHOT_RX);
-    Eigen::Map< const Eigen::Matrix<T,3,1> > Rj(shot_j + BA_SHOT_RX);
+    const T* Ri = shot_i + BA_SHOT_RX;
+    const T* Rj = shot_j + BA_SHOT_RX;
     Eigen::Map< Eigen::Matrix<T,3,1> > residual(r);
 
     // Compute rotation residual: log( Rij Ri Rj^t ) -> log( Rij Ri^t Rj)
-    const Eigen::Matrix<T,3,1> Rij = Rij_.cast<T>();
-    residual = scale_matrix_.cast<T>() * MultRotations(Rij, (-Ri).eval(), Rj.eval());
+    const T Rij[3] = {T(Rij_[0]), T(Rij_[1]), T(Rij_[2])};
+    const T Rit[3] = {-Ri[0], -Ri[1], -Ri[2]};
+    Vec3<T> error;
+    MultRotations(Rij, Rit, Rj, &error[0]);
+    residual = scale_matrix_.cast<T>() * error;
     return true;
   }
 

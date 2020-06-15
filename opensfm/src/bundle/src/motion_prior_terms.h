@@ -18,11 +18,11 @@ struct BALinearMotionError {
                   const T* const shot1,
                   const T* const shot2,
                   T* r) const {
-    Eigen::Map< const Vec3<T> > R0(shot0 + BA_SHOT_RX);
-    Eigen::Map< const Vec3<T> > t0(shot0 + BA_SHOT_TX);
-    Eigen::Map< const Vec3<T> > R1(shot1 + BA_SHOT_RX);
+    const T* R0 = shot0 + BA_SHOT_RX;
+    Eigen::Map<const Vec3<T> > t0(shot0 + BA_SHOT_TX);
+    const T* R1 = shot1 + BA_SHOT_RX;
     Eigen::Map< const Vec3<T> > t1(shot1 + BA_SHOT_TX);
-    Eigen::Map< const Vec3<T> > R2(shot2 + BA_SHOT_RX);
+    const T* R2 = shot2 + BA_SHOT_RX;
     Eigen::Map< const Vec3<T> > t2(shot2 + BA_SHOT_TX);
 
     // Residual have the general form :
@@ -34,9 +34,21 @@ struct BALinearMotionError {
     residual.segment(0, 3) = T(position_scale_) * (T(alpha_) * (t2 - t0) + (t0 - t1));
 
     // Rotation residual : op is rotation
-    const Vec3<T> R2_R0t = T(alpha_) * MultRotations(R2.eval(), (-R0).eval());
-    const Vec3<T> R0_R1t = MultRotations(R0.eval(), (-R1).eval());
-    residual.segment(3, 3) = T(position_scale_) * MultRotations(R2_R0t.eval(), R0_R1t);
+    const T R0t[3] = {-R0[0], -R0[1], -R0[2]};
+    const T R1t[3] = {-R1[0], -R1[1], -R1[2]};
+    T R2_R0t[3], R0_R1t[3], dR[3];
+    MultRotations(R2, R0t, R2_R0t);
+    MultRotations(R0, R1t, R0_R1t);
+    T alpha_R2_R0t[3] = {
+        T(alpha_) * R2_R0t[0],
+        T(alpha_) * R2_R0t[1],
+        T(alpha_) * R2_R0t[2],
+    };
+    MultRotations(alpha_R2_R0t, R0_R1t, dR);
+
+    residual[3] = T(position_scale_) * dR[0];
+    residual[4] = T(position_scale_) * dR[1];
+    residual[5] = T(position_scale_) * dR[2];
     return true;
   }
 

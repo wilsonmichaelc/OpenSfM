@@ -6,29 +6,23 @@
 #include "ceres/rotation.h"
 
 template <class T>
-Vec3<T> MultRotations(const Vec3<T>& R1, const Vec3<T>& R2) {
+void MultRotations(const T R1[3], const T R2[3], T result[3]) {
   T qR1[4], qR2[4], qResult[4];
-  ceres::AngleAxisToQuaternion(R1.data(), qR1);
-  ceres::AngleAxisToQuaternion(R2.data(), qR2);
+  ceres::AngleAxisToQuaternion(R1, qR1);
+  ceres::AngleAxisToQuaternion(R2, qR2);
   ceres::QuaternionProduct(qR1, qR2, qResult);
-
-  Vec3<T> result;
-  ceres::QuaternionToAngleAxis(qResult, result.data());
-  return result;
+  ceres::QuaternionToAngleAxis(qResult, result);
 }
 
 template <class T>
-Vec3<T> MultRotations(const Vec3<T>& R1, const Vec3<T>& R2, const Vec3<T>& R3) {
+void MultRotations(const T R1[3], const T R2[3], const T R3[3], T result[3]) {
   T qR1[4], qR2[4], qR3[4], qR1R2[4], qResult[4];
-  ceres::AngleAxisToQuaternion(R1.data(), qR1);
-  ceres::AngleAxisToQuaternion(R2.data(), qR2);
-  ceres::AngleAxisToQuaternion(R3.data(), qR3);
+  ceres::AngleAxisToQuaternion(R1, qR1);
+  ceres::AngleAxisToQuaternion(R2, qR2);
+  ceres::AngleAxisToQuaternion(R3, qR3);
   ceres::QuaternionProduct(qR1, qR2, qR1R2);
   ceres::QuaternionProduct(qR1R2, qR3, qResult);
-
-  Vec3<T> result;
-  ceres::QuaternionToAngleAxis(qResult, result.data());
-  return result;
+  ceres::QuaternionToAngleAxis(qResult, result);
 }
 
 /* apply a rotation R to a vector x as R*x rotations is expected to be
