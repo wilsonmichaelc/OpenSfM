@@ -17,12 +17,14 @@ feature_use_adaptive_suppression: no
 sift_peak_threshold: 0.1     # Smaller value -> more features
 sift_edge_threshold: 10       # See OpenCV doc
 
-# Params for SIFT_GPU  
+# Params for SIFT_GPU
 # More information on Feature detection http://www.silx.org/doc/silx/dev/_modules/silx/opencl/sift/plan.html#SiftPlan
 # More information on Feature Matching http://www.silx.org/doc/silx/dev/_modules/silx/opencl/sift/match.html
-sift_gpu_init_sigma: 1.6  # blurring width, you should have good reasons to modify the 1.6 default value 
+sift_gpu_init_sigma: 1.6  # blurring width, you should have good reasons to modify the 1.6 default value
 pix_per_keypoints: 10  # Number of key-point pre-allocated: 1 for 10 pixel
 sift_gpu_device_type: GPU  # Can be 'CPU' or 'GPU'
+sift_gpu_peak_threshold: 3.4    # 255.0 * 0.04 / 3.0 as in param.py
+sift_gpu_edge_threshold: 0.06
 
 # Params for SURF
 surf_hessian_threshold: 3000  # Smaller value -> more features

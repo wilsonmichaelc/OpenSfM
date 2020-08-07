@@ -58,13 +58,16 @@ class SiftGpu:
         device = config["sift_gpu_device_type"]
         return cls(image, sigma, pix_per_kp, device)
 
-    def detect_image(self, image):
+    def detect_image(self, image, config):
         """
         checks if the image matches the template image.
 
         :param image: The image we want to detect
+        :param config: config parameters
         :return: Keypoints of the detection
         """
+        sift.param.par.PeakThresh = config['sift_gpu_peak_threshold']
+        sift.param.par.EdgeThresh = config['sift_gpu_edge_threshold']
         img_shape = image.shape
         width, height = img_shape[:2]
         if width != self.width or height != self.height:
