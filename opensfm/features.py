@@ -140,6 +140,7 @@ def extract_features_sift(image, config):
 
 
 def extract_features_sift_gpu(image, config):
+    t = time.time()
     check_gpu_initialization(config, image)
     keypoints = sift_gpu.detect_image(image, config)
     idx = np.where(np.sum(keypoints.desc, 1) != 0)
@@ -152,6 +153,7 @@ def extract_features_sift_gpu(image, config):
     desc = np.array(keypoints[:].desc, dtype=np.float32)
     if config['feature_root']:
         desc = root_feature(desc)
+    logger.debug('Found {0} points in {1}s'.format(len(points), time.time() - t))
     return points, desc
 
 
