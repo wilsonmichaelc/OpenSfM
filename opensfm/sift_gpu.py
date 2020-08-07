@@ -82,11 +82,13 @@ class SiftGpu:
                                       PIX_PER_KP=self.pix_per_kp,
                                       devicetype=self.device)
 
-    def match_images(self, kp1, kp2):
+    def match_images(self, kp1, kp2, config):
         """
         return the matches between to keypoints (of two images)
         :param kp1: keypoints of image 1 (output of detect_image())
         :param kp2: keypoints of image 2 (output of detect_image())
+        :param config: config parameters (lowes ratio test)
         :return: index array of size(n,2)
         """
+        sift.param.par.MatchRatio = config['lowes_ratio']
         return self.gpu_matching(kp1, kp2, raw_results=True)
