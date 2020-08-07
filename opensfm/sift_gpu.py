@@ -2,6 +2,11 @@ import logging
 
 try:
     from silx.image import sift
+    # silx is quite verbose so we deactivate a bunch of loggers
+    logging.getLogger('silx.opencl.processing').disabled = True
+    logging.getLogger('silx.opencl.sift.plan').disabled = True
+    logging.getLogger('pyopencl.cache').disabled = True
+    logging.getLogger('pytools.persistent_dict').disabled = True
 except ImportError:
     logging.info('Cant import silx library for running SIFT_GPU feature extractor or matching,'
                  'please change the config file or install the silx library via pip')
