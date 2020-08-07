@@ -331,9 +331,6 @@ class DataSet(object):
     def _words_file(self, image):
         return os.path.join(self._feature_path(), image + '.words.npz')
 
-    def _gpu_feature_file(self, image):
-        return os.path.join(self._feature_path(), image.rsplit(".")[0] + '_gpu.pkl')
-
     def words_exist(self, image):
         return os.path.isfile(self._words_file(image))
 
