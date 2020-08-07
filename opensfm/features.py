@@ -37,19 +37,10 @@ def resized_image(image, config):
 def root_feature(desc, l2_normalization=False):
     if l2_normalization:
         s2 = np.linalg.norm(desc, axis=1)
-        desc = (desc.T / s2).T
-    s = np.sum(desc, 1)
-    desc = np.sqrt(desc.T / s).T
-    return desc
-
-
-def root_feature_sift_gpu(desc, l2_normalization=False):
-    if l2_normalization:
-        s2 = np.linalg.norm(desc, axis=1)
         idx = np.where(s2 == 0)
         s2[idx] = 1
         desc = (desc.T / s2).T
-    s = np.max(desc, 1)
+    s = np.sum(desc, 1)
     idx = np.where(s == 0)
     s[idx] = 1
     desc = np.sqrt(desc.T / s).T
@@ -150,7 +141,7 @@ def extract_features_sift(image, config):
 
 def extract_features_sift_gpu(image, config):
     check_gpu_initialization(config, image)
-    keypoints = sift_gpu.detect_image(image)
+    keypoints = sift_gpu.detect_image(image, config)
     idx = np.where(np.sum(keypoints.desc, 1) != 0)
     keypoints = keypoints[idx]
 
@@ -160,8 +151,8 @@ def extract_features_sift_gpu(image, config):
                              np.expand_dims(keypoints[:].angle, axis=1)], axis=1)
     desc = np.array(keypoints[:].desc, dtype=np.float32)
     if config['feature_root']:
-        desc = root_feature_sift_gpu(desc)
-    return points, desc, keypoints
+        desc = root_feature(desc)
+    return points, desc
 
 
 def extract_features_surf(image, config):
@@ -317,7 +308,7 @@ def extract_features(color_image, config):
     elif feature_type == 'ORB':
         points, desc = extract_features_orb(image, config)
     elif feature_type == 'SIFT_GPU':
-        points, desc, keypoints = extract_features_sift_gpu(image, config)
+        points, desc = extract_features_sift_gpu(image, config)
     else:
         raise ValueError('Unknown feature type '
                          '(must be SURF, SIFT, AKAZE, HAHOG, SIFT_GPU or ORB)')
@@ -325,9 +316,6 @@ def extract_features(color_image, config):
     xs = points[:, 0].round().astype(int)
     ys = points[:, 1].round().astype(int)
     colors = color_image[ys, xs]
-    if keypoints is not None:
-        return normalize_features(points, desc, colors,
-                                  image.shape[1], image.shape[0]), keypoints
     return normalize_features(points, desc, colors,
                               image.shape[1], image.shape[0])
 

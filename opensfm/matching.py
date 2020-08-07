@@ -203,12 +203,9 @@ def match(im1, im2, camera1, camera2, data):
             matches = match_brute_force(f1, f2, config)
     elif matcher_type == 'SIFT_GPU':
         check_gpu_initialization(config, im1, data)
-        k1 = data.load_gpu_features(im1)
-        k2 = data.load_gpu_features(im2)
-        if k1 is None or k2 is None:
-            k1 = feature_loader.instance.create_gpu_keypoints_from_features(p1, f1)
-            k2 = feature_loader.instance.create_gpu_keypoints_from_features(p2, f2)
-        matches = sift_gpu.match_images(k1, k2)
+        k1 = feature_loader.instance.create_gpu_keypoints_from_features(p1, f1)
+        k2 = feature_loader.instance.create_gpu_keypoints_from_features(p2, f2)
+        matches = sift_gpu.match_images(k1, k2, config)
     else:
         raise ValueError("Invalid matcher_type: {}".format(matcher_type))
 
