@@ -104,11 +104,8 @@ class FeatureLoader(object):
         return points, features, colors
 
     def create_gpu_keypoints_from_features(self, p1, f1):
-        ########################################################################
-        # Merge keypoints in central memory
-        ########################################################################
-        if type(f1[0][0]) is not int:
-            f1 = np.uint8(f1 * 512)
+        info = np.iinfo(np.uint8)
+        f1 = (f1 * info.max).astype(np.uint8)
         total_size = len(p1)
         dtype_kp = np.dtype([('x', np.float32),
                              ('y', np.float32),
@@ -120,6 +117,6 @@ class FeatureLoader(object):
         output[:total_size].x = p1[:, 0]
         output[:total_size].y = p1[:, 1]
         output[:total_size].scale = p1[:, 2]
-        # output[:total_size].angle = p1[:, 3]
+        output[:total_size].angle = 0.
         output[:total_size].desc = f1
         return output
