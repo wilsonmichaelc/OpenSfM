@@ -297,7 +297,6 @@ def extract_features(color_image, config):
     assert len(color_image.shape) == 3
     color_image = resized_image(color_image, config)
     image = cv2.cvtColor(color_image, cv2.COLOR_RGB2GRAY)
-    keypoints = None
     feature_type = config['feature_type'].upper()
     if feature_type == 'SIFT':
         points, desc = extract_features_sift(image, config)

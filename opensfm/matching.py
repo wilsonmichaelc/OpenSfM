@@ -39,7 +39,6 @@ def match_images(data, ref_images, cand_images):
     non-symmetric matching options like WORDS. Data will be
     stored in i matching only.
     """
-    config = data.config
     # Get EXIFs data
     all_images = list(set(ref_images + cand_images))
     exifs = {im: data.load_exif(im) for im in all_images}
@@ -149,9 +148,13 @@ def match_unwrap_args(args):
     im1, candidates, ctx = args
 
     im1_matches = {}
+    p1, f1, _ = feature_loader.instance.\
+        load_points_features_colors(ctx.data, im1)
     camera1 = ctx.cameras[ctx.exifs[im1]['camera']]
 
     for im2 in candidates:
+        p2, f2, _ = feature_loader.instance.\
+            load_points_features_colors(ctx.data, im2)
         camera2 = ctx.cameras[ctx.exifs[im2]['camera']]
 
         im1_matches[im2] = match(im1, im2, camera1, camera2, ctx.data)
