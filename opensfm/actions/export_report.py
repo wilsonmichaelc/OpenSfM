@@ -10,4 +10,4 @@ def run_dataset(data):
     """
     pdf_report = report.Report(data)
     pdf_report.generate_report()
-    pdf_report.save_report("report.pdf")
+    pdf_report.save_report("report")
