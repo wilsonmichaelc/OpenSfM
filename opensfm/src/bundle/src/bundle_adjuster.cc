@@ -47,7 +47,7 @@ void BundleAdjuster::UpdateSigmas(){
     camera.second.SetSigma(sigma_camera);
   }
 }
-void BundleAdjuster::AddCamera(const std::string &id, const Camera& camera, const Camera& prior, bool constant){  
+void BundleAdjuster::AddCamera(const std::string &id, const Camera& camera, const Camera& prior, bool constant){
   Camera sigma = camera;
   cameras_.emplace(id, BACamera(camera, prior, sigma));
   UpdateSigmas();
@@ -57,7 +57,7 @@ void BundleAdjuster::AddCamera(const std::string &id, const Camera& camera, cons
   }
 }
 
-void BundleAdjuster::AddShot(const std::string &id, 
+void BundleAdjuster::AddShot(const std::string &id,
                              const std::string &camera,
                              const Vec3d& rotation,
                              const Vec3d& translation,
@@ -229,7 +229,7 @@ void BundleAdjuster::AddAbsolutePosition(const std::string &shot_id,
 }
 
 void BundleAdjuster::AddAbsoluteUpVector(
-    const std::string &shot_id, 
+    const std::string &shot_id,
     const Vec3d& up_vector,
     double std_deviation) {
   BAAbsoluteUpVector a;
@@ -589,8 +589,8 @@ void BundleAdjuster::Run() {
       }
     }
   }
-  
-  
+
+
   for (auto &i : reconstructions_) {
     for (auto &s : i.second.scales) {
       if (i.second.constant) {
@@ -855,7 +855,7 @@ void BundleAdjuster::Run() {
                                     a.orientation_std_deviation));
 
     problem.AddResidualBlock(cost_function, linear_motion_prior_loss_,
-                             a.shot0->parameters.data(), 
+                             a.shot0->parameters.data(),
                              a.shot1->parameters.data(),
                              a.shot2->parameters.data());
   }
@@ -873,9 +873,9 @@ void BundleAdjuster::Run() {
     cost_function->AddParameterBlock(3);
     cost_function->SetNumResiduals(3);
 
-    problem.AddResidualBlock(cost_function, NULL, 
+    problem.AddResidualBlock(cost_function, NULL,
                              shots_[p.shot_id].parameters.data(),
-                             reconstructions_[p.reconstruction_id].GetScalePtr(p.shot_id), 
+                             reconstructions_[p.reconstruction_id].GetScalePtr(p.shot_id),
                              points_[p.point_id].parameters.data());
   }
 
@@ -888,7 +888,7 @@ void BundleAdjuster::Run() {
 
     cost_function->AddParameterBlock(3);
     cost_function->SetNumResiduals(3);
-    problem.AddResidualBlock(cost_function, NULL, 
+    problem.AddResidualBlock(cost_function, NULL,
                              points_[p.point_id].parameters.data());
   }
 
