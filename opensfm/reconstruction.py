@@ -43,9 +43,9 @@ def _add_gcp_to_bundle(ba, gcp, shots):
         coordinates = multiview.triangulate_gcp(
             point,
             shots,
-            reproj_threshold = 1,
-            min_ray_angle_degrees = 0.1,
-            )
+            reproj_threshold=1,
+            min_ray_angle_degrees=0.1,
+        )
         if coordinates is None:
             if point.coordinates.has_value:
                 coordinates = point.coordinates.value
@@ -263,10 +263,11 @@ def get_image_metadata(data, image):
         else:
             alt = 2.0  # Arbitrary value used to align the reconstruction
         x, y, z = reference.to_topocentric(lat, lon, alt)
+        default_dop = data.config["gps_override_sd"]
         metadata.gps_position.value = [x, y, z]
-        metadata.gps_accuracy.value = exif["gps"].get("dop", 15.0)
+        metadata.gps_accuracy.value = exif["gps"].get("dop", default_dop)
         if metadata.gps_accuracy.value == 0.0:
-            metadata.gps_accuracy.value = 15.0
+            metadata.gps_accuracy.value = default_dop
     else:
         metadata.gps_position.value = [0.0, 0.0, 0.0]
         metadata.gps_accuracy.value = 999999.0
@@ -1049,6 +1050,9 @@ def grow_reconstruction(
             np_after = len(reconstruction.points)
             step["triangulated_points"] = np_after - np_before
 
+            if len(reconstruction.shots) > 4:
+                data.config["bundle_use_gps"] = False
+
             if should_retriangulate.should():
                 logger.info("Re-triangulating")
                 align_reconstruction(reconstruction, gcp, config)
@@ -1081,9 +1085,13 @@ def grow_reconstruction(
 
     logger.info("-------------------------------------------------------")
 
+    data.config["bundle_use_gps"] = True
     align_reconstruction(reconstruction, gcp, config)
-    bundle(reconstruction, camera_priors, gcp, config)
-    remove_outliers(reconstruction, config)
+    for i in range(3):
+        for s in reconstruction.shots.values():
+            s.metadata.gps_accuracy.value = s.metadata.gps_accuracy.value / 5
+        bundle(reconstruction, camera_priors, gcp, config)
+        remove_outliers(reconstruction, config)
 
     paint_reconstruction(data, tracks_manager, reconstruction)
     return reconstruction, report

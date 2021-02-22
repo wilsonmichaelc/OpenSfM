@@ -94,7 +94,6 @@ def _projection_error(data, tracks_manager, reconstructions):
         all_points_keys = set(all_points.keys())
         for shot_id in rec.shots:
             shot = rec.get_shot(shot_id)
-            normalizer = max(shot.camera.width, shot.camera.height)
             if shot_id not in tracks_manager.get_shot_ids():
                 continue
             for point_id, obs in tracks_manager.get_shot_observations(shot_id).items():
@@ -104,7 +103,7 @@ def _projection_error(data, tracks_manager, reconstructions):
                 error = np.linalg.norm(obs.point - proj)
                 if error > data.config["bundle_outlier_fixed_threshold"]:
                     continue
-                average_error += error * normalizer
+                average_error += error / obs.scale
                 error_count += 1
 
     if error_count == 0:
@@ -650,12 +649,13 @@ def save_residual_grids(data, tracks_manager, reconstructions, output_path):
                 error = obs.point - proj
                 if np.linalg.norm(error) > cutoff:
                     continue
+                error /= obs.scale
 
                 bucket = obs.point * normalizer + center
                 x = max([0, min([int(bucket[0] * w_bucket), buckets_x - 1])])
                 y = max([0, min([int(bucket[1] * h_bucket), buckets_y - 1])])
 
-                all_errors[shot.camera.id].append(((x, y), error * normalizer))
+                all_errors[shot.camera.id].append(((x, y), error))
 
     for camera_id, errors in all_errors.items():
         if not errors:
@@ -690,7 +690,7 @@ def save_residual_grids(data, tracks_manager, reconstructions, output_path):
             scale_units="xy",
             scale=1,
             width=0.1,
-            cmap="viridis",
+            cmap="viridis_r",
         )
 
         scale = 1
@@ -708,7 +708,7 @@ def save_residual_grids(data, tracks_manager, reconstructions, output_path):
         )
 
         norm = colors.Normalize(vmin=lowest * scaling, vmax=highest * scaling)
-        cmap = cm.get_cmap("viridis")
+        cmap = cm.get_cmap("viridis_r")
         plt.colorbar(
             cm.ScalarMappable(norm=norm, cmap=cmap),
             orientation="horizontal",
