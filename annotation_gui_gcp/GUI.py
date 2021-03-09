@@ -12,8 +12,7 @@ from opensfm import dataset
 # pyre-fixme[16]: Module `matplotlib` has no attribute `use`.
 matplotlib.use("TkAgg")
 
-from cad.viewer.cad_view import CadView
-
+from cad_viewer.cad_view import CadView
 from image_sequence_view import ImageSequenceView
 from orthophoto_view import OrthoPhotoView
 
