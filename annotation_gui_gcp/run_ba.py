@@ -6,7 +6,7 @@ import sys
 
 import numpy as np
 import opensfm.reconstruction as orec
-from opensfm import align, dataset, log, multiview, pygeometry
+from opensfm import align, dataset, log, multiview, pybundle, pygeometry
 from opensfm import transformations as tf
 from opensfm import types
 
@@ -233,7 +233,7 @@ def add_gcp_to_bundle(ba, gcp, gcp_std, shots):
 
 
 def bundle_with_fixed_images(
-    reconstruction, camera_priors, gcp, gcp_std, fixed_images, config
+    reconstruction, camera_priors, gcp, gcp_std, fixed_images, config, use_gps=False
 ):
     """Bundle adjust a reconstruction while keeping some images fixed."""
     fix_cameras = True
@@ -249,6 +249,18 @@ def bundle_with_fixed_images(
         r = shot.pose.rotation
         t = shot.pose.translation
         ba.add_shot(shot.id, shot.camera.id, r, t, shot.id in fixed_images)
+
+        if (
+            use_gps
+            and shot.metadata.gps_position.has_value
+            and shot.metadata.gps_accuracy.has_value
+        ):
+            ba.add_absolute_position(
+                shot.id,
+                shot.metadata.gps_position.value,
+                shot.metadata.gps_accuracy.value,
+                shot.camera.id,
+            )
 
     for point in reconstruction.points.values():
         ba.add_point(point.id, point.coordinates, False)
@@ -474,7 +486,13 @@ def main():
     args = parse_args()
     path = args.dataset
     data = dataset.DataSet(path)
-    for fn in ("reconstruction.json", "ground_control_points.json", "tracks.csv"):
+    for fn in (
+        "reconstruction.json",
+        "ground_control_points.json",
+        "tracks.csv",
+        "reference_lla.json",
+        "camera_models.json",
+    ):
         if not (os.path.exists(os.path.join(path, fn))):
             logger.error(f"Missing file: {fn}")
             return
