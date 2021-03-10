@@ -47,15 +47,9 @@ class OrthoPhotoManager:
         tw = reshape_as_image(t.read(window=window, boundless=True))
         return tw, window, t
 
-    def get_candidate_images(self, lat: float, lon: float, size: float):
-        # lat, lon -> nearmap file id + nearmap pixel coordinates
-        if (lat, lon, size) not in self.candidate_cache:
-            self.candidate_cache[(lat, lon, size)] = [
-                k
-                for k in self.image_keys
-                if self.check_latlon_covered(k, lat, lon, size)
-            ]
-        return self.candidate_cache[(lat, lon, size)]
+    def get_candidate_images(self, lat: float, lon: float):
+        # lat, lon -> file id + pixel coordinates
+        return [k for k in self.image_keys if self.check_latlon_covered(k, lat, lon)]
 
     def get_image(self, img, lat: float, lon: float, size: float):
         return self.read_image_around_latlon(img, lat, lon, size)

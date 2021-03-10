@@ -2,6 +2,7 @@ import argparse
 import tkinter as tk
 from collections import OrderedDict, defaultdict
 from pathlib import Path
+import sys
 
 from opensfm import dataset, io
 
@@ -10,7 +11,7 @@ from gcp_manager import GroundControlPointManager
 from image_manager import ImageManager
 
 
-def parse_args():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", help="dataset")
     parser.add_argument(
@@ -62,7 +63,14 @@ def parse_args():
         help="Specify one or more directories containing geotiffs",
         default=[],
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "-ob",
+        "--oblique",
+        type=str,
+        help="Specify one or more directories containing obliques",
+        default='',
+    )
+    return parser.parse_args(argv)
 
 
 def file_sanity_check(root, seq_dict, fname):
@@ -90,6 +98,7 @@ def load_sequence_database_from_file(
     """
     root = Path(root)
     p_json = root / fname
+
     if not p_json.exists():
         return None
     seq_dict = OrderedDict(io.json_load(open(p_json, "r")))
@@ -104,6 +113,7 @@ def load_sequence_database_from_file(
             elif not skip_missing:
                 raise FileNotFoundError(f"{k} not found")
         seq_dict[skey] = available_image_keys
+
     return seq_dict
 
 
@@ -176,6 +186,7 @@ def group_images(args):
         args.sequence_file,
         skip_missing=not args.strict_missing,
     )
+
     if args.group_by_reconstruction:
         return group_by_reconstruction(args, groups_from_sequence_database)
     else:
@@ -185,11 +196,25 @@ def group_images(args):
                 f"No sequence database file at {args.sequence_file}"
                 " and --group-by-reconstruction is disabled. Quitting"
             )
-            exit()
+            sys.exit()
         return groups_from_sequence_database, args.sequence_group
 
+def parse_my_args(argv=None):
+    PARSER = argparse.ArgumentParser()
+    PARSER.add_argument("dataset", help="dataset")
+    PARSER.add_argument("--dataset",
+                    type=str,
+                    default="data/ground_sfm/test/")
+    PARSER.add_argument("--oblique",
+                    type=str,
+                    default= "data/aerial_sfm/bing_sfm")
+    # parse the arguments
+    return PARSER.parse_args(argv)
+
+    
 
 if __name__ == "__main__":
+    
     args = parse_args()
     path = args.dataset
     groups, sequence_groups = group_images(args)
@@ -197,7 +222,7 @@ if __name__ == "__main__":
     gcp_manager = GroundControlPointManager(path)
     root = tk.Tk()
     root.resizable(True, True)
-    ui = GUI.Gui(root, gcp_manager, image_manager, sequence_groups, args.ortho)
+    ui = GUI.Gui(root, gcp_manager, image_manager, sequence_groups, args.ortho, args.oblique)
     root.grid_columnconfigure(0, weight=1)
     root.grid_rowconfigure(0, weight=1)
     root.title("Tools")

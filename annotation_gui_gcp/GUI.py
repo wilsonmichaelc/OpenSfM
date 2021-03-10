@@ -1,3 +1,7 @@
+from oblique_view import ObliqueView
+from oblique_manager import ObliqueManager
+from orthophoto_view import OrthoPhotoView
+from image_sequence_view import ImageSequenceView
 import os
 import random
 import subprocess
@@ -11,15 +15,14 @@ from opensfm import dataset
 
 matplotlib.use("TkAgg")
 
-from image_sequence_view import ImageSequenceView
-from orthophoto_view import OrthoPhotoView
 
 FONT = "TkFixedFont"
 
 
 class Gui:
     def __init__(
-        self, master, gcp_manager, image_manager, sequence_groups=(), ortho_paths=[]
+            self, master, gcp_manager, image_manager, sequence_groups=(), ortho_paths=[
+            ], oblique_path=[]
     ):
         self.master = master
         self.gcp_manager = gcp_manager
@@ -29,13 +32,14 @@ class Gui:
         self.shot_std = {}
         self.sequence_groups = sequence_groups
         self.path = self.gcp_manager.path
+        self.oblique_path = oblique_path
 
         master.bind_all("q", lambda event: self.go_to_worst_gcp())
         master.bind_all("z", lambda event: self.toggle_zoom_all_views())
         master.bind_all("x", lambda event: self.toggle_sticky_zoom())
         master.bind_all("a", lambda event: self.go_to_current_gcp())
         self.get_reconstruction_options()
-        self.create_ui(ortho_paths)
+        self.create_ui(ortho_paths, oblique_path)
         master.lift()
 
         p_default_gcp = self.path + "/ground_control_points.json"
@@ -62,7 +66,7 @@ class Gui:
         options.append("None (3d-to-2d)")
         self.reconstruction_options = options
 
-    def create_ui(self, ortho_paths):
+    def create_ui(self, ortho_paths, oblique_path):
         tools_frame = tk.Frame(self.master)
         tools_frame.pack(side="left", expand=0, fill=tk.Y)
         self.create_tools(tools_frame)
@@ -73,6 +77,10 @@ class Gui:
             k = v.current_image
             latlon = v.latlons[k]
             self.create_ortho_views(ortho_paths, latlon["lat"], latlon["lon"])
+        if oblique_path:
+            self.oblique_manager = ObliqueManager(oblique_path)
+            self.oblique_views = []
+
         self.master.update_idletasks()
         # self.arrange_ui_onerow()
 
@@ -122,19 +130,22 @@ class Gui:
 
         plus_minus_frame = tk.Frame(master)
         plus_minus_frame.pack(side="top")
-        add_button = tk.Button(plus_minus_frame, text="Add GCP", command=self.add_gcp)
+        add_button = tk.Button(
+            plus_minus_frame, text="Add GCP", command=self.add_gcp)
         add_button.pack(side="left")
         remove_button = tk.Button(
             plus_minus_frame, text="Remove GCP", command=self.remove_gcp
         )
         remove_button.pack(side="left")
 
-        self.sticky_zoom = tk.BooleanVar(value=False)
-        button = tk.Checkbutton(master, text="Sticky zoom (x)", var=self.sticky_zoom)
+        self.sticky_zoom = tk.BooleanVar(value=True)
+        button = tk.Checkbutton(
+            master, text="Sticky zoom (x)", var=self.sticky_zoom)
         button.pack(side="top")
 
         self.show_gcp_names = tk.BooleanVar(value=False)
-        button = tk.Checkbutton(master, text="Show GCP names", var=self.show_gcp_names)
+        button = tk.Checkbutton(
+            master, text="Show GCP names", var=self.show_gcp_names)
         button.pack(side="top")
 
         txt = tk.Label(master, text="Analysis")
@@ -157,14 +168,9 @@ class Gui:
         w.pack(side="top", fill=tk.X)
         w.config(width=width)
 
-        analysis_buttons_frame = tk.Frame(analysis_frame)
-        analysis_buttons_frame.pack(side="top")
-        button = tk.Button(
-            analysis_buttons_frame, text="Fast", command=self.analyze_fast
-        )
-        button.pack(side="left")
-        button = tk.Button(analysis_buttons_frame, text="Full", command=self.analyze)
-        button.pack(side="right")
+        button = tk.Button(analysis_frame, text="Analyze",
+                           command=self.analyze)
+        button.pack(side="top")
 
         io_frame = tk.Frame(master)
         io_frame.pack(side="top")
@@ -174,6 +180,13 @@ class Gui:
         button.pack(side="left")
         button = tk.Button(io_frame, text="Save As", command=self.save_gcps_as)
         button.pack(side="left")
+
+    def create_oblique_views(self, latlonalt):
+        if latlonalt is None:
+            return
+        self.oblique_view = ObliqueView(self, self.oblique_manager)
+        v = self.oblique_view.oblique_selection(latlonalt[0], latlonalt[1])
+        self.oblique_views.append(v)
 
     def create_ortho_views(self, ortho_paths, lat, lon):
         for ortho_p in ortho_paths:
@@ -189,7 +202,8 @@ class Gui:
     def create_sequence_views(self, show_ortho_track):
         self.sequence_views = []
         for sequence_key, image_keys in self.image_manager.seqs.items():
-            v = ImageSequenceView(self, sequence_key, image_keys, show_ortho_track)
+            v = ImageSequenceView(self, sequence_key,
+                                  image_keys, show_ortho_track)
             self.sequence_views.append(v)
 
     def analyze_fast(self):
@@ -301,7 +315,8 @@ class Gui:
         if not self.gcp_manager.points:
             return
         items = []
-        n_digits = max(len(str(len(v))) for v in self.gcp_manager.points.values())
+        n_digits = max(len(str(len(v)))
+                       for v in self.gcp_manager.points.values())
         for point_id in sorted(self.gcp_manager.points):
             n_annotations = len(self.gcp_manager.points[point_id])
             txt = "{:0{n}} {}".format(n_annotations, point_id, n=n_digits)

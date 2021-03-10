@@ -4,6 +4,11 @@ import numpy as np
 from matplotlib.image import _rgb_to_rgba
 from opensfm import dataset
 from PIL import Image
+from rtree import index
+
+from opensfm.dataset import DataSet
+from opensfm import features
+from export_reconstruction_points import world_points
 
 IMAGE_MAX_SIZE = 1000
 
@@ -72,3 +77,9 @@ class ImageManager:
 
     def get_image_size(self, image_name):
         return self.get_image(image_name).shape[:2]
+
+    def get_raw_image_size(self, image_name):
+        path = self.image_path(image_name)
+        rgb = Image.open(path)
+        return rgb.size
+

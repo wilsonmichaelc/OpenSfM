@@ -1,3 +1,9 @@
+from opensfm import features
+from matplotlib.transforms import Affine2D
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib import patheffects
+from typing import Tuple
 import colorsys
 import tkinter as tk
 
@@ -6,12 +12,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 matplotlib.use("TkAgg")
-from typing import Tuple
 
-from matplotlib import patheffects
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-from opensfm import features
 
 FONT = "TkFixedFont"
 
@@ -94,7 +95,8 @@ class View:
         self.canvas.mpl_connect(
             "button_press_event", lambda event: self.onclick_image(event)
         )
-        self.canvas.mpl_connect("scroll_event", lambda event: self.on_scroll(event))
+        self.canvas.mpl_connect(
+            "scroll_event", lambda event: self.on_scroll(event))
 
         self.zoomed_in = False
         self.last_seen_px = {}
@@ -149,7 +151,8 @@ class View:
     def add_move_or_remove_gcp(self, x, y, add):
         if self.main_ui.curr_point is None:
             return
-        reproj = self.main_ui.gcp_manager.gcp_reprojections.get(self.main_ui.curr_point)
+        reproj = self.main_ui.gcp_manager.gcp_reprojections.get(
+            self.main_ui.curr_point)
         if reproj:
             reproj.pop(self.current_image, None)
         self.main_ui.gcp_manager.remove_point_observation(
@@ -160,7 +163,6 @@ class View:
                 self.main_ui.curr_point,
                 self.current_image,
                 self.pixel_to_gcp_coordinates(x, y),
-                latlon=self.pixel_to_latlon(x, y),
             )
             self.zoom_in(x, y)
         else:
@@ -224,7 +226,8 @@ class View:
                 )
                 text.set_path_effects(
                     [
-                        patheffects.Stroke(linewidth=3, foreground=comp_color(color)),
+                        patheffects.Stroke(
+                            linewidth=3, foreground=comp_color(color)),
                         patheffects.Normal(),
                     ]
                 )
@@ -259,8 +262,10 @@ class View:
         self.images_in_list = self.get_candidate_images()
         n_digits = len(str(len(self.images_in_list)))
         for ix, image_name in enumerate(self.images_in_list):
-            points = self.main_ui.gcp_manager.get_visible_points_coords(image_name)
-            txt = "{:0{n_digits}} {}".format(ix + 1, len(points), n_digits=n_digits)
+            points = self.main_ui.gcp_manager.get_visible_points_coords(
+                image_name)
+            txt = "{:0{n_digits}} {}".format(
+                ix + 1, len(points), n_digits=n_digits)
             shot_std = self.main_ui.shot_std.get(image_name, None)
             if shot_std:
                 txt += " {:.2f}".format(shot_std)
@@ -299,7 +304,8 @@ class View:
         self.display_points()
 
         if self.main_ui.curr_point:
-            self.highlight_gcp_reprojection(self.main_ui.curr_point, zoom=False)
+            self.highlight_gcp_reprojection(
+                self.main_ui.curr_point, zoom=False)
 
         latlon = self.latlons.get(new_image)
         if self.is_latlon_source.get() and latlon:
@@ -348,8 +354,9 @@ class View:
         manager to obtain the reduced coordinates to use for de-normalization.
         """
         h, w = self.image_manager.get_image_size(self.current_image)
-        px = features.denormalized_image_coordinates(np.array([[x, y]]), w, h)[0]
-        return self.rotate_point(px[0], px[1], h, w, reverse=False)
+        px = features.denormalized_image_coordinates(
+            np.array([[x, y]]), w, h)[0]
+        return px.tolist()
 
     def pixel_to_gcp_coordinates(self, x: float, y: float) -> Tuple[float, float]:
         """
@@ -359,8 +366,8 @@ class View:
         manager to obtain the reduced coordinates to use for normalization.
         """
         h, w = self.image_manager.get_image_size(self.current_image)
-        point = self.rotate_point(x, y, h, w, reverse=True)
-        coords = features.normalized_image_coordinates(np.array([point]), w, h)[0]
+        coords = features.normalized_image_coordinates(
+            np.array([[x, y]]), w, h)[0]
         return coords.tolist()
 
     def go_to_next_image(self):
