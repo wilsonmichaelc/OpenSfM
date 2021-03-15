@@ -27,7 +27,7 @@ class Gui:
         image_manager,
         sequence_groups=(),
         ortho_paths=(),
-        cad_path=None,
+        cad_paths=[],
     ):
         self.parent = parent
         self.gcp_manager = gcp_manager
@@ -43,7 +43,7 @@ class Gui:
         parent.bind_all("x", lambda event: self.toggle_sticky_zoom())
         parent.bind_all("a", lambda event: self.go_to_current_gcp())
         self.reconstruction_options = self.get_reconstruction_options()
-        self.create_ui(ortho_paths, cad_path)
+        self.create_ui(ortho_paths, cad_paths)
         parent.lift()
 
         p_default_gcp = self.path + "/ground_control_points.json"
@@ -69,7 +69,7 @@ class Gui:
         options.append("None (3d-to-2d)")
         return options
 
-    def create_ui(self, ortho_paths, cad_path):
+    def create_ui(self, ortho_paths, cad_paths):
         tools_frame = tk.Frame(self.parent)
         tools_frame.pack(side="left", expand=0, fill=tk.Y)
         self.create_tools(tools_frame)
@@ -81,7 +81,7 @@ class Gui:
             latlon = v.latlons[k]
             self.create_ortho_views(ortho_paths, latlon["lat"], latlon["lon"])
 
-        self.cad_view = CadView(self, cad_path) if cad_path else None
+        self.cad_views = [CadView(self, cad_path) for cad_path in cad_paths]
 
         self.parent.update_idletasks()
         # self.arrange_ui_onerow()
@@ -438,5 +438,5 @@ class Gui:
                 v.is_latlon_source.set(False)
 
     def refocus_overhead_views(self, lat, lon):
-        for view in self.ortho_views:
+        for view in self.ortho_views + self.cad_views:
             view.refocus(lat, lon)

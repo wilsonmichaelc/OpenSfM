@@ -1,15 +1,13 @@
 import * as THREE from 'https://unpkg.com/three/build/three.module.js';
-import { OBJLoader } from 'https://unpkg.com/three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'https://unpkg.com/three/examples/jsm/loaders/MTLLoader.js';
-import { FlyControls } from 'https://unpkg.com/three/examples/jsm/controls/FlyControls.js';
-import Stats from 'https://unpkg.com/three/examples/jsm/libs/stats.module.js';
+import { FBXLoader } from 'https://unpkg.com/three/examples/jsm/loaders/FBXLoader.js';
+import { OrbitControls } from 'https://unpkg.com/three/examples/jsm/controls/OrbitControls.js';
 
 //----Variables----//
 //DOM element to attach the renderer to
-var viewport;
+let viewport;
 
-//built-in three.js controls will be attached to this
-var controls;
+//built-in three.js cameraControls will be attached to this
+let cameraControls;
 
 //viewport size
 let viewportWidth = 800;
@@ -29,75 +27,88 @@ const camera = new THREE.PerspectiveCamera(view_angle, aspect);
 //constructs an instance of a white light
 renderer.setClearColor(0x006600); // Green background
 const pointLight = new THREE.PointLight(0xFFFFFF);
+const ambientLight = new THREE.AmbientLight( 0x404040 ); // soft white light
+
+let _raycaster;
+
+// List of three.js 3D objects depicting annotated GCPs
+let _gcps = {};
+
+// cad model
+let _cad_model = null;
+// path to currently-loaded cad model
+let _path_model = null;
+
+function getCompoundBoundingBox(object3D) {
+    let box = null;
+    object3D.traverse(function (obj3D) {
+        let geometry = obj3D.geometry;
+        if (geometry === undefined) return;
+        geometry.computeBoundingBox();
+        if (box === null) {
+            box = geometry.boundingBox;
+        } else {
+            box.union(geometry.boundingBox);
+        }
+    });
+    return box;
+}
+
+function fitCameraToSelection(camera, controls, selection, fitOffset = 1.2) {
+
+    const box = new THREE.Box3();
+
+    for (const object of selection) box.expandByObject(object);
+
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxSize = Math.max(size.x, size.y, size.z);
+    const fitHeightDistance = maxSize / (2 * Math.atan(Math.PI * camera.fov / 360));
+    const fitWidthDistance = fitHeightDistance / camera.aspect;
+    const distance = fitOffset * Math.max(fitHeightDistance, fitWidthDistance);
+
+    const direction = controls.target.clone()
+        .sub(camera.position)
+        .normalize()
+        .multiplyScalar(distance);
+
+    controls.maxDistance = distance * 10;
+    controls.target.copy(center);
+    camera.near = distance / 100;
+    camera.far = distance * 100;
+    camera.updateProjectionMatrix();
+    camera.position.copy(controls.target).sub(direction);
+
+    controls.update();
+
+}
 
 
-// clicking
-let stats;
-let pointclouds = [];
-let raycaster;
-let intersection = null;
-let spheresIndex = 0;
-let toggle = 0;
+function load_cad_model(path_model) {
+    if (path_model == _path_model) {
+        return;
+    }
 
-const mouse = new THREE.Vector2();
-const spheres = [];
-const n_spheres = 1;
-const threshold = 0.1;
-// const object_scale = 1.0
+    console.log("Loading CAD model " + path_model)
+    const loader = new FBXLoader();
+    loader.load(path_model, function (object) {
+        _cad_model = object;
+        _path_model = path_model;
+        scene.add(object);
 
-function load_cad_model(path_model, path_material) {
-    console.log("Loading CAD model")
-    const mtlLoader = new MTLLoader();
-    mtlLoader.load(path_material, (mtl) => {
+        // Set the camera position to center of bbox
+        const bbox = getCompoundBoundingBox(object)
+        let cameraTarget = new THREE.Vector3();
+        let cameraOrigin = new THREE.Vector3();
+        bbox.getCenter(cameraTarget);
+        object.localToWorld(cameraTarget);
 
-        mtl.preload();
-        const objLoader = new OBJLoader();
-        objLoader.setMaterials(mtl);
-        objLoader.load(path_model, (root) => {
-
-            // Set as true to maintain the consistency of vertex position after scaling
-            // for (let i = 0, l = root.children.length; i < l; i++) {
-            //     root.children[i].geometry.verticesNeedUpdate = true
-            // }
-
-            // root.scale.set(object_scale, object_scale, object_scale);
-            scene.add(root);
-
-            // add points
-            for (let i = 0, l = root.children.length; i < l; i++) {
-                let material = new THREE.PointsMaterial({ color: 0xFFFFFF, size: 0.25 })
-                let mesh = new THREE.Points(root.children[i].geometry, material)
-                //mesh.scale.set(object_scale, object_scale, object_scale);
-                pointclouds.push(mesh);
-                scene.add(mesh)
-            }
-
-            // // Set the camera position to object center
-            // const i = root.children.length;
-            // const geometry = root.children[i - 1].geometry;
-            // geometry.computeBoundingBox();
-            // let center = new THREE.Vector3();
-            // geometry.boundingBox.getCenter(center);
-            // root.children[i - 1].localToWorld(center);
-            // center = center.multiplyScalar(object_scale)
-            // camera.position.copy(center);
-        });
+        cameraControls.target = cameraTarget;
+        fitCameraToSelection(camera, cameraControls, object.children)
     });
 }
 
 
-//a cross-browser method for efficient animation, more info at:
-// http://paulirish.com/2011/requestanimationframe-for-smart-animating/
-window.requestAnimFrame = (function () {
-    return window.requestAnimationFrame ||
-        window.webkitRequestAnimationFrame ||
-        window.mozRequestAnimationFrame ||
-        window.oRequestAnimationFrame ||
-        window.msRequestAnimationFrame ||
-        function (callback) {
-            window.setTimeout(callback, 1000 / 60);
-        };
-})();
 
 function setup_scene() {
     //Sets up the renderer to the same size as a DOM element
@@ -106,125 +117,210 @@ function setup_scene() {
     viewport = document.getElementById('viewport');
     viewport.appendChild(renderer.domElement);
 
+
+    cameraControls = new OrbitControls(camera, renderer.domElement);
+    cameraControls.movementSpeed = 1;
+    cameraControls.domElement = viewport;
+
+
+    _raycaster = new THREE.Raycaster();
+    _raycaster.params.Points.threshold = 0.1;
+
     camera.position.set(10, 10, 10);
     camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-    //attaches fly controls to the camera
-    controls = new FlyControls(camera, renderer.domElement);
-    controls.movementSpeed = 1;
-    controls.domElement = viewport;
-    controls.rollSpeed = 0.01;
-    controls.autoForward = false;
-    controls.dragToLook = true;
-
     pointLight.position.set(10, 50, 150);
-
-    raycaster = new THREE.Raycaster();
-    raycaster.params.Points.threshold = threshold;
-
-    stats = new Stats();
-
     scene.add(camera);
     scene.add(pointLight);
+    scene.add(ambientLight);
+}
+
+
+function makeTextSprite(message, parameters) {
+    if (parameters === undefined) parameters = {};
+
+    var fontface = parameters.hasOwnProperty("fontface") ?
+        parameters["fontface"] : "Arial";
+
+    var fontsize = parameters.hasOwnProperty("fontsize") ?
+        parameters["fontsize"] : 18;
+
+    var borderThickness = parameters.hasOwnProperty("borderThickness") ?
+        parameters["borderThickness"] : 4;
+
+    var borderColor = parameters.hasOwnProperty("borderColor") ?
+        parameters["borderColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
+
+    var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+        parameters["backgroundColor"] : { r: 255, g: 255, b: 255, a: 1.0 };
+
+    var canvas = document.createElement('canvas');
+    var context = canvas.getContext('2d');
+    context.font = "Bold " + fontsize + "px " + fontface;
+
+    // get size data (height depends only on font size)
+    var metrics = context.measureText(message);
+    var textWidth = metrics.width;
+
+    // background color
+    context.fillStyle = "rgba(" + backgroundColor.r + "," + backgroundColor.g + ","
+        + backgroundColor.b + "," + backgroundColor.a + ")";
+    // border color
+    context.strokeStyle = "rgba(" + borderColor.r + "," + borderColor.g + ","
+        + borderColor.b + "," + borderColor.a + ")";
+
+    context.lineWidth = borderThickness;
+    roundRect(context, borderThickness / 2, borderThickness / 2, textWidth + borderThickness, fontsize * 1.4 + borderThickness, 6);
+    // 1.4 is extra height factor for text below baseline: g,j,p,q.
+
+    // text color
+    context.fillStyle = "rgba(0, 0, 0, 1.0)";
+
+    context.fillText(message, borderThickness, fontsize + borderThickness);
+
+    // canvas contents will be used for a texture
+    var texture = new THREE.Texture(canvas)
+    texture.needsUpdate = true;
+
+    var spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    var sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(500, 250, 1.0);
+    return sprite;
+}
+
+// function for drawing rounded rectangles
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+}
+
+function update_text(data) {
+    const txt = "Annotating point " + data.selected_point + " on file " + data.cad_filename;
+    const header = document.getElementById("header");
+    header.innerHTML = txt;
+}
+
+function updateGCPLabels(){
+    for (var gcp_id in _gcps) {
+        const sphere = _gcps[gcp_id]["marker"];
+        const sprite = _gcps[gcp_id]["label"]
+        const director_vector = new THREE.Vector3();
+        director_vector.subVectors(camera.position, sphere.position).setLength(300.0);
+        sprite.position.addVectors(sphere.position, director_vector);
+    }
+}
+
+function update_gcps(annotations) {
+    for (var gcp_id in annotations) {
+        const xyz = annotations[gcp_id]["coordinates"];
+        const gcp_position = new THREE.Vector3(xyz[0], xyz[1], xyz[2]);
+        const color = annotations[gcp_id]["color"];
+        let sphere;
+        let sprite;
+        // check if the property/key is defined in the object itself, not in parent
+        if (!_gcps.hasOwnProperty(gcp_id)) {
+            const sphereGeometry = new THREE.SphereGeometry(50);
+            sphere = new THREE.Mesh(sphereGeometry);
+            sprite = makeTextSprite(gcp_id, { fontsize: 32, fontface: "Georgia", borderColor: { r: color[0], g: color[1], b: color[2], a: 1.0 } });
+            scene.add(sphere);
+            scene.add(sprite);
+            _gcps[gcp_id] = { "marker": sphere, "label": sprite };
+        }
+        else {
+            sphere = _gcps[gcp_id]["marker"];
+            sprite = _gcps[gcp_id]["label"]
+        }
+        sphere.position.copy(gcp_position);
+        sphere.material.color = { 'r': color[0] / 255, 'g': color[1] / 255, 'b': color[2] / 255 };
+        sphere.material.needsupdate = true;
+    }
+    updateGCPLabels();
+}
+
+function initialize_event_source() {
+    let sse = new EventSource("/stream");
+    sse.addEventListener("sync", function (e) {
+        const data = JSON.parse(e.data)
+        load_cad_model("/static/resources/cad_models/" + data.cad_filename);
+        update_gcps(data.annotations);
+        update_text(data);
+    })
 }
 
 function initialize() {
     setup_scene();
 
-
-    // Add a sphere that we'll use as a marker
-    const sphereGeometry = new THREE.SphereBufferGeometry(0.1, 32, 32);
-    const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    for (let i = 0; i < n_spheres; i++) {
-        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        scene.add(sphere);
-        spheres.push(sphere);
-    }
-
-    // Add the model
-    const path_model = "/static/resources/teapot.obj";
-    const path_material = "/static/resources/teapot.mtl";
-    load_cad_model(path_model, path_material)
-
-
-
     window.addEventListener('resize', onWindowResize, false);
-    // document.addEventListener( 'pointerdown', onDocumentMouseClick, false );
+    document.addEventListener('pointerdown', onDocumentMouseClick, false);
+
+    // Event source for server-to-client pushed updates
+    initialize_event_source();
 
     // call update
     update();
 }
 
+function post_json(data) {
+    const method = 'POST';
+    const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+    };
+    const body = JSON.stringify(data, null, 4);
+    const url = 'postdata';
+    fetch(url, { method, headers, body })
+}
+
+function remove_point_observation() {
+    const data = {
+        command: "remove_point_observation",
+    };
+    post_json(data);
+}
+
+function add_or_update_point_observation(xyz) {
+    const data = {
+        xyz: xyz,
+        command: "add_or_update_point_observation",
+    };
+    post_json(data);
+}
 
 function onDocumentMouseClick(event) {
+
+    if (!event.ctrlKey) {
+        return
+    }
 
     event.preventDefault();
 
     switch (event.button) {
         case 0: // left
             const pickposition = setPickPosition(event)
-            mouse.x = pickposition.x;
-            mouse.y = pickposition.y;
+            _raycaster.setFromCamera(pickposition, camera);
 
+            const intersections = _raycaster.intersectObject(_cad_model, true);
+            const intersection = (intersections.length) > 0 ? intersections[0] : null;
 
-            raycaster.setFromCamera(mouse, camera);
-
-            const intersections = raycaster.intersectObjects(pointclouds, true);
-            intersection = (intersections.length) > 0 ? intersections[0] : null;
-
-            if (toggle > 0.02 && intersection !== null) {
-
-                console.log("Select point:");
-                console.log(intersection.point);
-
-
-                const method = 'POST';
-                const headers = {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                };
-
-                const data = {
-                    xyz: [intersection.point['x'], intersection.point['y'], intersection.point['z']],
-                    command: "add_or_update_point_observation",
-                };
-                const body = JSON.stringify(data, null, 4);
-                const url = 'postdata';
-
-                const response = fetch(url, { method, headers, body })
-
-
-                spheres[spheresIndex].position.copy(intersection.point);
-                spheres[spheresIndex].scale.set(1, 1, 1);
-                spheresIndex = (spheresIndex + 1) % spheres.length;
-
-                toggle = 0;
-            }
-
-            for (let i = 0; i < spheres.length; i++) {
-
-                const sphere = spheres[i];
-                sphere.scale.multiplyScalar(0.98);
-                sphere.scale.clampScalar(0.01, 1);
-
+            if (intersection !== null) {
+                const xyz = [intersection.point['x'], intersection.point['y'], intersection.point['z']];
+                add_or_update_point_observation(xyz);
             }
             break;
         case 1: // middle
             break;
         case 2: // right
-            const method = 'POST';
-            const headers = {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-            };
-
-            const data = {
-                command: "remove_point_observation",
-            };
-            const body = JSON.stringify(data, null, 4);
-            const url = 'postdata';
-
-            const response = fetch(url, { method, headers, body })
+            remove_point_observation();
             break;
     }
 
@@ -255,24 +351,40 @@ function onWindowResize() {
 
 }
 
+//a cross-browser method for efficient animation, more info at:
+// http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+window.requestAnimFrame = (function () {
+    return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function (callback) {
+            window.setTimeout(callback, 1000 / 60);
+        };
+})();
+
 //----Update----//
 function update() {
     //requests the browser to call update at it's own pace
     requestAnimFrame(update);
 
-    //update controls
-    controls.update(1);
+    //Update GCP labels so that they track the camera)
+    updateGCPLabels();
+
+    //update cameraControls
+    cameraControls.update(1);
+
+    //move pointlight
+    pointLight.position.copy( camera.position );
 
     //call draw
     draw();
-    stats.update();
 }
 
 //----Draw----//
 function draw() {
-    toggle += clock.getDelta();
     renderer.render(scene, camera);
 }
-
 
 document.onload = initialize();

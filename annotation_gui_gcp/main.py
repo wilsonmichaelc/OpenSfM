@@ -68,6 +68,12 @@ def parse_args():
         help="Specify one or more directories containing geotiffs",
         default=[],
     )
+    parser.add_argument(
+        "--cad",
+        type=str,
+        help="Specify a CAD file in FBX format",
+        default=None,
+    )
     return parser.parse_args()
 
 
@@ -219,7 +225,7 @@ if __name__ == "__main__":
         image_manager,
         sequence_groups,
         args.ortho,
-        "cad_demo_path.cadfile",
+        [args.cad],
     )
     root.grid_columnconfigure(0, weight=1)
     root.grid_rowconfigure(0, weight=1)

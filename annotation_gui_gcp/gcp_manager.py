@@ -123,7 +123,7 @@ class GroundControlPointManager:
         if not self.point_exists(point_id):
             print("ERROR: trying to modify a non-existing point")
             return
-        if point_id in self.latlons:
+        if point_id in self.latlons and remove_latlon:
             self.latlons.pop(point_id)
         self.points[point_id] = [
             obs for obs in self.points[point_id] if obs["shot_id"] != shot_id

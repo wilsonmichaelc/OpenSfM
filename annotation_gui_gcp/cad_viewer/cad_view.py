@@ -1,30 +1,51 @@
+import json
 import os
 import sys
+import time
 import tkinter as tk
+from pathlib import Path
 from queue import Queue
 from threading import Thread, get_ident
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory
+from PIL import ImageColor
+from view import distinct_colors
 
 
 class CadView:
     def __init__(
         self,
         main_ui,
-        path_cad_model,
+        path_cad_file,
+        is_geo_reference=False,
     ):
 
         self.main_ui = main_ui
-        self.path_cad_model = path_cad_model
+        self.cad_filename = Path(path_cad_file).name
 
+        # Create a symlink to the CAD file so that it is reachable
+        path_this_file = Path(__file__)
+        p_symlink = (
+            path_this_file.parent / f"static/resources/cad_models/{self.cad_filename}"
+        )
+        p_symlink.parent.mkdir(exist_ok=True, parents=True)
+        if not p_symlink.exists():
+            os.symlink(path_cad_file, p_symlink)
+
+        if is_geo_reference:
+            raise NotImplementedError
+        self.is_geo_reference = is_geo_reference
+
+        # We use a Queue and a pipe to communicate from the web view to the tk GUI.
+        # The Queue contains the information. The pipe is used to wake up the GUI thread.
         q = Queue()
         pipe_read, pipe_write = os.pipe()
         server_thread = Thread(
-            target=self.run_server, args=(path_cad_model, q, pipe_write)
+            target=self.run_server, args=(self.cad_filename, q, pipe_write)
         )
         server_thread.start()
 
-        def new_data_available(file, mask):
+        def message_from_client_available(file, mask):
             # This is triggered whenever there is something new in the pipe
             os.read(pipe_read, 1)
             data = q.get()
@@ -39,10 +60,16 @@ class CadView:
 
             self.process_message_from_cad_view(data)
 
-        # Use pipes and tk's file handler to trigger the UI loop to wake up
-        main_ui.parent.tk.createfilehandler(pipe_read, tk.READABLE, new_data_available)
+        # Use pipes and tk's file handler to wake up the GUI thread
+        main_ui.parent.tk.createfilehandler(
+            pipe_read, tk.READABLE, message_from_client_available
+        )
 
-    def run_server(self, path_cad_model, q, pipe_write):
+        # Queue for Flask -> JS sync
+        # The GUI thread populates the Queue. The server thread listens to the queue and sends events to the JS client
+        self.eventQueue = Queue()
+
+    def run_server(self, cad_filename, q, pipe_write):
         cad_app = Flask(__name__)
 
         @cad_app.route("/")
@@ -53,21 +80,30 @@ class CadView:
         def send_static_resources(filename):
             return send_from_directory("templates", filename)
 
-        @cad_app.route("/templates/postdata", methods=["POST"])
+        @cad_app.route("/postdata", methods=["POST"])
         def postdata():
             data = request.get_json()
-            print(f"Flask app on thread {get_ident()} received data: {data}")
             q.put(data)  # Push the data to the queue
             # Write something (anything) to the pipe to trigger a UI event that reads from the queue
             os.write(pipe_write, b"x")
             return jsonify(success=True)
 
+        # Stream for server -> client updates through Server-Sent Events
+        @cad_app.route("/stream")
+        def stream():
+            def eventStream():
+                while True:
+                    time.sleep(1)
+                    self.sync_to_client()
+                    msg = self.eventQueue.get()  # blocks until a new message arrives
+                    yield msg
+
+            return Response(eventStream(), mimetype="text/event-stream")
+
         cad_app.run()
         print("CAD view app finished")
 
     def process_message_from_cad_view(self, data):
-        print(f"UI Thread {get_ident()} received data {data}")
-
         command = data["command"]
         if command == "add_or_update_point_observation":
             self.add_remove_update_point_observation(point_coordinates=data["xyz"])
@@ -77,25 +113,46 @@ class CadView:
             raise ValueError
 
     def add_remove_update_point_observation(self, point_coordinates=None):
+        gcp_manager = self.main_ui.gcp_manager
         active_gcp = self.main_ui.curr_point
         if active_gcp is None:
             print(f"No point selected in the main UI. Doing nothing")
             return
 
         # Remove the observation for this point if it's already there
-        self.main_ui.gcp_manager.remove_point_observation(
-            active_gcp, self.path_cad_model
+        gcp_manager.remove_point_observation(
+            active_gcp, self.cad_filename, remove_latlon=self.is_geo_reference
         )
 
         # Add the new observation
-        if point_coordinates:
+        if point_coordinates is not None:
             self.main_ui.gcp_manager.add_point_observation(
                 active_gcp,
-                self.path_cad_model,
+                self.cad_filename,
                 point_coordinates,
             )
-            print(
-                f"Added {point_coordinates} observation for {active_gcp} in {self.path_cad_model}"
-            )
-
         self.main_ui.populate_gcp_list()
+
+    def sync_to_client(self):
+        # Points with annotations on this file
+        visible_points_coords = self.main_ui.gcp_manager.get_visible_points_coords(
+            self.cad_filename
+        )
+
+        # Pick a color for each point
+        data = {
+            "annotations": {},
+            "selected_point": self.main_ui.curr_point,
+            "cad_filename": self.cad_filename,
+        }
+        for point_id, coords in visible_points_coords.items():
+            hex_color = distinct_colors[divmod(hash(point_id), 19)[1]]
+            color = ImageColor.getrgb(hex_color)
+            data["annotations"][point_id] = {"coordinates": coords, "color": color}
+
+        # Send to the client
+        sse_string = f"event: sync\ndata: {json.dumps(data)}\n\n"
+        self.eventQueue.put(sse_string)
+
+    def refocus(self, lat, lon):
+        pass

@@ -10,13 +10,6 @@ width: 800px;
 margin: 5px auto;
 }
 
-.blue {
-color: cornflowerblue;
-padding-left: 2em;
-padding-right: 2em;
-opacity: 0.5;
-}
-
 #viewport {
 border: 2px solid grey;
 border-radius: 5px;
