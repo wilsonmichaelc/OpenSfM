@@ -25,7 +25,7 @@ let clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(view_angle, aspect);
 
 //constructs an instance of a white light
-renderer.setClearColor(0x006600); // Green background
+renderer.setClearColor(0x05CB63); // Background color
 const pointLight = new THREE.PointLight(0xFFFFFF);
 const ambientLight = new THREE.AmbientLight( 0x404040 ); // soft white light
 
@@ -221,6 +221,13 @@ function updateGCPLabels(){
 }
 
 function update_gcps(annotations) {
+    for (var gcp_id in _gcps) {
+        if (!annotations.hasOwnProperty(gcp_id)){
+            scene.remove(_gcps[gcp_id]["marker"])
+            scene.remove(_gcps[gcp_id]["label"])
+            delete _gcps[gcp_id];
+        }
+    }
     for (var gcp_id in annotations) {
         const xyz = annotations[gcp_id]["coordinates"];
         const gcp_position = new THREE.Vector3(xyz[0], xyz[1], xyz[2]);
@@ -260,7 +267,7 @@ function initialize_event_source() {
 function initialize() {
     setup_scene();
 
-    window.addEventListener('resize', onWindowResize, false);
+    // window.addEventListener('resize', onWindowResize, false);
     document.addEventListener('pointerdown', onDocumentMouseClick, false);
 
     // Event source for server-to-client pushed updates

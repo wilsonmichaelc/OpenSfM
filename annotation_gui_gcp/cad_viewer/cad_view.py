@@ -68,6 +68,7 @@ class CadView:
         # Queue for Flask -> JS sync
         # The GUI thread populates the Queue. The server thread listens to the queue and sends events to the JS client
         self.eventQueue = Queue()
+        self.sync_to_client()
 
     def run_server(self, cad_filename, q, pipe_write):
         cad_app = Flask(__name__)
@@ -93,8 +94,6 @@ class CadView:
         def stream():
             def eventStream():
                 while True:
-                    time.sleep(1)
-                    self.sync_to_client()
                     msg = self.eventQueue.get()  # blocks until a new message arrives
                     yield msg
 
@@ -111,6 +110,9 @@ class CadView:
             self.add_remove_update_point_observation(None)
         else:
             raise ValueError
+
+        # Update the client with the new data
+        self.sync_to_client()
 
     def add_remove_update_point_observation(self, point_coordinates=None):
         gcp_manager = self.main_ui.gcp_manager
@@ -133,7 +135,14 @@ class CadView:
             )
         self.main_ui.populate_gcp_list()
 
+    def display_points(self):
+        # Update the client with the new data
+        self.sync_to_client()
+
     def sync_to_client(self):
+        """
+        Sends all the data required to initialize the client
+        """
         # Points with annotations on this file
         visible_points_coords = self.main_ui.gcp_manager.get_visible_points_coords(
             self.cad_filename
@@ -155,4 +164,10 @@ class CadView:
         self.eventQueue.put(sse_string)
 
     def refocus(self, lat, lon):
+        pass
+
+    def highlight_gcp_reprojection(*args, **kwargs):
+        pass
+
+    def populate_image_list(*args, **kwargs):
         pass

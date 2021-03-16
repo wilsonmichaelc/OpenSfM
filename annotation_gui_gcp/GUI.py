@@ -280,7 +280,7 @@ class Gui:
             return
         self.quick_save_filename = filename
         self.gcp_manager.load_from_file(filename)
-        for view in self.sequence_views:
+        for view in self.sequence_views + self.ortho_views + self.cad_views:
             view.display_points()
             view.populate_image_list()
         self.populate_gcp_list()
@@ -359,7 +359,7 @@ class Gui:
         else:
             self.curr_point = value.split(" ")[1]
 
-        for view in self.sequence_views:
+        for view in self.sequence_views + self.ortho_views + self.cad_views:
             view.display_points()
             if self.curr_point:
                 view.highlight_gcp_reprojection(self.curr_point, zoom=False)
