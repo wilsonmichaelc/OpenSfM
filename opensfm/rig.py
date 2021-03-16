@@ -7,7 +7,8 @@ from itertools import combinations
 
 import networkx as nx
 import numpy as np
-from opensfm import actions, pygeometry
+from opensfm import actions, pygeometry, pymap
+from opensfm.dataset import DataSet, DataSetBase
 
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ def create_instances_with_patterns(images, rig_patterns):
     return complete_instances
 
 
-def create_subset_dataset_from_instances(data, instances_per_rig, name):
+def create_subset_dataset_from_instances(data: DataSet, instances_per_rig, name):
     """Given a list of images grouped by rigs instances, pick a subset of images
         and create a dataset subset with the provided name from them.
 
@@ -91,7 +92,7 @@ def create_subset_dataset_from_instances(data, instances_per_rig, name):
     return data.subset(name, subset_images)
 
 
-def compute_relative_pose(pose_instances):
+def compute_relative_pose(rig_id, pose_instances):
     """ Compute a rig model relatives poses given poses grouped by rig instance. """
 
     # Put all poses instances into some canonical frame taken as the mean of their R|t
@@ -132,20 +133,20 @@ def compute_relative_pose(pose_instances):
             camera_ids[rig_camera_id] = camera_id
             count_poses[rig_camera_id] += 1
 
-    # Construct final (pose, camera.id) tuples results
-    rig_model = {}
+    # Construct final rig_model results
+    rig_model = pymap.RigModel(rig_id)
     for rig_camera_id, count in count_poses.items():
         o = average_origin[rig_camera_id] / count
         r = average_rotation[rig_camera_id] / count
         pose = pygeometry.Pose(r)
         pose.set_origin(o)
-        rig_model[rig_camera_id] = (pose, camera_ids[rig_camera_id])
+        rig_model.add_rig_camera(pymap.RigCamera(pose, rig_camera_id))
     return rig_model
 
 
-def create_rig_model_from_reconstruction(reconstruction, instances_per_rig):
-    """ Computed rig model's relative pose, given a reconstruction and rig instances's shots. """
-    rig_models_poses = {}
+def create_rig_models_from_reconstruction(reconstruction, instances_per_rig):
+    """ Computed rig model's, given a reconstruction and rig instances's shots. """
+    rig_models = {}
     reconstructions_shots = set(reconstruction.shots)
     for rig_id, instances in instances_per_rig.items():
         pose_groups = []
@@ -161,11 +162,11 @@ def create_rig_model_from_reconstruction(reconstruction, instances_per_rig):
                     for shot_id, rig_camera_id in instance
                 ]
             )
-        rig_models_poses[rig_id] = compute_relative_pose(pose_groups)
-    return rig_models_poses
+        rig_models[rig_id] = compute_relative_pose(rig_id, pose_groups)
+    return rig_models
 
 
-def create_rigs_with_pattern(data, patterns):
+def create_rigs_with_pattern(data: DataSet, patterns):
     """Create rig data (`rig_models.json` and `rig_assignments.json`) by performing
     pattern matching to group images belonging to the same instances, followed
     by a bit of ad-hoc SfM to find some initial relative poses.
@@ -192,32 +193,11 @@ def create_rigs_with_pattern(data, patterns):
     actions.reconstruct.run_dataset(subset_data)
 
     # Compute some relative poses
-    rig_models_poses = create_rig_model_from_reconstruction(
+    rig_models = create_rig_models_from_reconstruction(
         subset_data.load_reconstruction()[0], instances_per_rig
     )
 
-    # Ad-hoc construction of output model data
-    # Will be replaced by `io` counterpart
-    models = {}
-    for rig_id in patterns:
-        rig_pattern = patterns[rig_id]
-        model = rig_models_poses[rig_id]
-
-        rig_model = {}
-        for rig_camera_id in model:
-            pose, camera_id = model[rig_camera_id]
-            rig_model[rig_camera_id] = {
-                "translation": list(pose.translation),
-                "rotation": list(pose.rotation),
-                "camera": camera_id,
-            }
-
-        models[rig_id] = {
-            "rig_relative_type": "shared",
-            "rig_cameras": rig_model,
-        }
-
-    data.save_rig_models(models)
+    data.save_rig_models(rig_models)
     data.save_rig_assignments(instances_per_rig)
 
 
@@ -238,7 +218,7 @@ def same_rig_shot(meta1, meta2):
     return same_gps and same_time
 
 
-def detect_rigs(images, data):
+def detect_rigs(images, data: DataSetBase):
     """Search for rigs in a set of images.
 
     For each image on a rig, returns rig, rig_camera and rig_pose ids.
@@ -254,6 +234,7 @@ def detect_rigs(images, data):
             sequence_graph.add_edge(meta1["skey"], meta2["skey"])
 
     # Build rigs
+    # pyre-fixme[16]: Module `nx` has no attribute `connected_components`.
     sequence_cc = nx.connected_components(sequence_graph)
     sequence_rig_info = {}
     for i, cc in enumerate(sequence_cc):
@@ -261,6 +242,7 @@ def detect_rigs(images, data):
             sequence_rig_info[sequence] = {"rig": i, "rig_camera": j}
 
     # Build rig poses
+    # pyre-fixme[16]: Module `nx` has no attribute `connected_components`.
     image_cc = nx.connected_components(image_graph)
     rig_info = {}
     for i, cc in enumerate(image_cc):

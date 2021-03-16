@@ -3,16 +3,16 @@ import os
 
 import cv2
 import numpy as np
-from opensfm import dataset
 from opensfm import features
 from opensfm import io
 from opensfm import tracking
+from opensfm.dataset import DataSet, UndistortedDataSet
 
 
 logger = logging.getLogger(__name__)
 
 
-def run_dataset(data, points, image_list, output, undistorted):
+def run_dataset(data: DataSet, points, image_list, output, undistorted):
     """Export reconstruction to PLY format
 
     Args:
@@ -23,7 +23,7 @@ def run_dataset(data, points, image_list, output, undistorted):
 
     """
 
-    udata = dataset.UndistortedDataSet(data)
+    udata = data.undistorted_dataset()
 
     base_output_path = output if output else os.path.join(data.data_path, "pmvs")
     io.mkdir_p(base_output_path)
@@ -74,9 +74,9 @@ def export(
     image_graph,
     tracks_manager,
     base_output_path,
-    data,
+    data: DataSet,
     undistorted,
-    udata,
+    udata: UndistortedDataSet,
     with_points,
     export_only,
 ):

@@ -347,10 +347,6 @@ RigModel& Map::GetRigModel(const RigModelId& rig_model_id) {
   return it->second;
 }
 
-const std::unordered_map<RigModelId, RigModel>& Map::GetRigModels() const {
-  return rig_models_;
-}
-
 bool Map::HasRigModel(const RigModelId& rig_model_id) const {
   return rig_models_.find(rig_model_id) != rig_models_.end();
 }
@@ -360,18 +356,79 @@ size_t Map::NumberOfRigInstances() const { return rig_instances_.size(); }
 RigInstance& Map::GetRigInstance(const RigInstanceId& instance_id) {
   const auto& it = rig_instances_.find(instance_id);
   if (it == rig_instances_.end()) {
-    throw std::runtime_error("Accessing invalid RIGInstance index");
+    throw std::runtime_error("Accessing invalid RigInstance index");
   }
   return it->second;
-}
-
-const std::unordered_map<RigInstanceId, RigInstance>& Map::GetRigInstances()
-    const {
-  return rig_instances_;
 }
 
 bool Map::HasRigInstance(const RigInstanceId& instance_id) const {
   return rig_instances_.find(instance_id) != rig_instances_.end();
 }
+
+std::unordered_map<ShotId, std::unordered_map<LandmarkId, Vec2d> >
+Map::ComputeReprojectionErrors(const TracksManager& tracks_manager,
+                               bool scaled) const {
+  std::unordered_map<ShotId, std::unordered_map<LandmarkId, Vec2d> > errors;
+  for (const auto& shot_id : tracks_manager.GetShotIds()) {
+    const auto find_shot = shots_.find(shot_id);
+    if (find_shot == shots_.end()) {
+      continue;
+    }
+    const auto& shot = find_shot->second;
+    auto& per_shot = errors[shot_id];
+    for (const auto& track_n_obs :
+         tracks_manager.GetShotObservations(shot_id)) {
+      const auto find_landmark = landmarks_.find(track_n_obs.first);
+      if (find_landmark == landmarks_.end()) {
+        continue;
+      }
+
+      const Vec2d error_2d =
+          (track_n_obs.second.point -
+           shot.Project(find_landmark->second.GetGlobalPos()));
+      const auto scale = scaled ? track_n_obs.second.scale : 1.0;
+      per_shot[track_n_obs.first] = error_2d / scale;
+    }
+  }
+  return errors;
+}
+
+std::unordered_map<ShotId, std::unordered_map<LandmarkId, Observation> >
+Map::GetValidObservations(const TracksManager& tracks_manager) const {
+  std::unordered_map<ShotId, std::unordered_map<LandmarkId, Observation> >
+      observations;
+  for (const auto& shot_id : tracks_manager.GetShotIds()) {
+    const auto find_shot = shots_.find(shot_id);
+    if (find_shot == shots_.end()) {
+      continue;
+    }
+    auto& per_shot = observations[shot_id];
+    for (const auto& track_n_obs :
+         tracks_manager.GetShotObservations(shot_id)) {
+      const auto find_landmark = landmarks_.find(track_n_obs.first);
+      if (find_landmark == landmarks_.end()) {
+        continue;
+      }
+      per_shot[track_n_obs.first] = track_n_obs.second;
+    }
+  }
+  return observations;
+}
+
+TracksManager Map::ToTracksManager() const {
+  TracksManager manager;
+  for (const auto& shot_pair : shots_) {
+    for (const auto& lm_obs : shot_pair.second.GetLandmarkObservations()) {
+      manager.AddObservation(shot_pair.first, lm_obs.first->id_, lm_obs.second);
+    }
+  }
+  for (const auto& shot_pair : pano_shots_) {
+    for (const auto& lm_obs : shot_pair.second.GetLandmarkObservations()) {
+      manager.AddObservation(shot_pair.first, lm_obs.first->id_, lm_obs.second);
+    }
+  }
+  return manager;
+}
+
 
 };  // namespace map

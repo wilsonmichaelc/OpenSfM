@@ -2,11 +2,13 @@ import logging
 
 import numpy as np
 from opensfm import rig, reconstruction as orec, pygeometry, types
+from opensfm.dataset import DataSet, DataSetBase
+
 
 logger = logging.getLogger(__name__)
 
 
-def run_dataset(data, method, definition, output_debug):
+def run_dataset(data: DataSet, method, definition, output_debug):
     """Given a dataset that contains rigs, construct rig data files.
 
     Args:
@@ -27,7 +29,7 @@ def run_dataset(data, method, definition, output_debug):
         data.save_reconstruction(reconstructions, "rig_instances.json")
 
 
-def _reconstruction_from_rigs_and_assignments(data):
+def _reconstruction_from_rigs_and_assignments(data: DataSetBase):
     assignments = data.load_rig_assignments()
     models = data.load_rig_models()
 
@@ -38,7 +40,7 @@ def _reconstruction_from_rigs_and_assignments(data):
 
     reconstructions = []
     for rig_id, instances in assignments.items():
-        rig_cameras = models[rig_id]["rig_cameras"]
+        rig_cameras = models[rig_id].get_rig_cameras()
 
         reconstruction = types.Reconstruction()
         reconstruction.cameras = data.load_camera_models()
@@ -49,13 +51,9 @@ def _reconstruction_from_rigs_and_assignments(data):
                 rig_pose.set_origin(
                     orec.get_image_metadata(data, image).gps_position.value
                 )
-                rig_camera_pose = pygeometry.Pose(
-                    rig_camera["rotation"], rig_camera["translation"]
-                )
-
                 d = data.load_exif(image)
                 shot = reconstruction.create_shot(image, d["camera"])
-                shot.pose = rig_camera_pose.compose(rig_pose)
+                shot.pose = rig_camera.pose.compose(rig_pose)
                 shot.metadata = orec.get_image_metadata(data, image)
 
         reconstructions.append(reconstruction)

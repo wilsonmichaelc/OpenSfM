@@ -226,8 +226,7 @@ def add_gcp_to_bundle(ba, gcp, gcp_std, shots):
                 ba.add_point_projection_observation(
                     observation.shot_id,
                     point_id,
-                    observation.projection[0],
-                    observation.projection[1],
+                    observation.projection,
                     gcp_std,
                 )
 
@@ -259,9 +258,7 @@ def bundle_with_fixed_images(
         shot = reconstruction.get_shot(shot_id)
         for point in shot.get_valid_landmarks():
             obs = shot.get_landmark_observation(point)
-            ba.add_point_projection_observation(
-                shot.id, point.id, obs.point[0], obs.point[1], obs.scale
-            )
+            ba.add_point_projection_observation(shot.id, point.id, obs.point, obs.scale)
 
     add_gcp_to_bundle(ba, gcp, gcp_std, reconstruction.shots)
 
@@ -539,7 +536,7 @@ def main():
 
         logger.info("Running BA on merged reconstructions")
         # orec.align_reconstruction(merged, None, data.config)
-        orec.bundle(merged, camera_models, gcp=gcps, config=data.config)
+        orec.bundle(merged, camera_models, {}, gcp=gcps, config=data.config)
         data.save_reconstruction(
             [merged], f"reconstruction_gcp_ba_{args.rec_a}x{args.rec_b}.json"
         )
