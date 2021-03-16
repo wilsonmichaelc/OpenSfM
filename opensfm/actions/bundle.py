@@ -1,7 +1,8 @@
 import opensfm.reconstruction as orec
+from opensfm.dataset import DataSetBase
 
 
-def run_dataset(dataset, input, output):
+def run_dataset(dataset: DataSetBase, input, output):
     """Bundle a reconstructions.
 
     Args:
@@ -12,6 +13,7 @@ def run_dataset(dataset, input, output):
 
     reconstructions = dataset.load_reconstruction(input)
     camera_priors = dataset.load_camera_models()
+    rig_model_priors = dataset.load_rig_models()
     gcp = dataset.load_ground_control_points()
     tracks_manager = dataset.load_tracks_manager()
 
@@ -19,5 +21,7 @@ def run_dataset(dataset, input, output):
     # go through all the points and add their shots
     for reconstruction in reconstructions:
         reconstruction.add_correspondences_from_tracks_manager(tracks_manager)
-        orec.bundle(reconstruction, camera_priors, gcp, dataset.config)
+        orec.bundle(
+            reconstruction, camera_priors, rig_model_priors, gcp, dataset.config
+        )
     dataset.save_reconstruction(reconstructions, output)

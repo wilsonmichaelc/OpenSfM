@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import pickle
+from abc import ABC, abstractmethod
 
 import cv2
 import numpy as np
@@ -16,7 +17,207 @@ from opensfm import upright
 logger = logging.getLogger(__name__)
 
 
-class DataSet(object):
+class DataSetBase(ABC):
+    """Base for dataset classes providing i/o access to persistent data.
+
+    It is possible to store data remotely or in different formats
+    by subclassing this class and overloading its methods.
+    """
+
+    @property
+    @abstractmethod
+    def config(self):
+        pass
+
+    @abstractmethod
+    def images(self):
+        pass
+
+    @abstractmethod
+    def open_image_file(self, image):
+        pass
+
+    @abstractmethod
+    def load_image(self, image, unchanged=False, anydepth=False, grayscale=False):
+        pass
+
+    @abstractmethod
+    def image_size(self, image):
+        pass
+
+    @abstractmethod
+    def load_mask(self, image):
+        pass
+
+    @abstractmethod
+    def load_features_mask(self, image, points):
+        pass
+
+    @abstractmethod
+    def load_instances(self, image):
+        pass
+
+    @abstractmethod
+    def segmentation_labels(self):
+        pass
+
+    @abstractmethod
+    def load_segmentation(self, image):
+        pass
+
+    @abstractmethod
+    def segmentation_ignore_values(self, image):
+        pass
+
+    @abstractmethod
+    def load_exif(self, image):
+        pass
+
+    @abstractmethod
+    def save_exif(self, image, data):
+        pass
+
+    @abstractmethod
+    def exif_exists(self, image):
+        pass
+
+    @abstractmethod
+    def feature_type(self):
+        pass
+
+    @abstractmethod
+    def features_exist(self, image):
+        pass
+
+    @abstractmethod
+    def load_features(self, image):
+        pass
+
+    @abstractmethod
+    def save_features(
+        self, image, points, descriptors, colors, segmentations, instances
+    ):
+        pass
+
+    @abstractmethod
+    def words_exist(self, image):
+        pass
+
+    @abstractmethod
+    def load_words(self, image):
+        pass
+
+    @abstractmethod
+    def save_words(self, image, words):
+        pass
+
+    @abstractmethod
+    def matches_exists(self, image):
+        pass
+
+    @abstractmethod
+    def load_matches(self, image):
+        pass
+
+    @abstractmethod
+    def save_matches(self, image, matches):
+        pass
+
+    @abstractmethod
+    def load_tracks_manager(self, filename=None):
+        pass
+
+    @abstractmethod
+    def save_tracks_manager(self, tracks_manager, filename=None):
+        pass
+
+    @abstractmethod
+    def load_reconstruction(self, filename=None):
+        pass
+
+    @abstractmethod
+    def save_reconstruction(self, reconstruction, filename=None, minify=False):
+        pass
+
+    @abstractmethod
+    def invent_reference_lla(self, images=None):
+        pass
+
+    @abstractmethod
+    def load_reference(self):
+        pass
+
+    @abstractmethod
+    def reference_lla_exists(self):
+        pass
+
+    @abstractmethod
+    def load_camera_models(self):
+        pass
+
+    @abstractmethod
+    def save_camera_models(self, camera_models):
+        pass
+
+    @abstractmethod
+    def camera_models_overrides_exists(self):
+        pass
+
+    @abstractmethod
+    def load_camera_models_overrides(self):
+        pass
+
+    @abstractmethod
+    def save_camera_models_overrides(self, camera_models):
+        pass
+
+    @abstractmethod
+    def exif_overrides_exists(self):
+        pass
+
+    @abstractmethod
+    def load_exif_overrides(self):
+        pass
+
+    @abstractmethod
+    def load_rig_models(self):
+        pass
+
+    @abstractmethod
+    def save_rig_models(self, rig_models):
+        pass
+
+    @abstractmethod
+    def load_rig_assignments(self):
+        pass
+
+    @abstractmethod
+    def load_rig_assignments_per_image(self):
+        pass
+
+    @abstractmethod
+    def save_rig_assignments(self, rig_assignments):
+        pass
+
+    # TODO(pau): switch this to save_profile_log
+    @abstractmethod
+    def profile_log(self) -> str:
+        pass
+
+    @abstractmethod
+    def load_report(self, path):
+        pass
+
+    @abstractmethod
+    def save_report(self, report_str, path):
+        pass
+
+    @abstractmethod
+    def load_ground_control_points(self):
+        pass
+
+
+class DataSet(DataSetBase):
     """Accessors to the main input and output data.
 
     Data include input images, masks, and segmentation as well
@@ -29,6 +230,8 @@ class DataSet(object):
     It is possible to store data remotely or in different formats
     by subclassing this class and overloading its methods.
     """
+
+    config = None
 
     def __init__(self, data_path):
         """Init dataset associated to a folder."""
@@ -584,13 +787,15 @@ class DataSet(object):
 
     def load_rig_models(self):
         """Return rig models data"""
+        if not os.path.exists(self._rig_models_file()):
+            return {}
         with io.open_rt(self._rig_models_file()) as fin:
-            return json.load(fin)
+            return io.rig_models_from_json(json.load(fin))
 
     def save_rig_models(self, rig_models):
         """Save rig models data"""
         with io.open_wt(self._rig_models_file()) as fout:
-            io.json_dump(rig_models, fout)
+            io.json_dump(io.rig_models_to_json(rig_models), fout)
 
     def _rig_assignments_file(self):
         """Return path of rig assignments file"""
@@ -598,8 +803,26 @@ class DataSet(object):
 
     def load_rig_assignments(self):
         """Return rig assignments  data"""
+        if not os.path.exists(self._rig_assignments_file()):
+            return {}
         with io.open_rt(self._rig_assignments_file()) as fin:
             return json.load(fin)
+
+    def load_rig_assignments_per_image(self):
+        """Return rig assignments  data"""
+        raw_assignments = self.load_rig_assignments()
+        assignments_per_image = {}
+        for model_id, instances in raw_assignments.items():
+            for instance_id, instance in enumerate(instances):
+                instance_shots = [s[0] for s in instance]
+                for (shot_id, rig_camera_id) in instance:
+                    assignments_per_image[shot_id] = (
+                        model_id,
+                        instance_id,
+                        rig_camera_id,
+                        instance_shots,
+                    )
+        return assignments_per_image
 
     def save_rig_assignments(self, rig_assignments):
         """Save rig assignments  data"""
@@ -625,22 +848,22 @@ class DataSet(object):
         with io.open_wt(filepath) as fout:
             return fout.write(report_str)
 
-    def _navigation_graph_file(self):
-        "Return the path of the navigation graph."
-        return os.path.join(self.data_path, "navigation_graph.json")
-
-    def save_navigation_graph(self, navigation_graphs):
-        with io.open_wt(self._navigation_graph_file()) as fout:
-            io.json_dump(navigation_graphs, fout)
-
     def _ply_file(self, filename):
         return os.path.join(self.data_path, filename or "reconstruction.ply")
 
     def save_ply(
-        self, reconstruction, tracks_manager, filename=None, no_cameras=False, no_points=False, point_num_views=False
+        self,
+        reconstruction,
+        tracks_manager,
+        filename=None,
+        no_cameras=False,
+        no_points=False,
+        point_num_views=False,
     ):
         """Save a reconstruction in PLY format."""
-        ply = io.reconstruction_to_ply(reconstruction, tracks_manager, no_cameras, no_points, point_num_views)
+        ply = io.reconstruction_to_ply(
+            reconstruction, tracks_manager, no_cameras, no_points, point_num_views
+        )
         with io.open_wt(self._ply_file(filename)) as fout:
             fout.write(ply)
 
@@ -704,7 +927,6 @@ class DataSet(object):
             "_config_file",
             "_camera_models_overrides_file",
             "_exif_overrides_file",
-            "_image_list_file",
         ]:
             files.append(
                 (
@@ -739,6 +961,9 @@ class DataSet(object):
 
         return DataSet(subset_dataset_path)
 
+    def undistorted_dataset(self) -> "UndistortedDataSet":
+        return UndistortedDataSet(self, os.path.join(self.data_path, "undistorted"))
+
 
 class UndistortedDataSet(object):
     """Accessors to the undistorted data of a dataset.
@@ -750,14 +975,11 @@ class UndistortedDataSet(object):
     By default, this path is set to the ``undistorted`` subfolder.
     """
 
-    def __init__(self, base_dataset, undistorted_data_path=None):
+    def __init__(self, base_dataset: DataSetBase, undistorted_data_path):
         """Init dataset associated to a folder."""
         self.base = base_dataset
         self.config = self.base.config
-        if undistorted_data_path:
-            self.data_path = undistorted_data_path
-        else:
-            self.data_path = os.path.join(self.base.data_path, "undistorted")
+        self.data_path = undistorted_data_path
 
     def load_undistorted_shot_ids(self):
         filename = os.path.join(self.data_path, "undistorted_shot_ids.json")

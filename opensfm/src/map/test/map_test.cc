@@ -252,6 +252,24 @@ TEST_F(EmptyMapFixture, ConstructSmallProblem) {
   ASSERT_EQ(map.GetLandmarks().size(), n_points);
 }
 
+TEST_F(OneCameraMapFixture, ComputeReprojectionError) {
+  const auto& shot = map.CreateShot("0", "0");
+  Eigen::Vector3d pos = Eigen::Vector3d::Random();
+  map.CreateLandmark("1", pos);
+
+  const Vec2d expected = -shot.Project(pos);
+  const auto scale = 0.1;
+
+  auto manager = TracksManager();
+  const Observation o(0., 0., scale, 1, 1, 1, 1, 1, 1);
+  manager.AddObservation("0", "1", o);
+
+  auto errors = map.ComputeReprojectionErrors(manager, true);
+  const auto computed = errors["0"]["1"];
+  ASSERT_NEAR(expected[0] / scale, computed[0], 1e-8);
+  ASSERT_NEAR(expected[1] / scale, computed[1], 1e-8);
+}
+
 class OneRigMapFixture : public EmptyMapFixture {
  public:
   OneRigMapFixture() {
@@ -312,4 +330,29 @@ TEST_F(EmptyMapFixture, TopoCentricConverterAccess) {
   ASSERT_EQ(topo_default.alt_, 3.0);
   ASSERT_EQ(topo_default.GetLlaRef(), Vec3d(1, 2, 3));
 }
+
+TEST_F(ToyMapFixture, ToTracksManager) {
+  size_t feat_id = 0;
+  for (auto& shot_pair : map.GetShots()) {
+    for (auto& lm : map.GetLandmarks()) {
+      map.AddObservation(&shot_pair.second, &lm.second,
+      Observation(100, 200, 0.5, 255, 255, 255, feat_id));
+    }
+    ++feat_id;
+  }
+  const auto manager = map.ToTracksManager();
+  ASSERT_EQ(manager.NumTracks(), map.NumberOfLandmarks());
+  ASSERT_EQ(manager.NumShots(), map.NumberOfShots() + map.NumberOfPanoShots());
+  for (const auto& shot_pair : map.GetShots()) {
+    const auto& shot_obs1 = manager.GetShotObservations(shot_pair.first);
+    const auto& shot_obs2 = shot_pair.second.GetLandmarkObservations();
+
+    ASSERT_EQ(shot_obs1.size(), shot_obs2.size());
+    for (const auto& lm_obs : shot_obs2) {
+      ASSERT_NE(shot_obs1.find(lm_obs.first->id_), shot_obs1.end());
+      ASSERT_EQ(lm_obs.second, shot_obs1.at(lm_obs.first->id_));
+    }
+  }
+}
+
 }  // namespace

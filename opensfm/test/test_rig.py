@@ -1,6 +1,9 @@
 """Test the rig module."""
+from typing import cast
+
 import numpy as np
 from opensfm import pygeometry, rig, types
+from opensfm.dataset import DataSetBase
 
 
 class MockDataset:
@@ -26,7 +29,7 @@ def metadata(skey, capture_time, lat, lon):
 
 def test_detect_rigs_two_cams_one_shots() -> None:
     data = MockDataset({"1": metadata(1, 1, 1, 1), "2": metadata(2, 1, 1, 1)})
-    rig_info = rig.detect_rigs(data.images(), data)
+    rig_info = rig.detect_rigs(data.images(), cast(DataSetBase, data))
     r1 = rig_info["1"]
     r2 = rig_info["2"]
     assert r1["rig"] == r2["rig"]
@@ -43,7 +46,7 @@ def test_detect_rigs_two_cams_two_shots() -> None:
             "22": metadata(2, 2, 2, 2),
         }
     )
-    rig_info = rig.detect_rigs(data.images(), data)
+    rig_info = rig.detect_rigs(data.images(), cast(DataSetBase, data))
     r11 = rig_info["11"]
     r12 = rig_info["12"]
     r21 = rig_info["21"]
@@ -198,9 +201,17 @@ def test_compute_relative_pose() -> None:
     ]
 
     # Compute rig model poses
-    rig_model = rig.compute_relative_pose(pose_instances)
+    rig_model = rig.compute_relative_pose("dummy", pose_instances)
 
-    assert np.allclose([0, -1, 0], rig_model["camera_id_1"][0].get_origin(), atol=1e-7)
-    assert np.allclose([1, 0, 0], rig_model["camera_id_2"][0].get_origin(), atol=1e-7)
-    assert np.allclose([-1, 0, 0], rig_model["camera_id_3"][0].get_origin(), atol=1e-7)
-    assert np.allclose([0, 1, 0], rig_model["camera_id_4"][0].get_origin(), atol=1e-7)
+    assert np.allclose(
+        [0, -1, 0], rig_model.get_rig_camera("camera_id_1").pose.get_origin(), atol=1e-7
+    )
+    assert np.allclose(
+        [1, 0, 0], rig_model.get_rig_camera("camera_id_2").pose.get_origin(), atol=1e-7
+    )
+    assert np.allclose(
+        [-1, 0, 0], rig_model.get_rig_camera("camera_id_3").pose.get_origin(), atol=1e-7
+    )
+    assert np.allclose(
+        [0, 1, 0], rig_model.get_rig_camera("camera_id_4").pose.get_origin(), atol=1e-7
+    )
