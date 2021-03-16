@@ -93,7 +93,7 @@ def main():
     data.config["bundle_use_gcp"] = len(gcps) > 0
 
     # logger.info("Running initial BA to align")
-    report = orec.bundle(rec, camera_models, gcp=gcps, config=data.config)
+    report = orec.bundle(rec, camera_models, {}, gcp=gcps, config=data.config)
     data.save_reconstruction([rec], f"reconstruction_ba.json")
 
     gcp_alignment["after_bundle"] = gcp_geopositional_error(gcps, rec)
