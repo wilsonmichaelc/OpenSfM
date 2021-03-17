@@ -201,8 +201,6 @@ class CadView:
         return lats[0], lons[0], alts[0]
 
     def load_georeference_metadata(self, path_cad_model):
-        # Hardcoded for now: Accucities London FBX parameters
-        # self.offset = [0, 0, 0]  # in cm
         if "ZERO" in path_cad_model:
             self.offset = [53199840, 18100590, 0]
         else:
