@@ -213,8 +213,11 @@ function updateGCPLabels(){
         const sphere = _gcps[gcp_id]["marker"];
         const sprite = _gcps[gcp_id]["label"]
         const director_vector = new THREE.Vector3();
-        director_vector.subVectors(camera.position, sphere.position).setLength(300.0);
-        sprite.position.addVectors(sphere.position, director_vector);
+        director_vector.subVectors(camera.position, sphere.position);
+        const cam_to_gcp_distance = director_vector.length();
+        sprite.scale.set(cam_to_gcp_distance/5, cam_to_gcp_distance/10, 1.0);
+        sprite.position.addVectors(sphere.position, director_vector.setLength(300.0));
+        sprite.center.set(0,1)
     }
 }
 
@@ -246,7 +249,7 @@ function update_gcps(annotations) {
             sprite = _gcps[gcp_id]["label"]
         }
         sphere.position.copy(gcp_position);
-        sphere.material.color = { 'r': color[0] / 255, 'g': color[1] / 255, 'b': color[2] / 255 };
+        sphere.material.color = { 'r': color[0] / 255.0, 'g': color[1] / 255.0, 'b': color[2] / 255.0 };
         sphere.material.needsupdate = true;
     }
     updateGCPLabels();
