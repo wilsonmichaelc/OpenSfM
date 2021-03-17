@@ -7,6 +7,7 @@ from pathlib import Path
 from queue import Queue
 from threading import Thread, get_ident
 
+import rasterio
 from flask import Flask, Response, jsonify, request, send_from_directory
 from PIL import ImageColor
 from view import distinct_colors
@@ -32,8 +33,8 @@ class CadView:
         if not p_symlink.exists():
             os.symlink(path_cad_file, p_symlink)
 
-        if is_geo_reference:
-            raise NotImplementedError
+        # Load data required to georeference this model
+        self.load_georeference_metadata(path_cad_file)
         self.is_geo_reference = is_geo_reference
 
         # We use a Queue and a pipe to communicate from the web view to the tk GUI.
@@ -75,11 +76,8 @@ class CadView:
 
         @cad_app.route("/")
         def send_main_page():
+            self.sync_to_client()
             return send_from_directory("templates", "CADAnnotation.html")
-
-        @cad_app.route("/templates/<path:filename>")
-        def send_static_resources(filename):
-            return send_from_directory("templates", filename)
 
         @cad_app.route("/postdata", methods=["POST"])
         def postdata():
@@ -94,6 +92,8 @@ class CadView:
         def stream():
             def eventStream():
                 while True:
+                    # time.sleep(1)
+                    # self.sync_to_client()
                     msg = self.eventQueue.get()  # blocks until a new message arrives
                     yield msg
 
@@ -128,10 +128,12 @@ class CadView:
 
         # Add the new observation
         if point_coordinates is not None:
+            lla = self.xyz_to_latlon(*point_coordinates)
             self.main_ui.gcp_manager.add_point_observation(
                 active_gcp,
                 self.cad_filename,
                 point_coordinates,
+                lla if self.is_geo_reference else None,
             )
         self.main_ui.populate_gcp_list()
 
@@ -148,26 +150,62 @@ class CadView:
             self.cad_filename
         )
 
-        # Pick a color for each point
         data = {
             "annotations": {},
             "selected_point": self.main_ui.curr_point,
             "cad_filename": self.cad_filename,
         }
+
+        # Pick a color for each point
         for point_id, coords in visible_points_coords.items():
             hex_color = distinct_colors[divmod(hash(point_id), 19)[1]]
             color = ImageColor.getrgb(hex_color)
             data["annotations"][point_id] = {"coordinates": coords, "color": color}
 
+        self.send_sse_message(data)
+
+    def send_sse_message(self, data, event_type="sync"):
         # Send to the client
-        sse_string = f"event: sync\ndata: {json.dumps(data)}\n\n"
+        sse_string = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
         self.eventQueue.put(sse_string)
 
     def refocus(self, lat, lon):
-        pass
+        x, y, z = self.latlon_to_xyz(lat, lon)
+        self.send_sse_message(
+            {"x": x, "y": y, "z": z},
+            event_type="move_camera",
+        )
 
     def highlight_gcp_reprojection(*args, **kwargs):
         pass
 
     def populate_image_list(*args, **kwargs):
         pass
+
+    def latlon_to_xyz(self, lat, lon):
+        xs, ys, zs = rasterio.warp.transform("EPSG:4326", self.crs, [lon], [lat], [0])
+        x = xs[0] * self.scale - self.offset[0]
+        y = ys[0] * self.scale - self.offset[1]
+        z = zs[0] * self.scale - self.offset[2]
+        y, z = z, -y
+        return x, y, z
+
+    def xyz_to_latlon(self, x, y, z):
+        y, z = -z, y
+
+        # Add offset (cm) and transform to m
+        x = (x + self.offset[0]) / self.scale
+        y = (y + self.offset[1]) / self.scale
+        z = (z + self.offset[2]) / self.scale
+        lons, lats, alts = rasterio.warp.transform(self.crs, "EPSG:4326", [x], [y], [z])
+        return lats[0], lons[0], alts[0]
+
+    def load_georeference_metadata(self, path_cad_model):
+        # Hardcoded for now: Accucities London FBX parameters
+        # self.offset = [0, 0, 0]  # in cm
+        if "ZERO" in path_cad_model:
+            self.offset = [53199840, 18100590, 0]
+        else:
+            self.offset = [0, 0, 0]
+        self.scale = 100  # model units in a meter
+        self.crs = "EPSG:27700"

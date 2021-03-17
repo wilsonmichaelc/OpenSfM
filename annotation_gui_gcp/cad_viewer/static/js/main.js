@@ -6,8 +6,8 @@ import { OrbitControls } from 'https://unpkg.com/three/examples/jsm/controls/Orb
 //DOM element to attach the renderer to
 let viewport;
 
-//built-in three.js cameraControls will be attached to this
-let cameraControls;
+//built-in three.js _cameraControls will be attached to this
+let _cameraControls;
 
 //viewport size
 let viewportWidth = 800;
@@ -19,8 +19,7 @@ const aspect = viewportWidth / viewportHeight;
 
 //----Constructors----//
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-const scene = new THREE.Scene();
-let clock = new THREE.Clock();
+const _scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(view_angle, aspect);
 
@@ -94,17 +93,16 @@ function load_cad_model(path_model) {
     loader.load(path_model, function (object) {
         _cad_model = object;
         _path_model = path_model;
-        scene.add(object);
+        _scene.add(object);
 
         // Set the camera position to center of bbox
         const bbox = getCompoundBoundingBox(object)
         let cameraTarget = new THREE.Vector3();
-        let cameraOrigin = new THREE.Vector3();
         bbox.getCenter(cameraTarget);
         object.localToWorld(cameraTarget);
 
-        cameraControls.target = cameraTarget;
-        fitCameraToSelection(camera, cameraControls, object.children)
+        _cameraControls.target = cameraTarget;
+        fitCameraToSelection(camera, _cameraControls, object.children)
     });
 }
 
@@ -118,9 +116,9 @@ function setup_scene() {
     viewport.appendChild(renderer.domElement);
 
 
-    cameraControls = new OrbitControls(camera, renderer.domElement);
-    cameraControls.movementSpeed = 1;
-    cameraControls.domElement = viewport;
+    _cameraControls = new OrbitControls(camera, renderer.domElement);
+    _cameraControls.movementSpeed = 1;
+    _cameraControls.domElement = viewport;
 
 
     _raycaster = new THREE.Raycaster();
@@ -129,9 +127,9 @@ function setup_scene() {
     camera.position.set(10, 10, 10);
     camera.lookAt(new THREE.Vector3(0, 0, 0));
     pointLight.position.set(10, 50, 150);
-    scene.add(camera);
-    scene.add(pointLight);
-    scene.add(ambientLight);
+    _scene.add(camera);
+    _scene.add(pointLight);
+    _scene.add(ambientLight);
 }
 
 
@@ -223,8 +221,8 @@ function updateGCPLabels(){
 function update_gcps(annotations) {
     for (var gcp_id in _gcps) {
         if (!annotations.hasOwnProperty(gcp_id)){
-            scene.remove(_gcps[gcp_id]["marker"])
-            scene.remove(_gcps[gcp_id]["label"])
+            _scene.remove(_gcps[gcp_id]["marker"])
+            _scene.remove(_gcps[gcp_id]["label"])
             delete _gcps[gcp_id];
         }
     }
@@ -239,8 +237,8 @@ function update_gcps(annotations) {
             const sphereGeometry = new THREE.SphereGeometry(50);
             sphere = new THREE.Mesh(sphereGeometry);
             sprite = makeTextSprite(gcp_id, { fontsize: 32, fontface: "Georgia", borderColor: { r: color[0], g: color[1], b: color[2], a: 1.0 } });
-            scene.add(sphere);
-            scene.add(sprite);
+            _scene.add(sphere);
+            _scene.add(sprite);
             _gcps[gcp_id] = { "marker": sphere, "label": sprite };
         }
         else {
@@ -254,6 +252,21 @@ function update_gcps(annotations) {
     updateGCPLabels();
 }
 
+function point_camera_at_xyz(point){
+    _cameraControls.target.copy(point);
+
+    // const direction = controls.target.clone()
+    //     .sub(camera.position)
+    //     .normalize()
+    //     .multiplyScalar(distance);
+
+    // camera.updateProjectionMatrix();
+    // camera.position.copy(controls.target).sub(direction);
+
+    _cameraControls.update();
+
+}
+
 function initialize_event_source() {
     let sse = new EventSource("/stream");
     sse.addEventListener("sync", function (e) {
@@ -261,6 +274,10 @@ function initialize_event_source() {
         load_cad_model("/static/resources/cad_models/" + data.cad_filename);
         update_gcps(data.annotations);
         update_text(data);
+    })
+    sse.addEventListener("move_camera", function (e) {
+        const data = JSON.parse(e.data);
+        point_camera_at_xyz(data);
     })
 }
 
@@ -373,25 +390,21 @@ window.requestAnimFrame = (function () {
 
 //----Update----//
 function update() {
-    //requests the browser to call update at it's own pace
+    // requests the browser to call update at it's own pace
     requestAnimFrame(update);
 
-    //Update GCP labels so that they track the camera)
+    // Update GCP labels so that they track the camera
     updateGCPLabels();
 
-    //update cameraControls
-    cameraControls.update(1);
+    _cameraControls.update(1);
 
-    //move pointlight
     pointLight.position.copy( camera.position );
 
-    //call draw
     draw();
 }
 
-//----Draw----//
 function draw() {
-    renderer.render(scene, camera);
+    renderer.render(_scene, camera);
 }
 
 document.onload = initialize();

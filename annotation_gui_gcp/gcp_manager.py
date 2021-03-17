@@ -78,6 +78,8 @@ class GroundControlPointManager:
                 "latitude": latlon[0],
                 "longitude": latlon[1],
             }
+            if len(latlon) == 3:
+                self.latlons[point_id]["altitude"] = latlon[2]
         self.points[point_id].append(
             {
                 "shot_id": shot_id,

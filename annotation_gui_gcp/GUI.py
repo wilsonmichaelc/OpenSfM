@@ -73,7 +73,8 @@ class Gui:
         tools_frame = tk.Frame(self.parent)
         tools_frame.pack(side="left", expand=0, fill=tk.Y)
         self.create_tools(tools_frame)
-        self.create_sequence_views(show_ortho_track=len(ortho_paths) > 0)
+        has_views_that_need_tracking = len(ortho_paths) > 0 or len(cad_paths) > 0
+        self.create_sequence_views(show_track_checkbox=has_views_that_need_tracking)
         self.ortho_views = []
         if ortho_paths:
             v = self.sequence_views[0]
@@ -196,14 +197,14 @@ class Gui:
                 ortho_p,
                 init_lat=lat,
                 init_lon=lon,
-                is_geo_reference=ortho_p is ortho_paths[0],
+                is_the_geo_reference=ortho_p is ortho_paths[0],
             )
             self.ortho_views.append(v)
 
-    def create_sequence_views(self, show_ortho_track):
+    def create_sequence_views(self, show_track_checkbox):
         self.sequence_views = []
         for sequence_key, image_keys in self.image_manager.seqs.items():
-            v = ImageSequenceView(self, sequence_key, image_keys, show_ortho_track)
+            v = ImageSequenceView(self, sequence_key, image_keys, show_track_checkbox)
             self.sequence_views.append(v)
 
     def analyze_rigid(self):
@@ -286,9 +287,9 @@ class Gui:
         self.populate_gcp_list()
 
     def add_gcp(self):
-        self.curr_point = self.gcp_manager.add_point()
+        new_gcp = self.gcp_manager.add_point()
         self.populate_gcp_list()
-        return self.curr_point
+        self.update_active_gcp(new_gcp)
 
     def toggle_sticky_zoom(self):
         if self.sticky_zoom.get():
@@ -340,13 +341,18 @@ class Gui:
         to_be_removed_point = self.curr_point
         if not to_be_removed_point:
             return
-        self.curr_point = None
-
         self.gcp_manager.remove_gcp(to_be_removed_point)
-        for view in self.sequence_views:
-            view.display_points()
-
         self.populate_gcp_list()
+        self.update_active_gcp(None)
+
+    def update_active_gcp(self, new_active_gcp):
+        self.curr_point = new_active_gcp
+        for view in self.sequence_views + self.ortho_views + self.cad_views:
+            view.display_points()
+            if self.curr_point:
+                view.highlight_gcp_reprojection(self.curr_point, zoom=False)
+
+        self.update_gcp_list_highlight()
 
     def onclick_gcp_list(self, event):
         widget = event.widget
@@ -354,17 +360,8 @@ class Gui:
         if not selection:
             return
         value = widget.get(int(selection[0]))
-        if value == "none":
-            self.curr_point = None
-        else:
-            self.curr_point = value.split(" ")[1]
-
-        for view in self.sequence_views + self.ortho_views + self.cad_views:
-            view.display_points()
-            if self.curr_point:
-                view.highlight_gcp_reprojection(self.curr_point, zoom=False)
-
-        self.update_gcp_list_highlight()
+        curr_point = value.split(" ")[1] if value != "none" else None
+        self.update_active_gcp(curr_point)
 
     def save_gcps(self):
         if self.quick_save_filename is None:
