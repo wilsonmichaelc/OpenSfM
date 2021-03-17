@@ -18,7 +18,7 @@ def load_image(path, max_image_size):
         rgb = rgb.resize((new_w, new_h), resample=Image.BILINEAR)
 
     # Support grayscale images
-    if rgb.mode == 'L':
+    if rgb.mode == "L":
         rgb = rgb.convert("RGB")
 
     # Matplotlib will transform to rgba when plotting
@@ -49,6 +49,8 @@ class ImageManager:
         latlons = {}
         for keys in self.seqs.values():
             for k in keys:
+                if not data.exif_exists(k):
+                    continue
                 exif = data.load_exif(k)
                 if "l" in exif:
                     latlons[k] = exif["l"]
