@@ -295,9 +295,7 @@ def bundle_with_fixed_images(
         s = ba.get_shot(shot.id)
         shot.pose.rotation = [s.r[0], s.r[1], s.r[2]]
         shot.pose.translation = [s.t[0], s.t[1], s.t[2]]
-        shot.covariance = np.array(
-            [[s.get_covariance_inv_param(i, j) for j in range(6)] for i in range(6)]
-        )
+        shot.covariance = s.get_covariance_inv_param()
 
     for point in reconstruction.points.values():
         p = ba.get_point(point.id)
