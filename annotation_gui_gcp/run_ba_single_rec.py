@@ -56,60 +56,87 @@ def main():
     camera_models = data.load_camera_models()
     tracks_manager = data.load_tracks_manager()
     gcps = data.load_ground_control_points()
-    reconstructions = data.load_reconstruction()
-    for reconstruction in reconstructions:
-        reconstruction.add_correspondences_from_tracks_manager(tracks_manager)
 
-    assert (
-        len(reconstructions) == 1 or args.rec is not None
-    ), "Expected a single reconstruction or a value for --rec"
-
-    rec_ix = args.rec if len(reconstructions) > 1 else 0
-    rec = reconstructions[rec_ix]
-
-    # Rigidly align the reconstruction to GPS + GCP
-    # Here the GCP will be mostly ignored since there are many more GPS points
-    # TODO: Ignore GPS here if there are enough GCP points? Might help BA convergence
-    orec.align_reconstruction(rec, gcps, data.config)
-
-    gcp_alignment = {"after_rigid": gcp_geopositional_error(gcps, rec)}
-    logger.info(
-        "GCP errors after rigid alignment:\n"
-        + "\n".join(
-            "[{}]: {:.2f}m".format(k, v["error"])
-            for k, v in gcp_alignment["after_rigid"].items()
-        )
+    retriangulated_reconstruction_path = data._reconstruction_file(
+        "reconstruction_retriangulated.json"
     )
+    if not os.path.exists(retriangulated_reconstruction_path):
+        reconstructions = data.load_reconstruction()
+        for reconstruction in reconstructions:
+            reconstruction.add_correspondences_from_tracks_manager(tracks_manager)
 
-    if len(gcps) > 0:
+        assert (
+            len(reconstructions) == 1 or args.rec is not None
+        ), "Expected a single reconstruction or a value for --rec"
+
+        rec_ix = args.rec if len(reconstructions) > 1 else 0
+        rec = reconstructions[rec_ix]
+
+        # Rigidly align the reconstruction to GPS + GCP
+        # Here the GCP will be mostly ignored since there are many more GPS points
+        # TODO: Ignore GPS here if there are enough GCP points? Might help BA convergence
+        orec.align_reconstruction(rec, gcps, data.config)
+
+        gcp_alignment = {"after_rigid": gcp_geopositional_error(gcps, rec)}
         logger.info(
-            "Inflating the input standard deviation of the GPS constraints to ensure that the GCP constraints are not overwhelmed."
-            "This will affect the output covariances, particularly if there are few GCPs"
+            "GCP errors after rigid alignment:\n"
+            + "\n".join(
+                "[{}]: {:.2f}m".format(k, v["error"])
+                for k, v in gcp_alignment["after_rigid"].items()
+            )
         )
-        for shot in rec.shots.values():
-            shot.metadata.gps_accuracy.value = 0.5 * len(rec.shots)
 
-    data.config["bundle_max_iterations"] = 200
-    data.config["bundle_use_gcp"] = len(gcps) > 0
+        if len(gcps) > 0:
+            logger.info(
+                "Inflating the input standard deviation of the GPS constraints to ensure that the GCP constraints are not overwhelmed."
+                "This will affect the output covariances, particularly if there are few GCPs"
+            )
+            for shot in rec.shots.values():
+                shot.metadata.gps_accuracy.value = 0.5 * len(rec.shots)
 
-    # logger.info("Running initial BA to align")
-    report = orec.bundle(rec, camera_models, {}, gcp=gcps, config=data.config)
-    data.save_reconstruction([rec], f"reconstruction_ba.json")
+        data.config["bundle_max_iterations"] = 200
+        data.config["bundle_use_gcp"] = len(gcps) > 0
 
-    gcp_alignment["after_bundle"] = gcp_geopositional_error(gcps, rec)
-    logger.info(
-        "GCP errors after bundle :\n"
-        + "\n".join(
-            "[{}]: {:.2f}m".format(k, v["error"])
-            for k, v in gcp_alignment["after_bundle"].items()
+        # logger.info("Running initial BA to align")
+        report = orec.bundle(rec, camera_models, {}, gcp=gcps, config=data.config)
+        data.save_reconstruction([rec], f"reconstruction_ba.json")
+
+        gcp_alignment["after_bundle"] = gcp_geopositional_error(gcps, rec)
+        logger.info(
+            "GCP errors after bundle :\n"
+            + "\n".join(
+                "[{}]: {:.2f}m".format(k, v["error"])
+                for k, v in gcp_alignment["after_bundle"].items()
+            )
         )
-    )
-    json.dump(
-        gcp_alignment,
-        open(f"{data.data_path}/gcp_alignment.json", "w"),
-        indent=4,
-        sort_keys=True,
-    )
+        json.dump(
+            gcp_alignment,
+            open(f"{data.data_path}/gcp_alignment.json", "w"),
+            indent=4,
+            sort_keys=True,
+        )
+
+        # Re-triangulate to remove badly conditioned points
+        n_points = len(rec.points)
+        logger.info("Re-triangulating...")
+        backup = data.config["triangulation_min_ray_angle"]
+        data.config["triangulation_min_ray_angle"] = 2.0
+        orec.retriangulate(tracks_manager, rec, data.config)
+        data.save_reconstruction([rec], f"reconstruction_retriangulated.json")
+        data.config["triangulation_min_ray_angle"] = backup
+        logger.info(
+            f"Re-triangulated. Removed {n_points - len(rec.points)}."
+            f" Kept {int(100*len(rec.points)/n_points)}%"
+        )
+    else:
+        logger.info("Skipping to second BA. Loading re-triangulated reconstruction")
+        reconstructions = data.load_reconstruction("reconstruction_retriangulated.json")
+        for reconstruction in reconstructions:
+            reconstruction.add_correspondences_from_tracks_manager(tracks_manager)
+        assert (
+            len(reconstructions) == 1
+        ), "Expected a single reconstruction in the retriangulated file"
+        rec = reconstructions[0]
 
     # Reproject GCPs with a very loose threshold so that we get a point every time
     # We use this for annotator feedback and to compute the covariance of the reprojections
@@ -135,20 +162,8 @@ def main():
     else:
         gcp_std = None
 
-    # Re-triangulate to remove badly conditioned points
-    n_points = len(rec.points)
-    logger.info("Re-triangulating...")
-    backup = data.config["triangulation_min_ray_angle"]
-    data.config["triangulation_min_ray_angle"] = 2.0
-    orec.retriangulate(tracks_manager, rec, data.config)
-    data.save_reconstruction([rec], f"reconstruction_retriangulated.json")
-    data.config["triangulation_min_ray_angle"] = backup
-    logger.info(
-        f"Re-triangulated. Removed {n_points - len(rec.points)}."
-        f" Kept {int(100*len(rec.points)/n_points)}%"
-    )
-
     # Run the second BA, this time using the computed reprojection std. deviation for the annotated GCPs
+    logger.info("Running second BA...")
     covariance_estimation_valid = bundle_with_fixed_images(
         rec,
         camera_models,
@@ -157,6 +172,7 @@ def main():
         fixed_images=(),
         config=data.config,
     )
+    logger.info("Done running second BA")
     data.save_reconstruction([rec], f"reconstruction_ba_2.json")
     if not covariance_estimation_valid:
         logger.info(
