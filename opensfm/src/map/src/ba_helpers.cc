@@ -115,7 +115,7 @@ std::unordered_set<map::Shot*> BAHelpers::DirectShotNeighbors(
 
 py::tuple BAHelpers::BundleLocal(
     map::Map& map,
-    const std::unordered_map<map::CameraId, Camera>& camera_priors,
+    const std::unordered_map<map::CameraId, geometry::Camera>& camera_priors,
     const std::unordered_map<map::RigModelId, map::RigModel>& rig_model_priors,
     const AlignedVector<map::GroundControlPoint>& gcp,
     const map::ShotId& central_shot_id, const py::dict& config) {
@@ -129,7 +129,7 @@ py::tuple BAHelpers::BundleLocal(
   auto& boundary = neighborhood.second;
 
   // set up BA
-  auto ba = BundleAdjuster();
+  auto ba = bundle::BundleAdjuster();
   ba.SetUseAnalyticDerivatives(
       config["bundle_analytic_derivatives"].cast<bool>());
 
@@ -389,7 +389,8 @@ bool BAHelpers::TriangulateGCP(
 
 // Add Ground Control Points constraints to the bundle problem
 void BAHelpers::AddGCPToBundle(
-    BundleAdjuster& ba, const AlignedVector<map::GroundControlPoint>& gcp,
+    bundle::BundleAdjuster& ba,
+    const AlignedVector<map::GroundControlPoint>& gcp,
     const std::unordered_map<map::ShotId, map::Shot>& shots) {
   for (const auto& point : gcp) {
     const auto point_id = "gcp-" + point.id_;
@@ -404,8 +405,9 @@ void BAHelpers::AddGCPToBundle(
     constexpr auto point_constant{false};
     ba.AddPoint(point_id, coordinates, point_constant);
     if (point.coordinates_.HasValue()) {
-      const auto point_type = point.has_altitude_ ? PositionConstraintType::XYZ
-                                                  : PositionConstraintType::XY;
+      const auto point_type = point.has_altitude_
+                                  ? bundle::PositionConstraintType::XYZ
+                                  : bundle::PositionConstraintType::XY;
       ba.AddPointPositionWorld(point_id, point.coordinates_.Value(), 0.1,
                                point_type);
     }
@@ -424,7 +426,7 @@ void BAHelpers::AddGCPToBundle(
 
 py::dict BAHelpers::BundleShotPoses(
     map::Map& map, const std::unordered_set<map::ShotId>& shot_ids,
-    const std::unordered_map<map::CameraId, Camera>& camera_priors,
+    const std::unordered_map<map::CameraId, geometry::Camera>& camera_priors,
     const std::unordered_map<map::RigModelId, map::RigModel>& rig_model_priors,
     const py::dict& config) {
   py::dict report;
@@ -433,7 +435,7 @@ py::dict BAHelpers::BundleShotPoses(
   constexpr auto fix_points = true;
   constexpr auto fix_rig_model = true;
 
-  auto ba = BundleAdjuster();
+  auto ba = bundle::BundleAdjuster();
   ba.SetUseAnalyticDerivatives(
       config["bundle_analytic_derivatives"].cast<bool>());
   const auto start = std::chrono::high_resolution_clock::now();
@@ -632,12 +634,12 @@ py::dict BAHelpers::BundleShotPoses(
 
 py::dict BAHelpers::Bundle(
     map::Map& map,
-    const std::unordered_map<map::CameraId, Camera>& camera_priors,
+    const std::unordered_map<map::CameraId, geometry::Camera>& camera_priors,
     const std::unordered_map<map::RigModelId, map::RigModel>& rig_model_priors,
     const AlignedVector<map::GroundControlPoint>& gcp, const py::dict& config) {
   py::dict report;
 
-  auto ba = BundleAdjuster();
+  auto ba = bundle::BundleAdjuster();
   const bool fix_cameras = !config["optimize_camera_parameters"].cast<bool>();
   ba.SetUseAnalyticDerivatives(
       config["bundle_analytic_derivatives"].cast<bool>());

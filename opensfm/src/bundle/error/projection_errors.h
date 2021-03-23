@@ -3,9 +3,11 @@
 #include <bundle/bundle_adjuster.h>
 #include <ceres/sized_cost_function.h>
 #include <foundation/types.h>
-#include <geometry/camera_functions.h>
+#include <geometry/functions.h>
 
 #include <unordered_set>
+
+namespace bundle {
 
 template <class PointFunc>
 struct BABearingError {
@@ -33,20 +35,21 @@ struct BABearingError {
 template <typename T>
 void WorldToCameraCoordinates(const T* const shot, const T world_point[3],
                               T camera_point[3]) {
-  const T pt[3] = {world_point[0] - shot[BA_SHOT_TX],
-                   world_point[1] - shot[BA_SHOT_TY],
-                   world_point[2] - shot[BA_SHOT_TZ]};
-  const T Rt[3] = {-shot[BA_SHOT_RX], -shot[BA_SHOT_RY], -shot[BA_SHOT_RZ]};
+  const T pt[3] = {world_point[0] - shot[Pose::Parameter::TX],
+                   world_point[1] - shot[Pose::Parameter::TY],
+                   world_point[2] - shot[Pose::Parameter::TZ]};
+  const T Rt[3] = {-shot[Pose::Parameter::RX], -shot[Pose::Parameter::RY],
+                   -shot[Pose::Parameter::RZ]};
   ceres::AngleAxisRotatePoint(Rt, pt, camera_point);
 }
 
 template <class DATA>
-struct BADataPriorError {
+struct DataPriorError {
  public:
   // Parameter scaling
   enum class ScaleType { LINEAR = 0, LOGARITHMIC = 1 };
 
-  explicit BADataPriorError(BAData<DATA>* ba_data) : ba_data_(ba_data) {
+  explicit DataPriorError(Data<DATA>* ba_data) : ba_data_(ba_data) {
     const auto sigma = ba_data->GetSigmaData();
     for (int i = 0; i < sigma.rows(); ++i) {
       indexes_.insert(i);
@@ -103,7 +106,7 @@ struct BADataPriorError {
   }
 
  private:
-  BAData<DATA>* ba_data_;
+  Data<DATA>* ba_data_;
   std::set<int> indexes_;
   VecXd scales_;
   std::unordered_map<int, ScaleType>
@@ -112,12 +115,12 @@ struct BADataPriorError {
 
 class ReprojectionError {
  public:
-  ReprojectionError(const ProjectionType& type, const Vec2d& observed,
+  ReprojectionError(const geometry::ProjectionType& type, const Vec2d& observed,
                     double std_deviation)
       : type_(type), observed_(observed), scale_(1.0 / std_deviation) {}
 
  protected:
-  ProjectionType type_;
+  geometry::ProjectionType type_;
   Vec2d observed_;
   double scale_;
 };
@@ -135,7 +138,8 @@ class ReprojectionError2D : public ReprojectionError {
 
     // Apply camera projection
     T predicted[2];
-    Dispatch<ProjectFunction>(type_, camera_point, camera, predicted);
+    geometry::Dispatch<geometry::ProjectFunction>(type_, camera_point, camera,
+                                                  predicted);
 
     // The error is the difference between the predicted and observed position
     for (int i = 0; i < 2; ++i) {
@@ -163,7 +167,8 @@ class RigReprojectionError2D : public ReprojectionError {
 
     // Apply camera projection
     T predicted[2];
-    Dispatch<ProjectFunction>(type_, camera_point, camera, predicted);
+    geometry::Dispatch<geometry::ProjectFunction>(type_, camera_point, camera,
+                                                  predicted);
 
     // The error is the difference between the predicted and observed position
     residuals[0] = T(scale_) * (predicted[0] - T(observed_[0]));
@@ -193,8 +198,9 @@ class ReprojectionError2DAnalytic
 
     /* Error only */
     if (!jacobians) {
-      Pose::Forward(point, shot, &transformed[0]);
-      Dispatch<ProjectFunction>(type_, transformed, camera, predicted);
+      geometry::PoseFunctor::Forward(point, shot, &transformed[0]);
+      geometry::Dispatch<geometry::ProjectFunction>(type_, transformed, camera,
+                                                    predicted);
     } /* Jacobian + Error */
     else {
       constexpr int CameraSize = C;
@@ -210,8 +216,8 @@ class ReprojectionError2DAnalytic
 
       constexpr int StrideFull = PointSize + CameraSize + PoseSize;
       double jacobian[Size * StrideFull];
-      Dispatch<ProjectPoseDerivatives>(type_, point, &all_params[0],
-                                       &predicted[0], &jacobian[0]);
+      geometry::Dispatch<geometry::ProjectPoseDerivatives>(
+          type_, point, &all_params[0], &predicted[0], &jacobian[0]);
 
       // Unfold big jacobian stored as | point | pose | camera | per block
       // We also take the opportunity to apply the scale
@@ -270,9 +276,11 @@ class RigReprojectionError2DAnalytic
 
     /* Error only */
     if (!jacobians) {
-      Pose::Forward(point, rig_instance, &transformed[0]);
-      Pose::Forward(&transformed[0], rig_camera, &transformed[0]);
-      Dispatch<ProjectFunction>(type_, transformed, camera, predicted);
+      geometry::PoseFunctor::Forward(point, rig_instance, &transformed[0]);
+      geometry::PoseFunctor::Forward(&transformed[0], rig_camera,
+                                     &transformed[0]);
+      geometry::Dispatch<geometry::ProjectFunction>(type_, transformed, camera,
+                                                    predicted);
     } /* Jacobian + Error */
     else {
       constexpr int CameraSize = C;
@@ -291,8 +299,8 @@ class RigReprojectionError2DAnalytic
 
       constexpr int StrideFull = PointSize + CameraSize + 2 * PoseSize;
       double jacobian[Size * StrideFull];
-      Dispatch<ProjectRigPoseDerivatives>(type_, point, &all_params[0],
-                                          &predicted[0], &jacobian[0]);
+      geometry::Dispatch<geometry::ProjectRigPoseDerivatives>(
+          type_, point, &all_params[0], &predicted[0], &jacobian[0]);
 
       // Unfold big jacobian stored as | point | jac_rig_instance |
       // jac_rig_camera | camera | per block We also take the opportunity to
@@ -346,8 +354,8 @@ class ReprojectionError3D : public ReprojectionError {
  public:
   constexpr static int Size = 3;
 
-  ReprojectionError3D(const ProjectionType& type, const Vec2d& observed,
-                      double std_deviation)
+  ReprojectionError3D(const geometry::ProjectionType& type,
+                      const Vec2d& observed, double std_deviation)
       : ReprojectionError(type, observed, std_deviation) {
     double lon = observed[0] * 2 * M_PI;
     double lat = -observed[1] * 2 * M_PI;
@@ -390,7 +398,7 @@ class ReprojectionError3DAnalytic
     Vec3d transformed;
     /* Error only */
     if (!jacobians) {
-      Pose::Forward(point, shot, transformed.data());
+      geometry::PoseFunctor::Forward(point, shot, transformed.data());
       transformed.normalize();
     } /* Jacobian + Error */
     else {
@@ -398,8 +406,8 @@ class ReprojectionError3DAnalytic
       constexpr int PoseSize = 6;
       constexpr int StrideFull = PoseSize + PointSize;
       double jacobian[Size * StrideFull];
-      Dispatch<PoseNormalizedDerivatives>(type_, point, shot,
-                                          transformed.data(), &jacobian[0]);
+      geometry::Dispatch<geometry::PoseNormalizedDerivatives>(
+          type_, point, shot, transformed.data(), &jacobian[0]);
 
       // Unfold big jacobian stored as | point | pose | per block
       // We also take the opportunity to apply the scale
@@ -434,3 +442,4 @@ class ReprojectionError3DAnalytic
     return true;
   }
 };
+}  // namespace bundle
