@@ -71,8 +71,9 @@ def parse_args():
     parser.add_argument(
         "--cad",
         type=str,
+        action="append",
         help="Specify a CAD file in FBX format",
-        default=None,
+        default=[],
     )
     return parser.parse_args()
 
@@ -225,7 +226,7 @@ if __name__ == "__main__":
         image_manager,
         sequence_groups,
         args.ortho,
-        [args.cad],
+        args.cad,
     )
     root.grid_columnconfigure(0, weight=1)
     root.grid_rowconfigure(0, weight=1)
