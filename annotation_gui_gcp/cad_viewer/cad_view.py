@@ -22,7 +22,8 @@ class CadView:
     ):
 
         self.main_ui = main_ui
-        self.cad_filename = Path(path_cad_file).name
+        path_cad_file = Path(path_cad_file).resolve()
+        self.cad_filename = path_cad_file.name
 
         # Create a symlink to the CAD file so that it is reachable
         path_this_file = Path(__file__)
@@ -201,7 +202,7 @@ class CadView:
         return lats[0], lons[0], alts[0]
 
     def load_georeference_metadata(self, path_cad_model):
-        if "ZERO" in path_cad_model:
+        if "ZERO" in path_cad_model.name:
             self.offset = [53199840, 18100590, 0]
         else:
             self.offset = [0, 0, 0]
