@@ -13,8 +13,8 @@ bool operator==(const geometry::Pose& p1, const geometry::Pose& p2) {
 }
 }  // namespace geometry
 
-TEST(BADataNode, ReturnCorrectID) {
-  BADataNode node("node_id");
+TEST(DataNode, ReturnCorrectID) {
+  bundle::DataNode node("node_id");
   ASSERT_EQ("node_id", node.GetID());
 }
 
@@ -29,7 +29,7 @@ class BAPoseWithPriorFixtureBase {
   std::string id;
   geometry::Pose pose;
   geometry::Pose pose_sigma;
-  BAPose ba_pose;
+  bundle::Pose ba_pose;
 };
 
 class BAPoseWithPriorFixture : public ::testing::Test,
@@ -115,13 +115,14 @@ class BACameraWithPriorFixtureBase {
  public:
   BACameraWithPriorFixtureBase()
       : id("camera_id"),
-        camera(Camera::CreatePerspectiveCamera(0.1, 0.2, 0.3)),
-        camera_sigma(Camera::CreatePerspectiveCamera(0.01, 0.01, 0.01)),
+        camera(geometry::Camera::CreatePerspectiveCamera(0.1, 0.2, 0.3)),
+        camera_sigma(
+            geometry::Camera::CreatePerspectiveCamera(0.01, 0.01, 0.01)),
         ba_camera(id, camera, camera, camera_sigma) {}
   std::string id;
-  Camera camera;
-  Camera camera_sigma;
-  BACamera ba_camera;
+  geometry::Camera camera;
+  geometry::Camera camera_sigma;
+  bundle::Camera ba_camera;
 };
 
 class BACameraWithPriorFixture : public BACameraWithPriorFixtureBase,
@@ -151,7 +152,7 @@ class BAShotFixture : public BACameraWithPriorFixtureBase,
  public:
   BAShotFixture() : id("shot_id"), shot(id, &ba_camera, pose) {}
   std::string id;
-  BAShot shot;
+  bundle::Shot shot;
 };
 
 TEST_F(BAShotFixture, ReturnsPose) {
@@ -170,7 +171,7 @@ class BARigModelFixture : public BAPoseWithPriorFixture {
                   {{"rig_camera_1", pose}, {"rig_camera_2", pose}},
                   pose_sigma) {}
   std::string id;
-  BARigModel rig_model;
+  bundle::RigModel rig_model;
 };
 
 TEST_F(BARigModelFixture, ReturnsRigCamera) {
@@ -189,7 +190,7 @@ class BARigShotFixture : public BACameraWithPriorFixtureBase,
   BARigShotFixture()
       : id("rig_shot_id"), rig_shot(id, &ba_camera, &ba_pose, &ba_pose) {}
   std::string id;
-  BARigShot rig_shot;
+  bundle::RigShot rig_shot;
 };
 
 TEST_F(BARigShotFixture, ReturnsCamera) {

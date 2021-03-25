@@ -48,7 +48,7 @@ def comp_color(color):
 
 
 class View:
-    def __init__(self, main_ui, show_ortho_track):
+    def __init__(self, main_ui, show_track_checkbox):
         self.main_ui = main_ui
         window = tk.Toplevel(self.main_ui.parent)
         self.window = window
@@ -62,12 +62,12 @@ class View:
         self.toolbox.pack(side="left", expand=False, fill=tk.BOTH)
 
         self.is_latlon_source = tk.BooleanVar(value=False)
-        if show_ortho_track:
+        if show_track_checkbox:
             self.latlons = self.load_latlons()
             if self.latlons:
                 button = tk.Checkbutton(
                     self.toolbox,
-                    text="Overhead focus",
+                    text="Track this view",
                     var=self.is_latlon_source,
                     command=self.trackToggle,
                 )

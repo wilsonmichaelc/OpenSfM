@@ -1,4 +1,4 @@
-#include <bundle/src/projection_errors.h>
+#include <bundle/error/projection_errors.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -66,20 +66,20 @@ class ReprojectionError2DFixture : public ReprojectionError2DFixtureBase {
   }
 
   template <int N>
-  void RunTest(const ProjectionType& type, const double* camera) {
+  void RunTest(const geometry::ProjectionType& type, const double* camera) {
     constexpr int size = N;
 
     // Autodiff-ed version will be used as reference/expected values
     AScalar camera_adiff[size];
     SetupADiff(size, &camera[0], &camera_adiff[0]);
-    ReprojectionError2D autodiff(type, observed, scale);
+    bundle::ReprojectionError2D autodiff(type, observed, scale);
     autodiff(camera_adiff, rt_adiff, point_adiff, residual_adiff);
 
     // We test for analytic evaluation
     double jac_camera[size_residual * size];
     const double* params[] = {camera, rt, point};
     double* jacobians[] = {jac_camera, jac_rt, jac_point};
-    ReprojectionError2DAnalytic<size> analytic(type, observed, scale);
+    bundle::ReprojectionError2DAnalytic<size> analytic(type, observed, scale);
     analytic.Evaluate(params, residuals, &jacobians[0]);
 
     // Check
@@ -97,7 +97,7 @@ TEST_F(ReprojectionError2DFixture, BrownAnalyticErrorEvaluatesOK) {
   // focal, ar, cx, cy, k1, k2, k3, p1, p2
   constexpr std::array<double, size> camera{0.3,   1.0,   0.001,  -0.02, 0.1,
                                             -0.03, 0.001, -0.005, 0.001};
-  RunTest<size>(ProjectionType::BROWN, &camera[0]);
+  RunTest<size>(geometry::ProjectionType::BROWN, &camera[0]);
 }
 
 TEST_F(ReprojectionError2DFixture, PerspectiveAnalyticErrorEvaluatesOK) {
@@ -105,7 +105,7 @@ TEST_F(ReprojectionError2DFixture, PerspectiveAnalyticErrorEvaluatesOK) {
 
   // focal, k1, k2
   constexpr std::array<double, size> camera{0.3, 0.1, -0.03};
-  RunTest<size>(ProjectionType::PERSPECTIVE, &camera[0]);
+  RunTest<size>(geometry::ProjectionType::PERSPECTIVE, &camera[0]);
 }
 
 TEST_F(ReprojectionError2DFixture, FisheyeAnalyticErrorEvaluatesOK) {
@@ -113,7 +113,7 @@ TEST_F(ReprojectionError2DFixture, FisheyeAnalyticErrorEvaluatesOK) {
 
   // focal, k1, k2, k3
   constexpr std::array<double, size> camera{0.3, 0.1, -0.03};
-  RunTest<size>(ProjectionType::FISHEYE, &camera[0]);
+  RunTest<size>(geometry::ProjectionType::FISHEYE, &camera[0]);
 }
 
 TEST_F(ReprojectionError2DFixture, FisheyeOpencvAnalyticErrorEvaluatesOK) {
@@ -122,7 +122,7 @@ TEST_F(ReprojectionError2DFixture, FisheyeOpencvAnalyticErrorEvaluatesOK) {
   // focal, ar, cx, cy, k1, k2, k3, k4
   constexpr std::array<double, size> camera{0.3, 1.0,   0.001, -0.02,
                                             0.1, -0.03, 0.001, -0.005};
-  RunTest<size>(ProjectionType::FISHEYE_OPENCV, &camera[0]);
+  RunTest<size>(geometry::ProjectionType::FISHEYE_OPENCV, &camera[0]);
 }
 
 TEST_F(ReprojectionError2DFixture, Fisheye62AnalyticErrorEvaluatesOK) {
@@ -132,7 +132,7 @@ TEST_F(ReprojectionError2DFixture, Fisheye62AnalyticErrorEvaluatesOK) {
   constexpr std::array<double, size> camera{0.3,  1.0,   0.001, -0.02,
                                             0.1,  -0.03, 0.001, -0.005,
                                             0.01, 0.006, 0.02,  0.003};
-  RunTest<size>(ProjectionType::FISHEYE62, &camera[0]);
+  RunTest<size>(geometry::ProjectionType::FISHEYE62, &camera[0]);
 }
 
 TEST_F(ReprojectionError2DFixture, DualAnalyticErrorEvaluatesOK) {
@@ -140,7 +140,7 @@ TEST_F(ReprojectionError2DFixture, DualAnalyticErrorEvaluatesOK) {
 
   // transtion, focal, k1, k2
   constexpr std::array<double, size> camera{0.5, 0.3, 0.1, -0.03};
-  RunTest<size>(ProjectionType::DUAL, &camera[0]);
+  RunTest<size>(geometry::ProjectionType::DUAL, &camera[0]);
 }
 
 class ReprojectionError3DFixture : public ::testing::Test {
@@ -198,7 +198,8 @@ TEST_F(ReprojectionError3DFixture, AnalyticErrorEvaluatesOK) {
   // Autodiff-ed version will be used as reference/expected values
   SetupADiff();
   AScalar dummy_adiff;
-  ReprojectionError3D autodiff(ProjectionType::SPHERICAL, observed, scale);
+  bundle::ReprojectionError3D autodiff(geometry::ProjectionType::SPHERICAL,
+                                       observed, scale);
   autodiff(&dummy_adiff, rt_adiff, point_adiff, residual_adiff);
 
   // We test for analytic evaluation
@@ -206,8 +207,8 @@ TEST_F(ReprojectionError3DFixture, AnalyticErrorEvaluatesOK) {
   double dummy_jac[] = {0., 0., 0.};
   const double* params[] = {&dummy, rt, point};
   double* jacobians[] = {&dummy_jac[0], jac_rt, jac_point};
-  ReprojectionError3DAnalytic analytic(ProjectionType::SPHERICAL, observed,
-                                       scale);
+  bundle::ReprojectionError3DAnalytic analytic(
+      geometry::ProjectionType::SPHERICAL, observed, scale);
   analytic.Evaluate(params, residuals, &jacobians[0]);
 
   // Check
@@ -268,13 +269,13 @@ class RigReprojectionError2DFixture : public ReprojectionError2DFixtureBase {
   }
 
   template <int N>
-  void RunTest(const ProjectionType& type, const double* camera) {
+  void RunTest(const geometry::ProjectionType& type, const double* camera) {
     constexpr int size = N;
 
     // Autodiff-ed version will be used as reference/expected values
     AScalar camera_adiff[size];
     SetupADiff(size, &camera[0], &camera_adiff[0]);
-    RigReprojectionError2D autodiff(type, observed, scale);
+    bundle::RigReprojectionError2D autodiff(type, observed, scale);
     autodiff(camera_adiff, rt_instance_adiff, rt_camera_adiff, point_adiff,
              residual_adiff);
 
@@ -283,7 +284,8 @@ class RigReprojectionError2DFixture : public ReprojectionError2DFixtureBase {
     const double* params[] = {camera, rt_camera, rt_instance, point};
     double* jacobians[] = {jac_camera, jac_rt_instance, jac_rt_camera,
                            jac_point};
-    RigReprojectionError2DAnalytic<size> analytic(type, observed, scale);
+    bundle::RigReprojectionError2DAnalytic<size> analytic(type, observed,
+                                                          scale);
     analytic.Evaluate(params, residuals, &jacobians[0]);
 
     // Check
@@ -305,5 +307,5 @@ TEST_F(RigReprojectionError2DFixture, FisheyeOpencvAnalyticErrorEvaluatesOK) {
   // focal, ar, cx, cy, k1, k2, k3, k4
   constexpr std::array<double, size> camera{0.3, 1.0,   0.001, -0.02,
                                             0.1, -0.03, 0.001, -0.005};
-  RunTest<size>(ProjectionType::FISHEYE_OPENCV, &camera[0]);
+  RunTest<size>(geometry::ProjectionType::FISHEYE_OPENCV, &camera[0]);
 }

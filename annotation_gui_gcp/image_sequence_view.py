@@ -9,12 +9,12 @@ from view import View
 
 
 class ImageSequenceView(View):
-    def __init__(self, main_ui, sequence_key, image_keys, show_ortho_track):
+    def __init__(self, main_ui, sequence_key, image_keys, show_track_checkbox):
         self.group_name = sequence_key
         self.images_in_list = image_keys
         self.zoom_window_size_px = 200
         self.image_manager = main_ui.image_manager
-        super(ImageSequenceView, self).__init__(main_ui, show_ortho_track)
+        super(ImageSequenceView, self).__init__(main_ui, show_track_checkbox)
 
         # Auto GCP - related stuff
         auto_gcp_button = tk.Button(

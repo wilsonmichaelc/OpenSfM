@@ -15,7 +15,7 @@ class OrthoPhotoView(View):
         path: str,
         init_lat: float,
         init_lon: float,
-        is_geo_reference: bool = False,
+        is_the_geo_reference: bool = False,
     ):
         """[summary]
 
@@ -26,7 +26,7 @@ class OrthoPhotoView(View):
         self.image_manager = OrthoPhotoManager(path, 100.0)
         self.images_in_list = self.image_manager.image_keys
         self.zoom_window_size_px = 300
-        self.is_geo_reference = is_geo_reference
+        self.is_the_geo_reference = is_the_geo_reference
 
         self.size = 50  # TODO add widget for zoom level
 
@@ -54,7 +54,7 @@ class OrthoPhotoView(View):
         """
         From pixels (in the viewing window) to latlon
         """
-        if not self.is_geo_reference:
+        if not self.is_the_geo_reference:
             return None
 
         # Offset by the viewing window
