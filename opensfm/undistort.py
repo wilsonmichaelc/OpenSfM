@@ -187,7 +187,7 @@ def scale_image(image, max_size):
 
 
 def add_image_format_extension(shot_id, image_format):
-    if shot_id.endswith(f".{image_format}"):
+    if shot_id.lower().endswith(f".{image_format.lower()}"):
         return shot_id
     else:
         return f"{shot_id}.{image_format}"
